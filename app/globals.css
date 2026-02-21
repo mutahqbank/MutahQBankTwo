@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Modern CSS for HTML Tables inside rich text content */
+  .prose {
+    @apply max-w-none overflow-x-auto;
+  }
+  .prose table {
+    @apply w-full border-collapse overflow-hidden rounded-lg text-sm text-left my-6;
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  }
+  .prose thead {
+    @apply bg-muted/50 text-muted-foreground uppercase text-xs;
+  }
+  .prose th {
+    @apply px-4 py-3 font-semibold border-b border-border;
+  }
+  .prose td {
+    @apply px-4 py-3 border-b border-border/50 text-foreground;
+  }
+  .prose tbody tr {
+    @apply transition-colors duration-200;
+  }
+  .prose tbody tr:nth-child(even) {
+    @apply bg-muted/20;
+  }
+  .prose tbody tr:hover {
+    @apply bg-muted/60;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 216 30% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 216 30% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 216 30% 15%;
+    --primary: 216 30% 15%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 33 90% 61%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 40 33% 94%;
+    --muted-foreground: 216 10% 45%;
+    --accent: 40 33% 94%;
+    --accent-foreground: 216 30% 15%;
+    --destructive: 354 70% 54%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 145 63% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 100% 51%;
+    --warning-foreground: 216 30% 15%;
+    --lime: 72 100% 50%;
+    --lime-foreground: 216 30% 15%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 33 90% 61%;
+    --chart-1: 33 90% 61%;
+    --chart-2: 145 63% 42%;
+    --chart-3: 216 30% 15%;
+    --chart-4: 354 70% 54%;
+    --chart-5: 72 100% 50%;
+    --radius: 0.5rem;
+    --sidebar-background: 216 30% 15%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 33 90% 61%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 216 25% 22%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 216 20% 25%;
+    --sidebar-ring: 33 90% 61%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
