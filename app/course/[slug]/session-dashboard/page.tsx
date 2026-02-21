@@ -818,7 +818,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                     <th className="px-4 py-3 text-right font-semibold text-foreground">Action</th>
                   </tr></thead>
                   <tbody>
-                    {history.map(h => {
+                    {history.map((h, index) => {
                       const total = Number(h.total_questions) || 0
                       const correct = Number(h.correct_answers) || 0
                       const pct = total > 0 ? Math.round((correct / total) * 100) : 0
@@ -827,7 +827,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                       const isActive = (activeSessionId === h.id) || (h as any).status === 'active'
 
                       return (
-                        <tr key={h.id} className="border-b border-border/50">
+                        <tr key={`${h.id}-${index}`} className="border-b border-border/50">
                           <td className="px-4 py-3 capitalize text-foreground">
                             {isActive ? <span className="font-bold text-secondary">Session Mode (Active)</span> : h.assessment_type === "1" ? "Session" : h.assessment_type}
                           </td>
