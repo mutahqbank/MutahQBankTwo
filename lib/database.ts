@@ -1,6 +1,6 @@
 import { Pool } from "pg"
 
-const RAILWAY_PUBLIC_URL = "postgresql://postgres:sGfWmLAncOMOnzqyOMXGwyKZcDJCMTVN@interchange.proxy.rlwy.net:47823/railway"
+const RAILWAY_PUBLIC_URL = process.env.DATABASE_URL
 
 const pool = new Pool({
   connectionString: RAILWAY_PUBLIC_URL,

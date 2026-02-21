@@ -1,7 +1,10 @@
-import pg from "pg"
+import 'dotenv/config';
+import pkg from "pg"
 
-const pool = new pg.Pool({
-  connectionString: "postgresql://postgres:sGfWmLAncOMOnzqyOMXGwyKZcDJCMTVN@interchange.proxy.rlwy.net:47823/railway",
+const { Pool } = pkg
+const connectionString = process.env.DATABASE_URL
+const pool = new Pool({
+  connectionString,
   ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 10000,
 })

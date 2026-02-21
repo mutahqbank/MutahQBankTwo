@@ -1,7 +1,9 @@
 import pg from 'pg';
 
+import 'dotenv/config';
+
 const pool = new pg.Pool({
-    connectionString: "postgresql://postgres:sGfWmLAncOMOnzqyOMXGwyKZcDJCMTVN@interchange.proxy.rlwy.net:47823/railway",
+    connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
 });
 
