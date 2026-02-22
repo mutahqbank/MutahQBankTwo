@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 import crypto from "crypto"
+import { getServerUser } from "@/lib/auth-server"
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024 // 15MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"]
@@ -148,5 +149,37 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Transaction error:", error)
     return NextResponse.json({ error: "Failed to process transaction." }, { status: 500 })
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const user = await getServerUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  try {
+    const sql = `
+      SELECT
+        t.id,
+        c.course AS course_name,
+        t.amount,
+        t.date,
+        t.accepted,
+        p.price AS package_price,
+        p.duration AS package_duration
+      FROM transactions t
+      JOIN packages p ON t.package_id = p.id
+      JOIN plans pl ON p.id = pl.package_id
+      JOIN courses c ON pl.course_id = c.id
+      WHERE t.user_id = $1
+      ORDER BY t.date DESC
+    `
+    const result = await query(sql, [user.id])
+
+    return NextResponse.json({
+      transactions: result.rows
+    })
+  } catch (error) {
+    console.error("Failed to fetch user transactions:", error)
+    return NextResponse.json({ error: "Failed to fetch transactions" }, { status: 500 })
   }
 }

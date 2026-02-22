@@ -92,11 +92,6 @@ function CourseCard({ sub }: { sub: Subscription }) {
           <div className="h-full w-full bg-gradient-to-br from-primary via-primary/90 to-secondary/40" />
         )}
 
-        {/* Expiry badge overlaid on image */}
-        <div className="absolute right-3 top-3">
-          <ExpiryBadge expiresAt={sub.expires_at} active={sub.active} />
-        </div>
-
         {/* Course name on image */}
         <div className="absolute bottom-0 left-0 right-0 p-4">
           <h3 className="text-balance text-lg font-bold leading-tight text-white drop-shadow-md">
@@ -111,10 +106,6 @@ function CourseCard({ sub }: { sub: Subscription }) {
           <span className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 shrink-0" />
             Subscribed {formattedDate}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <BookOpen className="h-3.5 w-3.5 shrink-0" />
-            {sub.duration}-day access
           </span>
         </div>
 

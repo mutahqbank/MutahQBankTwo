@@ -28,8 +28,20 @@ export async function middleware(request: NextRequest) {
             })
 
             if (!authReq.ok) {
+                let urlSuffix = ""
+                if (authReq.status === 401) {
+                    try {
+                        const errorData = await authReq.json()
+                        if (errorData.error === "invalid_session") {
+                            urlSuffix = "?message=Session expired or logged in elsewhere"
+                        }
+                    } catch (e) {
+                        // Ignore JSON parsing errors
+                    }
+                }
+
                 if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-                return NextResponse.redirect(new URL('/login', request.url))
+                return NextResponse.redirect(new URL(`/login${urlSuffix}`, request.url))
             }
 
             const user = await authReq.json()

@@ -88,19 +88,25 @@ export function SiteHeader() {
                     <p className="text-xs text-muted-foreground">{user.role}</p>
                   </div>
                   <div className="-mx-1 my-1 h-px bg-muted" />
-                  {isAdmin && (
-                    <>
-                      <Link
-                        href="/admin/profile"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                      >
-                        <Settings className="mr-2 h-4 w-4" />
-                        Profile Settings
-                      </Link>
-                      <div className="-mx-1 my-1 h-px bg-muted" />
-                    </>
-                  )}
+                  <>
+                    <Link
+                      href={isAdmin ? "/admin/profile" : "/profile"}
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      Profile Settings
+                    </Link>
+                    <Link
+                      href="/transactions"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <Receipt className="mr-2 h-4 w-4" />
+                      Transactions
+                    </Link>
+                    <div className="-mx-1 my-1 h-px bg-muted" />
+                  </>
                   <button
                     onClick={() => { logout(); setUserMenuOpen(false) }}
                     className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-accent cursor-pointer"
@@ -132,9 +138,17 @@ export function SiteHeader() {
               Home
             </Link>
             {!isAdmin && user && (
-              <Link href="/my-courses" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
-                My Courses
-              </Link>
+              <>
+                <Link href="/my-courses" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
+                  My Courses
+                </Link>
+                <Link href="/transactions" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
+                  Transactions
+                </Link>
+                <Link href="/profile" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
+                  Profile Settings
+                </Link>
+              </>
             )}
             {isAdmin && (
               <>

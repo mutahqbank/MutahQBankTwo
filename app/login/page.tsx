@@ -1,17 +1,20 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, LogIn } from "lucide-react"
+import { Eye, EyeOff, LogIn, AlertCircle } from "lucide-react"
 
-export default function LoginPage() {
+function LoginForm() {
   const { user, login, isLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const messageQuery = searchParams.get("message")
+
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -60,6 +63,14 @@ export default function LoginPage() {
             Sign in to access your courses and continue studying.
           </p>
         </div>
+
+        {/* Message Alert from URL */}
+        {messageQuery && !error && (
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-destructive shadow-sm">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <div className="text-sm font-medium leading-relaxed">{messageQuery}</div>
+          </div>
+        )}
 
         {/* Card */}
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -132,8 +143,6 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
-
-
         </div>
 
         {/* Register link */}
@@ -145,5 +154,17 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-1 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-secondary border-t-transparent" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

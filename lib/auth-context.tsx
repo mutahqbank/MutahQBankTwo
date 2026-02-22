@@ -28,13 +28,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Rely on the secure HTTP-Only cookie to authenticate the session on load
     fetch("/api/auth/me")
-      .then(res => {
+      .then(async res => {
         if (res.ok) return res.json()
+
+        // Handle invalid sessions explicitly
+        const errorData = await res.json().catch(() => ({}))
+        if (res.status === 401 && errorData.error === "invalid_session") {
+          if (window.location.pathname !== "/login") {
+            window.location.href = "/login?message=Session expired or logged in elsewhere"
+          }
+          throw new Error("Invalid session")
+        }
+
         throw new Error("No active session")
       })
       .then(data => setUser(data))
       .catch(() => setUser(null))
       .finally(() => setIsLoading(false))
+
+    // Aggressive polling every 15 seconds to strictly enforce single-session on idle pages
+    const intervalId = setInterval(() => {
+      if (window.location.pathname !== "/login") {
+        fetch("/api/auth/me").then(async res => {
+          if (res.status === 401) {
+            const errorData = await res.json().catch(() => ({}))
+            if (errorData.error === "invalid_session" && window.location.pathname !== "/login") {
+              window.location.href = "/login?message=Session expired or logged in elsewhere"
+            }
+          }
+        }).catch(() => { })
+      }
+    }, 15000)
+
+    return () => clearInterval(intervalId)
   }, [])
 
   const isAdmin = user?.role === "admin"

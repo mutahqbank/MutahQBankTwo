@@ -80,8 +80,8 @@ function OptionBtn({ opt, letter, isSelected, isRevealed, percentage, onClick }:
 }
 
 // ─── QuestionView ─────────────────────────────────────────────────────────────
-function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplanation }: {
-  q: DBQuestion; selectedId: number | null; revealed: boolean; onSelect: (id: number) => void; onReveal: () => void; showExplanation: boolean
+function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplanation, hideSubmit }: {
+  q: DBQuestion; selectedId: number | null; revealed: boolean; onSelect: (id: number) => void; onReveal: () => void; showExplanation: boolean; hideSubmit?: boolean
 }) {
   const LETTERS = ["A", "B", "C", "D", "E", "F"]
   const isCBQ = q.sub_questions.length > 0
@@ -94,7 +94,7 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
       <div className="flex flex-col gap-5">
         <div className="rounded-lg border border-border bg-muted/30 p-5">
           <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Case Presentation</h4>
-          <p className="leading-relaxed text-sm text-foreground">{q.question_text}</p>
+          <div className="prose prose-sm max-w-none text-foreground leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.question_text || "" }} />
         </div>
         {q.figures.length > 0 && (
           <div className="flex flex-wrap gap-3">
@@ -106,13 +106,18 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
         )}
         {q.sub_questions.map((sq, idx) => (
           <div key={sq.id} className="flex flex-col gap-2">
-            <p className="text-sm font-semibold text-foreground">{idx + 1}) {sq.subquestion_text}</p>
-            {visibleSubs.has(sq.id) ? (
+            <div className="flex gap-2 text-sm font-semibold text-foreground">
+              <span>{idx + 1})</span>
+              <div className="prose prose-sm max-w-none text-foreground font-semibold [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: sq.subquestion_text }} />
+            </div>
+            {visibleSubs.has(sq.id) || hideSubmit ? (
               <div className="flex flex-col gap-2">
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-700 dark:bg-amber-950" dangerouslySetInnerHTML={{ __html: sq.answer_html }} />
-                <button onClick={() => setVisibleSubs(p => { const n = new Set(p); n.delete(sq.id); return n })} className="flex items-center gap-1.5 self-start text-xs font-medium text-primary hover:underline">
-                  <EyeOff className="h-3.5 w-3.5" /> Hide Answer
-                </button>
+                {!hideSubmit && (
+                  <button onClick={() => setVisibleSubs(p => { const n = new Set(p); n.delete(sq.id); return n })} className="flex items-center gap-1.5 self-start text-xs font-medium text-primary hover:underline">
+                    <EyeOff className="h-3.5 w-3.5" /> Hide Answer
+                  </button>
+                )}
               </div>
             ) : (
               <Button variant="outline" size="sm" onClick={() => {
@@ -127,14 +132,14 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
         {(() => {
           if (!showExplanation || !q.explanation_html) return null;
           const allInteracted = q.sub_questions.length > 0 && q.sub_questions.every(sq => interactedSubs.has(sq.id))
-          const isExplVisible = allInteracted || explicitlyRevealedExpl.has(q.id)
+          const isExplVisible = hideSubmit || allInteracted || explicitlyRevealedExpl.has(q.id)
 
           return (
             <div className="mt-2 flex flex-col gap-4">
               {isExplVisible ? (
                 <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
                   <h4 className="mb-3 text-base font-bold text-foreground">Explanation:</h4>
-                  <div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
+                  <div className="prose prose-sm max-w-none text-foreground [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
                 </div>
               ) : (
                 <Button onClick={() => setExplicitlyRevealedExpl(p => new Set(p).add(q.id))} className="w-full border-2 border-secondary bg-transparent py-5 text-base font-semibold text-secondary hover:bg-secondary/10">
@@ -152,7 +157,7 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
   return (
     <div className="flex flex-col gap-5">
       <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
-        <p className="leading-relaxed text-foreground">{q.question_text}</p>
+        <div className="prose prose-sm max-w-none text-foreground leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.question_text || "" }} />
       </div>
       {q.figures.length > 0 && (
         <div className="flex flex-wrap gap-3">
@@ -169,17 +174,17 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
             const count = Number(o.selection_count || 0)
             const percentage = totalSelects > 0 ? Math.round((count / totalSelects) * 100) : 0
             return (
-              <OptionBtn key={o.id} opt={o} letter={LETTERS[i]} isSelected={selectedId === o.id} isRevealed={revealed} percentage={percentage} onClick={() => onSelect(o.id)} />
+              <OptionBtn key={o.id} opt={o} letter={LETTERS[i]} isSelected={selectedId === o.id} isRevealed={revealed || !!hideSubmit} percentage={percentage} onClick={() => onSelect(o.id)} />
             )
           })
         })()}
       </div>
-      {!revealed && (
+      {!revealed && !hideSubmit && (
         <Button onClick={onReveal} disabled={selectedId === null} className="w-full bg-primary py-5 text-base font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
           Submit Answer
         </Button>
       )}
-      {revealed && (() => {
+      {(revealed || hideSubmit) && (() => {
         const correct = q.options.find(o => o.correct); return correct ? (
           <div className="rounded-lg border border-green-500 bg-green-500/10 px-4 py-3">
             <span className="text-sm font-bold text-foreground">Correct: </span>
@@ -187,10 +192,10 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
           </div>
         ) : null
       })()}
-      {showExplanation && revealed && q.explanation_html && (
+      {showExplanation && (revealed || hideSubmit) && q.explanation_html && (
         <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
           <h4 className="mb-3 text-base font-bold text-foreground">Explanation:</h4>
-          <div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
+          <div className="prose prose-sm max-w-none text-foreground [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
         </div>
       )}
     </div>
@@ -259,20 +264,29 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   // ─── Exam timer ────────────────────────────────────────────────
   const [secondsLeft, setSecondsLeft] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const endTimeRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (mode === "exam" && secondsLeft > 0) {
-      timerRef.current = setInterval(() => setSecondsLeft(p => { if (p <= 1) { clearInterval(timerRef.current!); return 0 }; return p - 1 }), 1000)
-      return () => { if (timerRef.current) clearInterval(timerRef.current) }
+    if (mode === "exam" && endTimeRef.current) {
+      timerRef.current = setInterval(() => {
+        const remaining = Math.max(0, Math.floor((endTimeRef.current! - Date.now()) / 1000))
+        setSecondsLeft(remaining)
+        if (remaining <= 0 && timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+      }, 500)
+      return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } }
     }
-  }, [mode, secondsLeft > 0]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mode])
 
   // Auto-submit on time's up
   useEffect(() => {
-    if (mode === "exam" && secondsLeft === 0 && questions.length > 0 && !timerRef.current) {
+    if (mode === "exam" && secondsLeft === 0 && questions.length > 0 && endTimeRef.current) {
+      endTimeRef.current = null // Prevent double-trigger
       handleExamSubmit()
     }
-  }, [secondsLeft]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [secondsLeft, mode, questions.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check for active session immediately
   useEffect(() => {
@@ -354,7 +368,10 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         setActiveSessionId(null) // Unbind from any dangling ID
 
         if (sessionMode === "exam" && timedMode) {
+          endTimeRef.current = Date.now() + timeLimit * 60 * 1000
           setSecondsLeft(timeLimit * 60)
+        } else {
+          endTimeRef.current = null
         }
       }
 
@@ -410,6 +427,10 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
     setAnswers(prev => ({ ...prev, [currentQ.id]: optionId }))
 
+    if (mode === "study") {
+      setRevealed(prev => new Set(prev).add(currentQ.id))
+    }
+
     // Sync to backend immediately ONLY if in session mode
     if (mode === "session" && activeSessionId) {
       fetch(`/api/sessions/${activeSessionId}/sync`, {
@@ -457,7 +478,8 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   }
 
   function handleExamSubmit() {
-    if (timerRef.current) clearInterval(timerRef.current)
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    endTimeRef.current = null
 
     // Calculate results locally
     let correct = 0
@@ -569,18 +591,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   if ((mode === "study" || mode === "exam" || mode === "session") && currentQ) {
     return (
       <div className="relative min-h-screen">
-        {/* Watermark Overlay */}
-        <div className="pointer-events-none fixed inset-0 z-[100] flex select-none flex-col items-center justify-center overflow-hidden opacity-[0.04] mix-blend-multiply dark:opacity-[0.02] dark:mix-blend-screen">
-          <div className="flex -rotate-45 flex-col items-center justify-center gap-16 md:gap-32">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="flex gap-16 whitespace-nowrap md:gap-32">
-                {[...Array(8)].map((_, j) => (
-                  <span key={j} className="text-4xl font-black uppercase tracking-widest text-foreground md:text-7xl">MUTAHQBANK</span>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
+
 
         {/* Top bar */}
         <div className="sticky top-0 z-20 border-b border-border bg-primary px-4 py-2.5">
@@ -615,21 +626,37 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         {/* Content */}
         <div className="mx-auto max-w-7xl px-4 py-8">
           <div className="grid gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <QuestionView q={currentQ} selectedId={answers[currentQ.id] ?? null}
-                revealed={(mode === "study" || mode === "session") ? revealed.has(currentQ.id) : false}
-                onSelect={handleSelect} onReveal={handleReveal}
-                showExplanation={mode === "study" || mode === "session"} />
+            <div className="lg:col-span-2 relative overflow-hidden rounded-xl pb-4">
+              {/* Watermark Overlay scoped to question container */}
+              <div className="pointer-events-none absolute inset-0 z-0 flex select-none flex-col items-center justify-center overflow-hidden opacity-[0.04] mix-blend-multiply dark:opacity-[0.02] dark:mix-blend-screen">
+                <div className="flex -rotate-45 flex-col items-center justify-center gap-8 md:gap-16">
+                  {[...Array(12)].map((_, i) => (
+                    <div key={i} className="flex gap-8 whitespace-nowrap md:gap-16">
+                      {[...Array(5)].map((_, j) => (
+                        <span key={j} className="text-3xl font-black uppercase tracking-widest text-foreground md:text-6xl">MUTAHQBANK</span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative z-10">
+                <QuestionView q={currentQ} selectedId={answers[currentQ.id] ?? null}
+                  revealed={(mode === "study" || mode === "session") ? revealed.has(currentQ.id) : false}
+                  onSelect={handleSelect} onReveal={handleReveal}
+                  showExplanation={mode === "study" || mode === "session"}
+                  hideSubmit={mode === "study"} />
+              </div>
             </div>
 
             {/* Sidebar */}
             <div className="flex flex-col gap-5">
               {/* Grid Navigator */}
-              <div className="overflow-hidden rounded-xl border border-border shadow-sm">
-                <div className="bg-primary px-4 py-2">
+              <div className="overflow-hidden rounded-xl border border-border shadow-sm flex flex-col">
+                <div className="bg-primary px-4 py-2 shrink-0">
                   <span className="text-sm font-bold text-primary-foreground">Questions</span>
                 </div>
-                <div className="grid grid-cols-5 gap-1.5 p-3">
+                <div className="grid grid-cols-5 gap-1.5 p-3 max-h-[60vh] overflow-y-auto">
                   {questions.map((q, idx) => {
                     const answered = answers[q.id] !== undefined
                     const isCurrent = idx === currentIdx
@@ -731,15 +758,30 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                     <div className="flex items-center gap-4">
                       <input
                         type="range"
-                        min={maxAvailableQuestions === 0 ? 0 : Math.min(5, maxAvailableQuestions)}
+                        min={maxAvailableQuestions === 0 ? 0 : Math.min(1, maxAvailableQuestions)}
                         max={maxAvailableQuestions}
-                        step="5"
+                        step="1"
                         value={questionCount}
                         onChange={e => setQuestionCount(Number(e.target.value))}
                         className="flex-1 accent-secondary"
                         disabled={maxAvailableQuestions === 0}
                       />
-                      <span className="w-10 text-center text-sm font-bold text-foreground">{questionCount}</span>
+                      <input
+                        type="number"
+                        min={maxAvailableQuestions === 0 ? 0 : Math.min(1, maxAvailableQuestions)}
+                        max={maxAvailableQuestions}
+                        value={questionCount}
+                        onChange={e => setQuestionCount(Number(e.target.value))}
+                        onBlur={() => {
+                          let val = questionCount
+                          const minVal = maxAvailableQuestions === 0 ? 0 : Math.min(1, maxAvailableQuestions)
+                          if (val < minVal) val = minVal
+                          if (val > maxAvailableQuestions) val = maxAvailableQuestions
+                          setQuestionCount(val)
+                        }}
+                        className="w-16 rounded-md border border-input bg-background px-2 py-1 text-center text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        disabled={maxAvailableQuestions === 0}
+                      />
                     </div>
                   </div>
 

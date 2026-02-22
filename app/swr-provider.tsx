@@ -2,10 +2,21 @@
 
 import { SWRConfig } from "swr"
 
-const fetcher = (url: string) => fetch(url).then(r => {
-    if (!r.ok) throw new Error("API Route Error")
+const fetcher = async (url: string) => {
+    const r = await fetch(url)
+    if (!r.ok) {
+        if (r.status === 401) {
+            try {
+                const errorData = await r.clone().json()
+                if (errorData.error === "invalid_session" && window.location.pathname !== "/login") {
+                    window.location.href = "/login?message=Session expired or logged in elsewhere"
+                }
+            } catch (e) { }
+        }
+        throw new Error("API Route Error")
+    }
     return r.json()
-})
+}
 
 export function SWRProvider({ children }: { children: React.ReactNode }) {
     return (
