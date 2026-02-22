@@ -32,6 +32,39 @@ export default function AdminUsersPage() {
   const [searchInput, setSearchInput] = useState("")
   const [detailId, setDetailId] = useState<number | null>(null)
   const [toggling, setToggling] = useState<number | null>(null)
+  const [newPassword, setNewPassword] = useState("")
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordChangeMessage, setPasswordChangeMessage] = useState({ type: "", text: "" })
+
+  function closeDetail() {
+    setDetailId(null)
+    setNewPassword("")
+    setPasswordChangeMessage({ type: "", text: "" })
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordChangeMessage({ type: "error", text: "Password must be at least 6 characters" })
+      return
+    }
+    setIsChangingPassword(true)
+    setPasswordChangeMessage({ type: "", text: "" })
+    try {
+      const res = await fetch(`/api/admin/users/${detailId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_password: newPassword }),
+      })
+      if (!res.ok) throw new Error("Failed to change password")
+      setPasswordChangeMessage({ type: "success", text: "Password updated successfully" })
+      setNewPassword("")
+    } catch {
+      setPasswordChangeMessage({ type: "error", text: "Failed to update password" })
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
 
   const apiUrl = `/api/admin/users?page=${page}&limit=${PAGE_SIZE}&search=${encodeURIComponent(search)}`
   const { data, isLoading } = useSWR<{ users: UserRow[]; total: number; page: number; limit: number }>(
@@ -142,11 +175,11 @@ export default function AdminUsersPage() {
       </div>
 
       {detailId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDetailId(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={closeDetail}>
           <div className="mx-4 w-full max-w-lg rounded-lg bg-background p-6 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-foreground">User Details</h2>
-              <button onClick={() => setDetailId(null)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+              <button onClick={closeDetail} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
             </div>
             {!detail ? (
               <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
@@ -181,6 +214,31 @@ export default function AdminUsersPage() {
                     </div>
                   </div>
                 )}
+                
+                <div className="mt-4 border-t border-border pt-4">
+                  <h3 className="mb-2 text-sm font-semibold text-foreground">Change User Password</h3>
+                  <form onSubmit={handleChangePassword} className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="password"
+                        placeholder="New Password (min 6 chars)"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                      <Button type="submit" disabled={isChangingPassword}>
+                        {isChangingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Update
+                      </Button>
+                    </div>
+                    {passwordChangeMessage.text && (
+                      <p className={`text-xs font-medium ${passwordChangeMessage.type === "success" ? "text-green-600" : "text-destructive"}`}>
+                        {passwordChangeMessage.text}
+                      </p>
+                    )}
+                  </form>
+                </div>
               </div>
             )}
           </div>
