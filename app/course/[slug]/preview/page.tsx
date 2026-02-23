@@ -4,7 +4,7 @@ import { use, useState } from "react"
 import Link from "next/link"
 import useSWR from "swr"
 import { Button } from "@/components/ui/button"
-import { Home, ChevronRight, CheckCircle2, XCircle, Eye, ArrowRight, Trophy, Lock, Sparkles } from "lucide-react"
+import { Home, ChevronRight, ChevronLeft, CheckCircle2, XCircle, Eye, ArrowRight, Trophy, Lock, Sparkles, Flag } from "lucide-react"
 
 // Global SWRProvider handles fetching and caching rules
 
@@ -226,104 +226,157 @@ export default function FreePreviewPage({ params }: { params: Promise<{ slug: st
     )
   }
 
-  /* ─── Study session screen ─── */
+  /* ─── Study session screen (Mirroring Actual Session UI) ─── */
   return (
-    <div className="min-h-screen bg-background">
-      <nav className="bg-muted/50 px-4 py-3" aria-label="Breadcrumb">
-        <div className="mx-auto flex max-w-7xl items-center gap-2 text-sm">
-          <Link href="/" className="flex items-center gap-1 text-muted-foreground hover:text-foreground"><Home className="h-3.5 w-3.5" /> Home</Link>
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-          <Link href={`/course/${slug}`} className="text-muted-foreground hover:text-foreground">{courseName}</Link>
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="font-medium text-foreground">Free Preview</span>
-        </div>
-      </nav>
-
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        {/* Progress bar */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">Question {currentQ + 1} of 5</span>
-            <span>{score} correct so far</span>
+    <div className="relative min-h-screen bg-background">
+      {/* Top bar */}
+      <div className="sticky top-0 z-20 border-b border-border bg-primary px-4 py-2.5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button className="transition-colors text-primary-foreground/60 hover:text-secondary disabled:opacity-50" aria-label="Flag question" disabled>
+              <Flag className="h-5 w-5" fill="none" />
+            </button>
+            <span className="text-sm font-semibold text-primary-foreground">
+              Free Preview - Q {currentQ + 1}/{SAMPLE_QUESTIONS.length}
+            </span>
           </div>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-secondary transition-all duration-500" style={{ width: `${((currentQ + (revealed ? 1 : 0)) / 5) * 100}%` }} />
-          </div>
-          {/* Step dots */}
-          <div className="mt-3 flex justify-center gap-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className={`h-2.5 w-2.5 rounded-full transition-all ${i < currentQ ? (answers[i] === SAMPLE_QUESTIONS[i].correctIndex ? "bg-green-500" : "bg-destructive") :
-                  i === currentQ ? "bg-secondary ring-2 ring-secondary/30 ring-offset-1 ring-offset-background" :
-                    "bg-muted-foreground/20"
-                }`} />
-            ))}
+          <div className="flex items-center gap-3">
+            <button onClick={() => setCurrentQ(Math.max(0, currentQ - 1))} disabled={currentQ === 0}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-foreground/30 text-primary-foreground disabled:opacity-30" aria-label="Previous">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button onClick={() => setCurrentQ(Math.min(SAMPLE_QUESTIONS.length - 1, currentQ + 1))} disabled={currentQ === SAMPLE_QUESTIONS.length - 1}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-foreground text-primary disabled:opacity-30" aria-label="Next">
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* Question card */}
-        <div className="rounded-xl border border-border bg-background p-6 shadow-sm md:p-8">
-          <p className="text-lg font-semibold leading-relaxed text-foreground">{q.question}</p>
-
-          <div className="mt-6 flex flex-col gap-3">
-            {q.options.map((opt, idx) => {
-              let optionClasses = "flex items-center gap-3 rounded-lg border-2 px-4 py-3.5 text-sm font-medium transition-all cursor-pointer"
-
-              if (revealed) {
-                if (idx === q.correctIndex) {
-                  optionClasses += " border-green-500 bg-green-50 text-green-800 dark:bg-green-500/10 dark:text-green-400"
-                } else if (idx === selectedOption && idx !== q.correctIndex) {
-                  optionClasses += " border-destructive bg-red-50 text-red-800 dark:bg-red-500/10 dark:text-red-400"
-                } else {
-                  optionClasses += " border-border bg-muted/30 text-muted-foreground"
-                }
-              } else if (idx === selectedOption) {
-                optionClasses += " border-secondary bg-secondary/5 text-foreground"
-              } else {
-                optionClasses += " border-border bg-background text-foreground hover:border-secondary/50 hover:bg-muted/40"
-              }
-
-              return (
-                <button key={idx} onClick={() => handleSelect(idx)} disabled={revealed} className={optionClasses}>
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-current text-xs font-bold">
-                    {String.fromCharCode(65 + idx)}
-                  </span>
-                  <span className="text-left">{opt}</span>
-                  {revealed && idx === q.correctIndex && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-green-500" />}
-                  {revealed && idx === selectedOption && idx !== q.correctIndex && <XCircle className="ml-auto h-5 w-5 shrink-0 text-destructive" />}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Explanation */}
-          {revealed && (
-            <div className="mt-6 rounded-lg border border-secondary/30 bg-secondary/5 p-5">
-              <h4 className="mb-2 flex items-center gap-2 text-sm font-bold text-secondary">
-                <Eye className="h-4 w-4" /> Explanation
-              </h4>
-              <p className="text-sm leading-relaxed text-muted-foreground">{q.explanation}</p>
+      <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="lg:col-span-2 relative overflow-hidden rounded-xl pb-4">
+            {/* Watermark Overlay */}
+            <div className="pointer-events-none absolute inset-0 z-0 flex select-none flex-col items-center justify-center overflow-hidden opacity-[0.04] mix-blend-multiply dark:opacity-[0.02] dark:mix-blend-screen">
+              <div className="flex -rotate-45 flex-col items-center justify-center gap-8 md:gap-16">
+                {[...Array(12)].map((_, i) => (
+                  <div key={i} className="flex gap-8 whitespace-nowrap md:gap-16">
+                    {[...Array(5)].map((_, j) => (
+                      <span key={j} className="text-3xl font-black uppercase tracking-widest text-foreground md:text-6xl">MUTAHQBANK</span>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
-          )}
 
-          {/* Action buttons */}
-          <div className="mt-6 flex justify-end gap-3">
-            {!revealed ? (
-              <Button onClick={handleReveal} disabled={selectedOption === null} className="bg-secondary px-6 text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50">
-                <Eye className="mr-2 h-4 w-4" /> Show Answer
+            <div className="relative z-10 flex flex-col gap-5">
+              {/* Question Text */}
+              <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
+                <div className="prose prose-sm max-w-none text-foreground leading-relaxed" dangerouslySetInnerHTML={{ __html: q.question }} />
+              </div>
+
+              {/* Options */}
+              <div className="flex flex-col gap-2.5">
+                {q.options.map((opt, idx) => {
+                  let cls = "border-border bg-background"
+
+                  if (revealed) {
+                    if (idx === q.correctIndex) {
+                      cls = "border-green-500 bg-green-500/10"
+                    } else if (idx === selectedOption) {
+                      cls = "border-destructive bg-destructive/10"
+                    }
+                  } else if (idx === selectedOption) {
+                    cls = "border-secondary bg-secondary/5"
+                  }
+
+                  return (
+                    <button key={idx} onClick={() => handleSelect(idx)} disabled={revealed}
+                      className={`relative overflow-hidden flex w-full items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-all ${cls} ${revealed ? "cursor-default" : "hover:border-secondary/50"}`}>
+                      <div className="relative z-10 flex w-full items-center gap-3">
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${idx === selectedOption ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground"}`}>
+                          {String.fromCharCode(65 + idx)}
+                        </span>
+                        <span className="flex-1 text-sm text-foreground">{opt}</span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Submit / Action Buttons */}
+              {!revealed && (
+                <Button onClick={handleReveal} disabled={selectedOption === null} className="w-full bg-primary py-5 text-base font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                  Submit Answer
+                </Button>
+              )}
+
+              {revealed && (
+                <div className="rounded-lg border border-green-500 bg-green-500/10 px-4 py-3">
+                  <span className="text-sm font-bold text-foreground">Correct: </span>
+                  <span className="text-sm text-foreground">{String.fromCharCode(65 + q.correctIndex)}) {q.options[q.correctIndex]}</span>
+                </div>
+              )}
+
+              {/* Explanation */}
+              {revealed && (
+                <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
+                  <h4 className="mb-3 text-base font-bold text-foreground">Explanation:</h4>
+                  <div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: q.explanation }} />
+                </div>
+              )}
+
+              {/* Next button for preview flow */}
+              {revealed && (
+                <div className="flex justify-end mt-4">
+                  <Button onClick={handleNext} className="bg-secondary px-6 text-secondary-foreground hover:bg-secondary/90">
+                    {currentQ < 4 ? "Next Question" : "See Results"}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="flex flex-col gap-5">
+            {/* Grid Navigator */}
+            <div className="overflow-hidden rounded-xl border border-border shadow-sm flex flex-col">
+              <div className="bg-primary px-4 py-2 shrink-0">
+                <span className="text-sm font-bold text-primary-foreground">Questions</span>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5 p-3 max-h-[60vh] overflow-y-auto">
+                {SAMPLE_QUESTIONS.map((_, idx) => {
+                  const answered = answers[idx] !== null && answers[idx] !== undefined
+                  const isCurrent = idx === currentQ
+
+                  let bg = "bg-muted text-muted-foreground hover:bg-muted/80"
+                  if (isCurrent) bg = "bg-primary text-primary-foreground"
+                  else if (answered) bg = "bg-green-500/20 text-green-700"
+
+                  return (
+                    <button key={idx} onClick={() => setCurrentQ(idx)}
+                      className={`relative flex h-9 items-center justify-center rounded text-xs font-semibold transition-colors ${bg}`}>
+                      {idx + 1}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <Link href={`/course/${slug}`}>
+              <Button variant="outline"
+                className="w-full border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
+                End Preview
               </Button>
-            ) : (
-              <Button onClick={handleNext} className="bg-primary px-6 text-primary-foreground hover:bg-primary/90">
-                {currentQ < 4 ? "Next Question" : "See Results"}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
+            </Link>
+            {/* Free preview note */}
+            <p className="mt-4 text-center text-xs text-muted-foreground px-2">
+              This is a free preview with sample questions. Subscribe to access the full question bank.
+            </p>
           </div>
         </div>
-
-        {/* Free preview note */}
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          This is a free preview with sample questions. Subscribe to access the full question bank.
-        </p>
       </div>
     </div>
   )
