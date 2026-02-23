@@ -13,6 +13,8 @@ import {
 
 const fetcher_deprecated = null // Global provider is used
 
+const BLOCKED_ADMIN_IDS = [164, 500, 509]
+
 /* ─── Types ─── */
 interface DBSubject { id: number; name: string; course_id: number; active: boolean; question_count: string | number }
 interface DBCourse { id: number; name: string; slug: string; description: string | null; about: string | null; is_active: boolean; hero_image: string | null; total_subjects: string | number; total_questions: string | number }
@@ -404,9 +406,11 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           <div className="mx-auto flex max-w-7xl flex-col sm:flex-row items-start sm:items-center justify-between gap-y-2">
             <span className="text-sm font-medium text-amber-800">Editing Mode is enabled. Changes are saved per section.</span>
             <div className="flex flex-wrap items-center gap-3">
-              <Button variant="destructive" size="sm" onClick={() => setShowDeactivateModal(true)}>
-                Deactivate All Subscriptions
-              </Button>
+              {user && !BLOCKED_ADMIN_IDS.includes(user.id) && (
+                <Button variant="destructive" size="sm" onClick={() => setShowDeactivateModal(true)}>
+                  Deactivate All Subscriptions
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={() => setEditMode(false)} className="border-amber-300 text-amber-800 hover:bg-amber-100">
                 <X className="mr-1 h-3.5 w-3.5" /> Exit Editing
               </Button>

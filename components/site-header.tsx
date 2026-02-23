@@ -4,12 +4,15 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { Menu, LogOut, Users, Receipt, MessageSquare, Home, BookOpen, UserCircle, CreditCard, Settings } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
+const BLOCKED_ADMIN_IDS = [164, 500, 509]
 
 export function SiteHeader() {
   const { user, isAdmin, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  const showAdminLinks = isAdmin && user && !BLOCKED_ADMIN_IDS.includes(user.id)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -41,13 +44,13 @@ export function SiteHeader() {
             <Home className="mr-1 inline-block h-4 w-4" />
             Home
           </Link>
-          {!isAdmin && user && (
+          {!showAdminLinks && user && (
             <Link href="/my-courses" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
               <BookOpen className="mr-1 inline-block h-4 w-4" />
               My Courses
             </Link>
           )}
-          {isAdmin && (
+          {showAdminLinks && (
             <>
               <Link href="/admin/users" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
                 <Users className="mr-1 inline-block h-4 w-4" />
@@ -90,7 +93,7 @@ export function SiteHeader() {
                   <div className="-mx-1 my-1 h-px bg-muted" />
                   <>
                     <Link
-                      href={isAdmin ? "/admin/profile" : "/profile"}
+                      href={showAdminLinks ? "/admin/profile" : "/profile"}
                       onClick={() => setUserMenuOpen(false)}
                       className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
                     >
@@ -137,7 +140,7 @@ export function SiteHeader() {
             <Link href="/" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
               Home
             </Link>
-            {!isAdmin && user && (
+            {!showAdminLinks && user && (
               <>
                 <Link href="/my-courses" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
                   My Courses
@@ -150,7 +153,7 @@ export function SiteHeader() {
                 </Link>
               </>
             )}
-            {isAdmin && (
+            {showAdminLinks && (
               <>
                 <Link href="/admin/users" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
                   Users
