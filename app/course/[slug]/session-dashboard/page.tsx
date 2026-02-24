@@ -96,9 +96,9 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
           <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Case Presentation</h4>
           <div className="prose prose-sm max-w-none text-foreground leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.question_text || "" }} />
         </div>
-        {q.figures.length > 0 && (
+        {q.figures.filter(f => f.figure_type !== 'explanation').length > 0 && (
           <div className="flex flex-wrap gap-3">
-            {q.figures.map(f => (
+            {q.figures.filter(f => f.figure_type !== 'explanation').map(f => (
               // eslint-disable-next-line @next/next/no-img-element
               <img key={f.id} src={f.image_url} alt="Question figure" className="max-h-64 rounded-lg border border-border object-contain" />
             ))}
@@ -139,7 +139,17 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
               {isExplVisible ? (
                 <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
                   <h4 className="mb-3 text-base font-bold text-foreground">Explanation:</h4>
-                  <div className="prose prose-sm max-w-none text-foreground [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
+                  {q.explanation_html && (
+                    <div className="prose prose-sm max-w-none text-foreground mb-4 [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
+                  )}
+                  {q.figures.filter(f => f.figure_type === 'explanation').length > 0 && (
+                    <div className="flex flex-wrap gap-3">
+                      {q.figures.filter(f => f.figure_type === 'explanation').map(f => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={f.id} src={f.image_url} alt="Explanation figure" className="max-h-64 rounded-lg border border-border object-contain" />
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <Button onClick={() => setExplicitlyRevealedExpl(p => new Set(p).add(q.id))} className="w-full border-2 border-secondary bg-transparent py-5 text-base font-semibold text-secondary hover:bg-secondary/10">
@@ -159,9 +169,9 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
       <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
         <div className="prose prose-sm max-w-none text-foreground leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.question_text || "" }} />
       </div>
-      {q.figures.length > 0 && (
+      {q.figures.filter(f => f.figure_type !== 'explanation').length > 0 && (
         <div className="flex flex-wrap gap-3">
-          {q.figures.map(f => (
+          {q.figures.filter(f => f.figure_type !== 'explanation').map(f => (
             // eslint-disable-next-line @next/next/no-img-element
             <img key={f.id} src={f.image_url} alt="Question figure" className="max-h-64 rounded-lg border border-border object-contain" />
           ))}
@@ -192,10 +202,20 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
           </div>
         ) : null
       })()}
-      {showExplanation && (revealed || hideSubmit) && q.explanation_html && (
+      {showExplanation && (revealed || hideSubmit) && (q.explanation_html || q.figures.some(f => f.figure_type === 'explanation')) && (
         <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
           <h4 className="mb-3 text-base font-bold text-foreground">Explanation:</h4>
-          <div className="prose prose-sm max-w-none text-foreground [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
+          {q.explanation_html && (
+            <div className="prose prose-sm max-w-none text-foreground mb-4 [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
+          )}
+          {q.figures.filter(f => f.figure_type === 'explanation').length > 0 && (
+            <div className="flex flex-wrap gap-3">
+              {q.figures.filter(f => f.figure_type === 'explanation').map(f => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={f.id} src={f.image_url} alt="Explanation figure" className="max-h-64 rounded-lg border border-border object-contain" />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

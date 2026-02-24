@@ -93,7 +93,6 @@ export default function StudentTransactionsPage() {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="font-semibold text-foreground">{tx.course_name}</div>
-                                            <div className="text-xs text-muted-foreground">Duration: {tx.package_duration} days</div>
                                         </td>
                                         <td className="px-6 py-4 font-medium text-foreground">
                                             ${tx.amount}
