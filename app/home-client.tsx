@@ -41,14 +41,14 @@ export function HomeClient({
                 <div className="mx-auto max-w-7xl px-4">
                     <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
                         {features.map((feature) => (
-                            <div key={feature.title} className="overflow-hidden rounded-xl shadow-sm transition-shadow hover:shadow-md">
-                                <div className="flex flex-col items-center gap-3 bg-background p-6 text-center">
+                            <div key={feature.title} className="flex flex-col h-full overflow-hidden rounded-xl shadow-sm transition-shadow hover:shadow-md">
+                                <div className="flex flex-1 flex-col items-center gap-3 bg-background p-6 text-center">
                                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary/10">
                                         <feature.icon className="h-6 w-6 text-secondary" />
                                     </div>
                                     <h3 className="text-sm font-semibold text-foreground">{feature.title}</h3>
                                 </div>
-                                <div className="bg-primary px-4 py-2 text-center">
+                                <div className="bg-primary px-4 py-2 text-center mt-auto">
                                     <p className="text-xs text-primary-foreground/70">{feature.description}</p>
                                 </div>
                             </div>

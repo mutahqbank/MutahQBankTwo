@@ -299,7 +299,16 @@ function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSele
           </div>
         ))}
         {pkg.courses && pkg.courses.length > 1 && (
-          <p className="mt-1 text-xs text-muted-foreground">Includes: {pkg.courses.map(c => c.name).join(", ")}</p>
+          <div className="mt-3 border-t border-border pt-3">
+            <h6 className="text-sm font-medium text-foreground mb-1.5">
+              Courses Included:
+            </h6>
+            <ol className="flex flex-col list-decimal gap-1 pl-5 text-sm text-foreground">
+                {pkg.courses.map(c=> (
+                  <li key={c.id || c.name}>{c.name}</li>
+                ))}
+            </ol>
+          </div>
         )}
       </div>
       <div className="border-t border-border bg-background px-5 py-3">

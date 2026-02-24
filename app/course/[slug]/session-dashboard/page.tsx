@@ -80,8 +80,8 @@ function OptionBtn({ opt, letter, isSelected, isRevealed, percentage, onClick }:
 }
 
 // ─── QuestionView ─────────────────────────────────────────────────────────────
-function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplanation, hideSubmit }: {
-  q: DBQuestion; selectedId: number | null; revealed: boolean; onSelect: (id: number) => void; onReveal: () => void; showExplanation: boolean; hideSubmit?: boolean
+function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplanation, hideSubmit, isExamMode, onNext }: {
+  q: DBQuestion; selectedId: number | null; revealed: boolean; onSelect: (id: number) => void; onReveal: () => void; showExplanation: boolean; hideSubmit?: boolean; isExamMode?: boolean; onNext?: () => void;
 }) {
   const LETTERS = ["A", "B", "C", "D", "E", "F"]
   const isCBQ = q.sub_questions.length > 0
@@ -136,11 +136,16 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
 
           return (
             <div className="mt-2 flex flex-col gap-4">
+              {(isExplVisible || selectedId !== null) && onNext && (
+                <Button onClick={onNext} className="w-full bg-secondary py-5 text-base font-semibold text-secondary-foreground hover:bg-secondary/90 shadow-lg border-2 border-secondary hover:translate-y-[-2px] transition-transform">
+                  Next Question <ChevronRight className="ml-2 h-5 w-5 inline" />
+                </Button>
+              )}
               {isExplVisible ? (
                 <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
                   <h4 className="mb-3 text-base font-bold text-foreground">Explanation:</h4>
                   {q.explanation_html && (
-                    <div className="prose prose-sm max-w-none text-foreground mb-4 [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
+                    <div className="prose prose-sm max-w-none text-foreground mb-4 [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border [&_h3]:font-bold [&_h3]:text-lg [&_h3]:mt-6 [&_h3]:mb-3" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
                   )}
                   {q.figures.filter(f => f.figure_type === 'explanation').length > 0 && (
                     <div className="flex flex-wrap gap-3">
@@ -189,7 +194,7 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
           })
         })()}
       </div>
-      {!revealed && !hideSubmit && (
+      {!revealed && !hideSubmit && !isExamMode && (
         <Button onClick={onReveal} disabled={selectedId === null} className="w-full bg-primary py-5 text-base font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
           Submit Answer
         </Button>
@@ -202,11 +207,16 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
           </div>
         ) : null
       })()}
+      {(revealed || hideSubmit || selectedId !== null) && onNext && (
+        <Button onClick={onNext} className="w-full bg-secondary py-5 text-base font-semibold text-secondary-foreground hover:bg-secondary/90 shadow-lg border-2 border-secondary hover:translate-y-[-2px] transition-transform">
+          Next Question <ChevronRight className="ml-2 h-5 w-5 inline" />
+        </Button>
+      )}
       {showExplanation && (revealed || hideSubmit) && (q.explanation_html || q.figures.some(f => f.figure_type === 'explanation')) && (
         <div className="rounded-lg border border-border bg-background p-5 shadow-sm">
           <h4 className="mb-3 text-base font-bold text-foreground">Explanation:</h4>
           {q.explanation_html && (
-            <div className="prose prose-sm max-w-none text-foreground mb-4 [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
+            <div className="prose prose-sm max-w-none text-foreground mb-4 [&_table]:w-full [&_table]:border-collapse [&_th]:bg-[#05223A] [&_th]:text-white [&_th]:px-4 [&_th]:py-3 [&_th]:border [&_th]:border-border [&_td]:px-4 [&_td]:py-3 [&_td]:border [&_td]:border-border [&_h3]:font-bold [&_h3]:text-lg [&_h3]:mt-6 [&_h3]:mb-3" dangerouslySetInnerHTML={{ __html: q.explanation_html }} />
           )}
           {q.figures.filter(f => f.figure_type === 'explanation').length > 0 && (
             <div className="flex flex-wrap gap-3">
@@ -346,6 +356,13 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
       }).catch(console.error)
     }
   }, [currentIdx, activeSessionId, mode])
+
+  // Scroll to top on mobile when question changes
+  useEffect(() => {
+    if ((mode === "study" || mode === "exam" || mode === "session") && window.innerWidth < 1024) {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+  }, [currentIdx, mode])
 
   // ─── Computed ──────────────────────────────────────────────────
   const currentQ = questions[currentIdx]
@@ -505,6 +522,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
     setActiveSessionId(null)
     setMode("dashboard")
     setQuestions([])
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   function handleExamSubmit() {
@@ -559,6 +577,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
     }
 
     setMode("results")
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   // ─── Guard: not logged in ──────────────────────────────────────
@@ -675,7 +694,10 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                   revealed={(mode === "study" || mode === "session") ? revealed.has(currentQ.id) : false}
                   onSelect={handleSelect} onReveal={handleReveal}
                   showExplanation={mode === "study" || mode === "session"}
-                  hideSubmit={mode === "study"} />
+                  hideSubmit={mode === "study"}
+                  isExamMode={mode === "exam"}
+                  onNext={currentIdx < questions.length - 1 ? () => setCurrentIdx(currentIdx + 1) : undefined}
+                />
               </div>
             </div>
 
@@ -718,7 +740,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                   Abandon Session
                 </Button>
               ) : (
-                <Button variant="outline" onClick={() => { if (timerRef.current) clearInterval(timerRef.current); setMode("dashboard"); setQuestions([]) }}
+                <Button variant="outline" onClick={() => { if (timerRef.current) clearInterval(timerRef.current); setMode("dashboard"); setQuestions([]); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                   className="w-full border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground">
                   End Session
                 </Button>

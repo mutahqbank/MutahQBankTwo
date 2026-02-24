@@ -59,9 +59,16 @@ function PackageOption({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSelect
           </li>
         ))}
       </ul>
-      {pkg.courses && pkg.courses.length > 1 && (
-        <p className="mt-2 text-xs text-muted-foreground">Includes: {pkg.courses.map(c => c.name).join(", ")}</p>
-      )}
+       <div className="mt-3 border-t border-border pt-3">
+            <h6 className="text-xs font-medium text-foreground mb-1.5">
+              Courses Included:
+            </h6>
+            <ol className="flex flex-col list-decimal gap-1 pl-5 text-xs text-muted-foreground">
+                {pkg.courses.map(c=> (
+                  <li key={c.id || c.name}>{c.name}</li>
+                ))}
+            </ol>
+          </div>
       {isSelected && (
         <div className="mt-3 flex items-center justify-center gap-1 rounded-md bg-secondary py-1.5 text-xs font-semibold text-secondary-foreground">
           <Check className="h-3.5 w-3.5" /> Selected
