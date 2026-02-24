@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const subjectIds = searchParams.get("subject_ids")
     const limit = searchParams.get("limit") || "20"
     const typeId = searchParams.get("type_id")
+    const examPeriod = searchParams.get("exam_period")
 
     if (!courseId) {
       return NextResponse.json({ error: "course_id is required" }, { status: 400 })
@@ -43,6 +44,12 @@ export async function GET(request: NextRequest) {
     if (typeId) {
       sql += ` AND q.type_id = $${pi}`
       params.push(parseInt(typeId))
+      pi++
+    }
+
+    if (examPeriod && (examPeriod === "Mid" || examPeriod === "Final")) {
+      sql += ` AND qp.period ILIKE $${pi}`
+      params.push(`%${examPeriod}%`)
       pi++
     }
 

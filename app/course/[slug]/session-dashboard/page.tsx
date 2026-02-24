@@ -14,7 +14,7 @@ import {
 // Global SWRProvider handles fetching and caching rules.
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface DBSubject { id: number; name: string; question_count: string | number }
+interface DBSubject { id: number; name: string; question_count: string | number; mid_question_count: string | number; final_question_count: string | number }
 interface DBOption { id: number; option: string; correct: boolean; selection_count?: string | number }
 interface DBFigure { id: number; image_url: string; figure_type: string | null }
 interface DBSubQ { id: number; subquestion_text: string; answer_html: string }
@@ -228,6 +228,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   const [timedMode, setTimedMode] = useState(false)
   const [timeLimit, setTimeLimit] = useState(30)
   const [progressFilter, setProgressFilter] = useState<"all" | "new" | "correct" | "incorrect">("all")
+  const [examFilter, setExamFilter] = useState<"All" | "Mid" | "Final">("All")
 
   const toggleSubject = useCallback((id: number) => {
     setSelectedSubjects(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
@@ -235,11 +236,18 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
   const maxAvailableQuestions = useMemo(() => {
     if (!subjects) return 100
-    if (selectedSubjects.size === 0) {
-      return subjects.reduce((sum, s) => sum + Number(s.question_count || 0), 0)
+
+    const getCount = (s: DBSubject) => {
+      if (examFilter === "Mid") return Number(s.mid_question_count || 0)
+      if (examFilter === "Final") return Number(s.final_question_count || 0)
+      return Number(s.question_count || 0)
     }
-    return subjects.filter(s => selectedSubjects.has(s.id)).reduce((sum, s) => sum + Number(s.question_count || 0), 0)
-  }, [subjects, selectedSubjects])
+
+    if (selectedSubjects.size === 0) {
+      return subjects.reduce((sum, s) => sum + getCount(s), 0)
+    }
+    return subjects.filter(s => selectedSubjects.has(s.id)).reduce((sum, s) => sum + getCount(s), 0)
+  }, [subjects, selectedSubjects, examFilter])
 
   useEffect(() => {
     if (subjects) {
@@ -330,13 +338,14 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
     setQuestionsLoading(true)
     try {
       if (sessionMode === "session") {
-        const payload = {
+        const payload: any = {
           user_id: user?.id,
           course_id: courseId,
           limit: questionCount,
           subject_ids: Array.from(selectedSubjects),
           mode: sessionMode
         }
+        if (examFilter !== "All") payload.exam_period = examFilter
 
         const res = await fetch(`/api/sessions/start`, {
           method: "POST",
@@ -358,6 +367,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         const params = new URLSearchParams({ course_id: String(courseId), limit: String(questionCount) })
         if (selectedSubjects.size > 0) params.set("subject_ids", Array.from(selectedSubjects).join(","))
         if (sessionMode === "exam") params.set("type_id", "1") // 1 = MCQ, 2 = CBQ
+        if (examFilter !== "All") params.set("exam_period", examFilter)
 
         const res = await fetch(`/api/questions?${params}`)
         const data = await res.json()
@@ -749,6 +759,19 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                     </div>
                   </div>
 
+                  {/* Exam Type Filter */}
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-foreground">Filter by Exam Type</label>
+                    <div className="flex flex-wrap gap-2">
+                      {(["All", "Mid", "Final"] as const).map(f => (
+                        <button key={f} onClick={() => setExamFilter(f)}
+                          className={`rounded-full px-4 py-1.5 text-xs font-medium capitalize transition-colors ${examFilter === f ? "bg-secondary text-secondary-foreground" : "border border-border bg-background text-foreground hover:bg-muted"}`}>
+                          {f} Exams
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Question count */}
                   <div>
                     <label className="mb-2 flex items-center justify-between text-sm font-semibold text-foreground">
@@ -805,8 +828,23 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                   {/* Subjects */}
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-foreground">Select Subjects ({selectedSubjects.size} selected)</label>
-                    {subjects ? <SubjectSelector subjects={subjects} selected={selectedSubjects} onToggle={toggleSubject} /> :
-                      <div className="flex items-center justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
+                    {subjects ? (
+                      <div className="max-h-[340px] overflow-y-auto rounded-lg border border-border">
+                        {subjects.map(s => {
+                          const count = examFilter === "Mid" ? Number(s.mid_question_count || 0) : examFilter === "Final" ? Number(s.final_question_count || 0) : Number(s.question_count || 0)
+                          return (
+                            <button key={s.id} onClick={() => toggleSubject(s.id)}
+                              className="flex w-full items-center gap-2 border-b border-border/50 px-3 py-2 text-left transition-colors hover:bg-muted/50">
+                              {selectedSubjects.has(s.id) ? <CheckSquare className="h-4 w-4 shrink-0 text-secondary" /> : <Square className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                              <span className="flex-1 text-sm text-foreground">{s.name}</span>
+                              <span className="text-xs text-muted-foreground">{count} Q</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -819,7 +857,8 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                 <div className="flex flex-col gap-4 p-6">
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Course</span><span className="font-medium text-foreground">{courseName}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Questions</span><span className="font-medium text-foreground">{questionCount}</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Filter</span><span className="font-medium capitalize text-foreground">{progressFilter}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Exam Type</span><span className="font-medium capitalize text-foreground">{examFilter}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Progress</span><span className="font-medium capitalize text-foreground">{progressFilter}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Exam Timer</span><span className="font-medium text-foreground">{timedMode ? `${timeLimit} min` : "Off"}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subjects</span><span className="font-medium text-foreground">{selectedSubjects.size || "All"}</span></div>
                   <hr className="border-border" />
@@ -837,7 +876,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                     {questionsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin outline-none" /> : <BookOpen className="mr-2 h-4 w-4" />} Session Mode
                   </Button>
                   <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                    onClick={() => { setSelectedSubjects(new Set()); setQuestionCount(20); setTimedMode(false); setProgressFilter("all") }}>
+                    onClick={() => { setSelectedSubjects(new Set()); setQuestionCount(20); setTimedMode(false); setProgressFilter("all"); setExamFilter("All"); }}>
                     <RotateCcw className="mr-2 h-4 w-4" /> Reset
                   </Button>
                 </div>

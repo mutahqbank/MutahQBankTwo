@@ -3,7 +3,7 @@ import { query } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
     try {
-        const { user_id, course_id, limit, subject_ids, mode } = await request.json()
+        const { user_id, course_id, limit, subject_ids, mode, exam_period } = await request.json()
 
         if (!user_id || !course_id || !limit) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 })
@@ -51,6 +51,11 @@ export async function POST(request: NextRequest) {
         if (subject_ids && subject_ids.length > 0) {
             qsql += ` AND q.subject_id = ANY($2::int[])`
             qparams.push(subject_ids)
+        }
+
+        if (exam_period && (exam_period === "Mid" || exam_period === "Final")) {
+            qsql += ` AND qp.period ILIKE $${qparams.length + 1}`
+            qparams.push(`%${exam_period}%`)
         }
 
         qsql += ` ORDER BY RANDOM() LIMIT $${qparams.length + 1}`

@@ -24,7 +24,9 @@ export async function GET(
         s.subject AS name,
         s.course_id,
         s.active,
-        (SELECT COUNT(*) FROM questions q WHERE q.subject_id = s.id AND q.active = true) AS question_count
+        (SELECT COUNT(*) FROM questions q WHERE q.subject_id = s.id AND q.active = true) AS question_count,
+        (SELECT COUNT(*) FROM questions q LEFT JOIN questions_periods qp ON q.period_id = qp.id WHERE q.subject_id = s.id AND q.active = true AND qp.period ILIKE '%Mid%') AS mid_question_count,
+        (SELECT COUNT(*) FROM questions q LEFT JOIN questions_periods qp ON q.period_id = qp.id WHERE q.subject_id = s.id AND q.active = true AND qp.period ILIKE '%Final%') AS final_question_count
       FROM subjects s
       WHERE s.course_id = $1 ${activeFilter}
       ORDER BY s.id ASC

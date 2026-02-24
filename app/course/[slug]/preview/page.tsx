@@ -75,11 +75,27 @@ export default function FreePreviewPage({ params }: { params: Promise<{ slug: st
     if (selectedOption === q.correctIndex) setScore(s => s + 1)
   }
 
-  const handleNext = () => {
-    if (currentQ < 4) {
-      setCurrentQ(currentQ + 1)
+  const goToQuestion = (idx: number) => {
+    let updatedAnswers = [...answers]
+    if (selectedOption !== null && !revealed) {
+      updatedAnswers[currentQ] = selectedOption
+      setAnswers(updatedAnswers)
+      if (selectedOption === q.correctIndex) setScore(s => s + 1)
+    }
+
+    setCurrentQ(idx)
+    if (updatedAnswers[idx] !== null && updatedAnswers[idx] !== undefined) {
+      setSelectedOption(updatedAnswers[idx])
+      setRevealed(true)
+    } else {
       setSelectedOption(null)
       setRevealed(false)
+    }
+  }
+
+  const handleNext = () => {
+    if (currentQ < 4) {
+      goToQuestion(currentQ + 1)
     } else {
       setMode("complete")
     }
@@ -241,11 +257,11 @@ export default function FreePreviewPage({ params }: { params: Promise<{ slug: st
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setCurrentQ(Math.max(0, currentQ - 1))} disabled={currentQ === 0}
+            <button onClick={() => goToQuestion(Math.max(0, currentQ - 1))} disabled={currentQ === 0}
               className="flex h-8 w-8 items-center justify-center rounded-full border border-primary-foreground/30 text-primary-foreground disabled:opacity-30" aria-label="Previous">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button onClick={() => setCurrentQ(Math.min(SAMPLE_QUESTIONS.length - 1, currentQ + 1))} disabled={currentQ === SAMPLE_QUESTIONS.length - 1}
+            <button onClick={() => goToQuestion(Math.min(SAMPLE_QUESTIONS.length - 1, currentQ + 1))} disabled={currentQ === SAMPLE_QUESTIONS.length - 1}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-foreground text-primary disabled:opacity-30" aria-label="Next">
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -355,7 +371,7 @@ export default function FreePreviewPage({ params }: { params: Promise<{ slug: st
                   else if (answered) bg = "bg-green-500/20 text-green-700"
 
                   return (
-                    <button key={idx} onClick={() => setCurrentQ(idx)}
+                    <button key={idx} onClick={() => goToQuestion(idx)}
                       className={`relative flex h-9 items-center justify-center rounded text-xs font-semibold transition-colors ${bg}`}>
                       {idx + 1}
                     </button>
