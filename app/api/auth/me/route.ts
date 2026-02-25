@@ -8,8 +8,9 @@ export async function GET() {
     const user = await getServerUser()
 
     if (!user) {
-        // If they had a token but didn't get a user back, it must be an invalid session token
         if (hasToken) {
+            // Delete cookie directly via next/headers
+            cookieStore.delete("mutah_session")
             return NextResponse.json({ error: "invalid_session", user: null }, { status: 401 })
         }
         return NextResponse.json({ user: null }, { status: 401 })

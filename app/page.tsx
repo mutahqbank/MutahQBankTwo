@@ -36,7 +36,7 @@ async function getCourses() {
         c.public_id,
         LOWER(REPLACE(c.course, ' ', '-')) as slug,
         (SELECT count(*) FROM subjects s WHERE s.course_id = c.id AND s.active = true) as total_subjects,
-        (SELECT count(*) FROM questions q JOIN subjects s ON q.subject_id = s.id WHERE s.course_id = c.id AND q.active = true) as total_questions
+        (SELECT count(*) FROM questions q JOIN subjects s ON q.subject_id = s.id WHERE s.course_id = c.id AND s.active = true AND q.active = true) as total_questions
       FROM courses c
       WHERE c.active = true
       ORDER BY c.id ASC
