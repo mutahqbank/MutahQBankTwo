@@ -1,7 +1,16 @@
 import { HomeClient } from "./home-client"
 import { query } from "@/lib/database"
 
-const MAJOR_SLUGS = ["pediatric", "surgery", "internal-medicine", "obs-&gyn"]
+const MAJOR_SLUGS = [
+  "surgery(miniosce)",
+  "pediatric(miniosce)",
+  "obs-&-gyn(miniosce)",
+  "internal-medicine(miniosce)",
+  "surgery(final)",
+  "obs-&-gyn(final)",
+  "internal-medicine(final)",
+  "pediatric(final)"
+];
 const MINOR_4TH_SLUGS = ["anesthesia", "forensic", "radiology"]
 
 async function getStats() {
