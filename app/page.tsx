@@ -4,10 +4,10 @@ import { query } from "@/lib/database"
 const MAJOR_SLUGS = [
   "surgery(miniosce)",
   "pediatric(miniosce)",
-  "obs-&-gyn(miniosce)",
+  "obs-and-gyn-(miniosce)",
   "internal-medicine(miniosce)",
   "surgery(final)",
-  "obs-&-gyn(final)",
+  "obs-and-gyn-(final)",
   "internal-medicine(final)",
   "pediatric(final)"
 ];
