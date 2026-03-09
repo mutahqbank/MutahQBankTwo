@@ -46,16 +46,16 @@ export async function PUT(request: NextRequest) {
     }
 
     // Security check: If assessment is an exam (type_id=2), reject case-based answers (type_id=2)
-    const typeRes = await query(`SELECT type_id FROM assessments WHERE id = $1`, [assessment_id])
-    if (typeRes.rows.length > 0 && typeRes.rows[0].type_id === 2) {
-      const qIds = answers.map((a: any) => a.question_id).filter(Boolean)
-      if (qIds.length > 0) {
-        const cbqCheck = await query(`SELECT id FROM questions WHERE type_id = 2 AND id = ANY($1::int[]) LIMIT 1`, [qIds])
-        if (cbqCheck.rows.length > 0) {
-          return NextResponse.json({ error: "Case-based questions are not allowed in Exam submissions" }, { status: 403 })
-        }
-      }
-    }
+    // const typeRes = await query(`SELECT type_id FROM assessments WHERE id = $1`, [assessment_id])
+    // if (typeRes.rows.length > 0 && typeRes.rows[0].type_id === 2) {
+    //   const qIds = answers.map((a: any) => a.question_id).filter(Boolean)
+    //   if (qIds.length > 0) {
+    //     const cbqCheck = await query(`SELECT id FROM questions WHERE type_id = 2 AND id = ANY($1::int[]) LIMIT 1`, [qIds])
+    //     if (cbqCheck.rows.length > 0) {
+    //       return NextResponse.json({ error: "Case-based questions are not allowed in Exam submissions" }, { status: 403 })
+    //     }
+    //   }
+    // }
 
     // Upsert all answers
     for (const a of answers as { position: number; question_id: number; answer_id: number | null; flagged: boolean; note: string | null }[]) {

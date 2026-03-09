@@ -24,6 +24,7 @@ interface DBQuestion {
   options: DBOption[]; figures: DBFigure[]; sub_questions: DBSubQ[]
   _savedAnswerId?: number | null;
   _savedFlagged?: boolean;
+  _savedNotes?: Record<number, string>; // sub_question id -> text
 }
 interface Assessment { id: number; course_name: string; assessment_type: string; date: string; total_questions: string; correct_answers: string }
 
@@ -80,8 +81,8 @@ function OptionBtn({ opt, letter, isSelected, isRevealed, percentage, onClick }:
 }
 
 // ─── QuestionView ─────────────────────────────────────────────────────────────
-function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplanation, hideSubmit, isExamMode, onNext }: {
-  q: DBQuestion; selectedId: number | null; revealed: boolean; onSelect: (id: number) => void; onReveal: () => void; showExplanation: boolean; hideSubmit?: boolean; isExamMode?: boolean; onNext?: () => void;
+function QuestionView({ q, selectedId, cbqAnswers, revealed, onSelect, onCbqAnswer, onReveal, showExplanation, hideSubmit, isExamMode, onNext }: {
+  q: DBQuestion; selectedId: number | null; cbqAnswers?: Record<number, string>; revealed: boolean; onSelect: (id: number) => void; onCbqAnswer?: (subId: number, text: string) => void; onReveal: () => void; showExplanation: boolean; hideSubmit?: boolean; isExamMode?: boolean; onNext?: () => void;
 }) {
   const LETTERS = ["A", "B", "C", "D", "E", "F"]
   const isCBQ = q.sub_questions.length > 0
@@ -112,7 +113,16 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
             </div>
             {visibleSubs.has(sq.id) || hideSubmit ? (
               <div className="flex flex-col gap-2">
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-700 dark:bg-amber-950" dangerouslySetInnerHTML={{ __html: sq.answer_html }} />
+                {(revealed || hideSubmit) && cbqAnswers && cbqAnswers[sq.id] !== undefined && (
+                  <div className="rounded-lg border border-border bg-background px-4 py-3 text-sm">
+                    <span className="mb-1 block font-semibold text-muted-foreground text-xs uppercase tracking-wider">Your Answer:</span>
+                    <p className="text-foreground whitespace-pre-wrap">{cbqAnswers[sq.id] || <span className="text-muted-foreground italic">No answer provided</span>}</p>
+                  </div>
+                )}
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-700 dark:bg-amber-950">
+                  <span className="mb-1 block font-semibold text-amber-800 text-xs uppercase tracking-wider dark:text-amber-500">Correct Answer:</span>
+                  <div dangerouslySetInnerHTML={{ __html: sq.answer_html }} />
+                </div>
                 {!hideSubmit && (
                   <button onClick={() => setVisibleSubs(p => { const n = new Set(p); n.delete(sq.id); return n })} className="flex items-center gap-1.5 self-start text-xs font-medium text-primary hover:underline">
                     <EyeOff className="h-3.5 w-3.5" /> Hide Answer
@@ -120,12 +130,24 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
                 )}
               </div>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => {
-                setVisibleSubs(p => new Set(p).add(sq.id));
-                setInteractedSubs(p => new Set(p).add(sq.id));
-              }} className="self-start border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-                <Eye className="mr-1.5 h-3.5 w-3.5" /> Show Answer
-              </Button>
+              <div className="flex flex-col gap-3">
+                {isExamMode && onCbqAnswer && (
+                  <textarea
+                    value={cbqAnswers?.[sq.id] || ""}
+                    onChange={(e) => onCbqAnswer(sq.id, e.target.value)}
+                    placeholder="Type your answer here..."
+                    className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                )}
+                {!isExamMode && (
+                  <Button variant="outline" size="sm" onClick={() => {
+                    setVisibleSubs(p => new Set(p).add(sq.id));
+                    setInteractedSubs(p => new Set(p).add(sq.id));
+                  }} className="self-start border-primary text-primary hover:bg-primary hover:text-primary-foreground">
+                    <Eye className="mr-1.5 h-3.5 w-3.5" /> Show Answer
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         ))}
@@ -163,6 +185,21 @@ function QuestionView({ q, selectedId, revealed, onSelect, onReveal, showExplana
               )}
             </div>
           )
+        })()}
+
+        {/* Next Button for Exam Mode (CBQs) */}
+        {isExamMode && onNext && (() => {
+          const allAnswered = q.sub_questions.length > 0 && q.sub_questions.every(sq => cbqAnswers?.[sq.id] && cbqAnswers[sq.id].trim() !== "");
+          if (allAnswered) {
+            return (
+              <div className="mt-2 flex flex-col gap-4">
+                <Button onClick={onNext} className="w-full bg-secondary py-5 text-base font-semibold text-secondary-foreground hover:bg-secondary/90 shadow-lg border-2 border-secondary hover:translate-y-[-2px] transition-transform">
+                  Next Question <ChevronRight className="ml-2 h-5 w-5 inline" />
+                </Button>
+              </div>
+            )
+          }
+          return null;
         })()}
       </div>
     )
@@ -295,6 +332,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   const [questions, setQuestions] = useState<DBQuestion[]>([])
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<number, number>>({}) // questionId -> optionId
+  const [cbqTextAnswers, setCbqTextAnswers] = useState<Record<number, Record<number, string>>>({}) // q.id -> subq.id -> text
   const [revealed, setRevealed] = useState<Set<number>>(new Set())
   const [flagged, setFlagged] = useState<Set<number>>(new Set())
   const [questionsLoading, setQuestionsLoading] = useState(true) // Start true to check for active
@@ -403,7 +441,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         // Study or Exam ( Stateless )
         const params = new URLSearchParams({ course_id: String(courseId), limit: String(questionCount) })
         if (selectedSubjects.size > 0) params.set("subject_ids", Array.from(selectedSubjects).join(","))
-        if (sessionMode === "exam") params.set("type_id", "1") // 1 = MCQ, 2 = CBQ
+        // if (sessionMode === "exam") params.set("type_id", "1") // 1 = MCQ, 2 = CBQ
         if (examFilter !== "All") params.set("exam_period", examFilter)
 
         const res = await fetch(`/api/questions?${params}`)
@@ -424,6 +462,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
       setCurrentIdx(0)
       setAnswers({})
+      setCbqTextAnswers({})
       setRevealed(new Set())
       setFlagged(new Set())
       setExamResults(null)
@@ -446,16 +485,21 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         const restoredAnswers: Record<number, number> = {}
         const restoredRevealed = new Set<number>()
         const restoredFlagged = new Set<number>()
+        const restoredCbqAnswers: Record<number, Record<number, string>> = {}
 
         data.questions.forEach((q: any) => {
           if (q._savedAnswerId) {
             restoredAnswers[q.id] = q._savedAnswerId
             restoredRevealed.add(q.id)
           }
+          if (q._savedNotes) {
+            restoredCbqAnswers[q.id] = q._savedNotes
+          }
           if (q._savedFlagged) restoredFlagged.add(q.id)
         })
 
         setAnswers(restoredAnswers)
+        setCbqTextAnswers(restoredCbqAnswers)
         setRevealed(restoredRevealed)
         setFlagged(restoredFlagged)
         setMode("session")
@@ -484,6 +528,29 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question_id: currentQ.id, answer_id: optionId })
+      }).catch(console.error)
+    }
+  }
+
+  function handleCbqTextAnswer(subId: number, text: string) {
+    if (!currentQ) return
+    setCbqTextAnswers(prev => ({
+      ...prev,
+      [currentQ.id]: {
+        ...(prev[currentQ.id] || {}),
+        [subId]: text
+      }
+    }))
+
+    // Sync to backend notes via debounce or on blur ideally, but we will send it immediately for now 
+    // to match the flag behavior.
+    if (mode === "session" && activeSessionId) {
+      // Create accumulated string of all subQ answers to store in single `note` field
+      const currentNotes = { ...(cbqTextAnswers[currentQ.id] || {}), [subId]: text }
+      fetch(`/api/sessions/${activeSessionId}/sync`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question_id: currentQ.id, note: JSON.stringify(currentNotes) })
       }).catch(console.error)
     }
   }
@@ -531,19 +598,28 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
     // Calculate results locally
     let correct = 0
+    let totalMCQs = 0
     questions.forEach(q => {
-      const selId = answers[q.id]
-      if (selId) {
-        const opt = q.options.find(o => o.id === selId)
-        if (opt?.correct) correct++
+      // Ignore CBQs in score denominator
+      if (q.sub_questions.length === 0) {
+        totalMCQs++
+        const selId = answers[q.id]
+        if (selId) {
+          const opt = q.options.find(o => o.id === selId)
+          if (opt?.correct) correct++
+        }
       }
     })
-    setExamResults({ total: questions.length, correct, score: Math.round((correct / questions.length) * 100) })
+    setExamResults({ total: totalMCQs, correct, score: totalMCQs > 0 ? Math.round((correct / totalMCQs) * 100) : 0 })
 
     // If stateless exam, save it to history explicitly
     if (mode === "exam" && user) {
       const payload = questions.map((q, i) => ({
-        position: i + 1, question_id: q.id, answer_id: answers[q.id] || null, flagged: flagged.has(q.id), note: null
+        position: i + 1,
+        question_id: q.id,
+        answer_id: answers[q.id] || null,
+        flagged: flagged.has(q.id),
+        note: cbqTextAnswers[q.id] ? JSON.stringify(cbqTextAnswers[q.id]) : null
       }))
 
       fetch("/api/sessions", {
@@ -621,7 +697,10 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
           <span className="text-4xl font-bold text-secondary">{examResults.score}%</span>
         </div>
         <h2 className="text-2xl font-bold text-foreground">Exam Complete</h2>
-        <p className="mt-2 text-muted-foreground">{examResults.correct} / {examResults.total} correct answers</p>
+        <p className="mt-2 text-muted-foreground">
+          {examResults.correct} / {examResults.total} Correct
+          {questions.length > examResults.total && ` (+ ${questions.length - examResults.total} Case-Based Questions needing review)`}
+        </p>
         <div className="mt-8 flex justify-center gap-4">
           <Button onClick={() => { setMode("dashboard"); setQuestions([]) }} variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
             Back to Dashboard
@@ -690,9 +769,9 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
               </div>
 
               <div className="relative z-10">
-                <QuestionView q={currentQ} selectedId={answers[currentQ.id] ?? null}
+                <QuestionView q={currentQ} selectedId={answers[currentQ.id] ?? null} cbqAnswers={cbqTextAnswers[currentQ.id]}
                   revealed={(mode === "study" || mode === "session") ? revealed.has(currentQ.id) : false}
-                  onSelect={handleSelect} onReveal={handleReveal}
+                  onSelect={handleSelect} onCbqAnswer={handleCbqTextAnswer} onReveal={handleReveal}
                   showExplanation={mode === "study" || mode === "session"}
                   hideSubmit={mode === "study"}
                   isExamMode={mode === "exam"}
@@ -710,7 +789,14 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                 </div>
                 <div className="grid grid-cols-5 gap-1.5 p-3 max-h-[60vh] overflow-y-auto">
                   {questions.map((q, idx) => {
-                    const answered = answers[q.id] !== undefined
+                    let answered = false;
+                    if (q.sub_questions.length > 0) { // CBQ logic
+                      const texts = cbqTextAnswers[q.id];
+                      answered = texts ? q.sub_questions.every(sq => texts[sq.id] && texts[sq.id].trim() !== "") : false;
+                    } else { // MCQ logic
+                      answered = answers[q.id] !== undefined;
+                    }
+
                     const isCurrent = idx === currentIdx
                     const isFlag = flagged.has(q.id)
                     let bg = "bg-muted text-muted-foreground hover:bg-muted/80"

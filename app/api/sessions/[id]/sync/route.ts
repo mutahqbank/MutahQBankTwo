@@ -7,7 +7,7 @@ export async function PUT(
 ) {
     try {
         const { id } = await params
-        const { current_position, question_id, answer_id, flagged, action } = await request.json()
+        const { current_position, question_id, answer_id, flagged, note, action } = await request.json()
 
         // 1. If action is 'abandon' or 'complete', update status and exit
         if (action === "abandon") {
@@ -25,7 +25,7 @@ export async function PUT(
             await query(`UPDATE assessments SET current_position = $1 WHERE id = $2`, [current_position, parseInt(id)])
         }
 
-        // Update specific question answer / flagged state
+        // Update specific question answer / flagged state / note
         if (question_id !== undefined) {
             let sql = `UPDATE assessments_questions SET `
             const queryParams: unknown[] = []
@@ -38,6 +38,11 @@ export async function PUT(
                 if (queryParams.length > 0) sql += `, `
                 queryParams.push(flagged)
                 sql += `flagged = $${queryParams.length}`
+            }
+            if (note !== undefined) {
+                if (queryParams.length > 0) sql += `, `
+                queryParams.push(note)
+                sql += `note = $${queryParams.length}`
             }
 
             if (queryParams.length > 0) {
