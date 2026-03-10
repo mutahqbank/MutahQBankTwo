@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 
+export const revalidate = 60;
+
 async function getCourseId(slug: string): Promise<number | null> {
   const r = await query(`SELECT id FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
   return r.rows.length > 0 ? r.rows[0].id : null

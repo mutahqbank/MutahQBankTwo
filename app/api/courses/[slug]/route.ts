@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 
+export const revalidate = 60;
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }

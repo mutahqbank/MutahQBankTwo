@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => setUser(null))
       .finally(() => setIsLoading(false))
 
-    // Aggressive polling every 15 seconds to strictly enforce single-session on idle pages
+    // Aggressive polling every 5 minutes to continuously enforce single-session on idle pages
     const intervalId = setInterval(() => {
       if (window.location.pathname !== "/login") {
         fetch("/api/auth/me").then(async res => {
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }).catch(() => { })
       }
-    }, 15000)
+    }, 300000)
 
     return () => clearInterval(intervalId)
   }, [])
