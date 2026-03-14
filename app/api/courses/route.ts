@@ -17,7 +17,7 @@ export async function GET() {
         (SELECT COUNT(*) FROM subjects s WHERE s.course_id = c.id AND s.active = true) AS total_subjects,
         (SELECT COUNT(*) FROM questions q
           JOIN subjects s ON q.subject_id = s.id
-          WHERE s.course_id = c.id AND q.active = true) AS total_questions,
+          WHERE s.course_id = c.id AND q.active = true AND s.active = true) AS total_questions,
         (SELECT COUNT(*) FROM subscriptions sub
           JOIN plans p ON sub.package_id = p.package_id
           WHERE p.course_id = c.id AND sub.active = true) AS current_subscriptions

@@ -22,7 +22,7 @@ export async function GET(
         (SELECT COUNT(*) FROM subjects s WHERE s.course_id = c.id AND s.active = true) AS total_subjects,
         (SELECT COUNT(*) FROM questions q
           JOIN subjects s ON q.subject_id = s.id
-          WHERE s.course_id = c.id AND q.active = true) AS total_questions
+          WHERE s.course_id = c.id AND q.active = true AND s.active = true) AS total_questions
       FROM courses c
       WHERE c.public_id = $1 OR c.id::text = $1
     `, [slug])

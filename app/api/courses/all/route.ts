@@ -9,7 +9,7 @@ export async function GET() {
         c.course AS name,
         (SELECT COUNT(*) FROM questions q
           JOIN subjects s ON q.subject_id = s.id
-          WHERE s.course_id = c.id AND q.active = true) AS questions_count
+          WHERE s.course_id = c.id AND q.active = true AND s.active = true) AS questions_count
       FROM courses c
       ORDER BY c.course ASC
     `)

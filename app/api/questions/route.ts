@@ -14,21 +14,55 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "course_id is required" }, { status: 400 })
     }
 
-    // Build WHERE clause
-    // questions table: id, question, period_id, explanation, subject_id, active, type_id
-    // subjects table links questions to courses via subjects.course_id
     let sql = `
-      SELECT q.id, q.question AS question_text, q.explanation AS explanation_html,
-             q.subject_id, q.type_id, q.active,
-             s.subject AS subject_name,
-             qt.type AS question_type,
-             qp.period AS exam_period
+      SELECT 
+        q.id, q.question AS question_text, q.explanation AS explanation_html,
+        q.subject_id, q.type_id, q.active,
+        s.subject AS subject_name,
+        qt.type AS question_type,
+        qp.period AS exam_period,
+        
+        -- Aggregate Options
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'id', o.id, 
+            'option', o.option, 
+            'correct', o.correct,
+            'selection_count', (SELECT COUNT(*) FROM assessments_questions aq WHERE aq.answer_id = o.id)
+          ) ORDER BY o.id)
+          FROM options o WHERE o.question_id = q.id
+        ), '[]'::json) AS options,
+
+        -- Aggregate Figures
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'id', f.id, 
+            'image_url', f.figure, 
+            'public_id', f.public_id, 
+            'figure_type', ft.type
+          ) ORDER BY f.id)
+          FROM figures f
+          LEFT JOIN figures_types ft ON f.type_id = ft.id
+          WHERE f.question_id = q.id
+        ), '[]'::json) AS figures,
+
+        -- Aggregate Sub-questions
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'id', sq.id, 
+            'subquestion_text', sq.question, 
+            'answer_html', sq.answer
+          ) ORDER BY sq.id)
+          FROM sub_questions sq WHERE sq.case_id = q.id
+        ), '[]'::json) AS sub_questions
+
       FROM questions q
       JOIN subjects s ON q.subject_id = s.id
       LEFT JOIN questions_types qt ON q.type_id = qt.id
       LEFT JOIN questions_periods qp ON q.period_id = qp.id
       WHERE s.course_id = $1 AND q.active = true
     `
+    
     const params: unknown[] = [parseInt(courseId)]
     let pi = 2
 
@@ -58,43 +92,7 @@ export async function GET(request: NextRequest) {
 
     const result = await query(sql, params)
 
-    // For each question, fetch options, figures, and sub_questions
-    const questions = await Promise.all(
-      result.rows.map(async (q: Record<string, unknown>) => {
-        // Options: options(id, option, correct, question_id)
-        const opts = await query(
-          `SELECT o.id, o.option, o.correct,
-                  (SELECT COUNT(*) FROM assessments_questions aq WHERE aq.answer_id = o.id) as selection_count
-           FROM options o WHERE o.question_id = $1 ORDER BY o.id`,
-          [q.id]
-        )
-
-        // Figures: figures(id, question_id, figure, public_id, type_id)
-        const figs = await query(
-          `SELECT f.id, f.figure AS image_url, f.public_id, ft.type AS figure_type
-           FROM figures f
-           LEFT JOIN figures_types ft ON f.type_id = ft.id
-           WHERE f.question_id = $1 ORDER BY f.id`,
-          [q.id]
-        )
-
-        // Sub-questions for CBQ/case-based: sub_questions(id, case_id, question, answer)
-        const subs = await query(
-          `SELECT id, question AS subquestion_text, answer AS answer_html
-           FROM sub_questions WHERE case_id = $1 ORDER BY id`,
-          [q.id]
-        )
-
-        return {
-          ...q,
-          options: opts.rows,
-          figures: figs.rows,
-          sub_questions: subs.rows,
-        }
-      })
-    )
-
-    return NextResponse.json(questions)
+    return NextResponse.json(result.rows)
   } catch (error) {
     console.error("Failed to fetch questions:", error)
     return NextResponse.json({ error: "Failed to fetch questions" }, { status: 500 })
