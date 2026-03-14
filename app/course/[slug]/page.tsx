@@ -83,7 +83,7 @@ function CourseEditForm({ course, slug, onDone }: { course: DBCourse; slug: stri
 /* ═══════════════════════════════════════════
    Editable Subject Row
    ═══════════════════════════════════════════ */
-function EditableSubjectRow({ subject, index, slug }: { subject: DBSubject; index: number; slug: string }) {
+function EditableSubjectRow({ subject, index, slug, isAdmin }: { subject: DBSubject; index: number; slug: string; isAdmin: boolean }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(subject.name)
   const [busy, setBusy] = useState(false)
@@ -100,7 +100,13 @@ function EditableSubjectRow({ subject, index, slug }: { subject: DBSubject; inde
             <button onClick={saveName} disabled={busy} className="text-green-600 hover:text-green-700"><Check className="h-4 w-4" /></button>
             <button onClick={() => { setEditing(false); setName(subject.name) }} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
           </div>
-        ) : <span className="text-sm font-medium text-foreground truncate">{subject.name}</span>}
+        ) : (
+          isAdmin ? (
+            <Link href={`/admin/courses/${slug}/subjects/${subject.id}/questions`} className="text-sm font-medium text-secondary hover:underline truncate">{subject.name}</Link>
+          ) : (
+            <span className="text-sm font-medium text-foreground truncate">{subject.name}</span>
+          )
+        )}
       </div>
       <div className="flex items-center gap-2 shrink-0 ml-2">
         <span className="text-xs text-muted-foreground">{subject.question_count} Q</span>
@@ -112,12 +118,16 @@ function EditableSubjectRow({ subject, index, slug }: { subject: DBSubject; inde
   )
 }
 
-function SubjectRow({ subject, index }: { subject: DBSubject; index: number }) {
+function SubjectRow({ subject, index, slug, isAdmin }: { subject: DBSubject; index: number; slug: string; isAdmin: boolean }) {
   return (
     <div className="flex items-center justify-between border-b border-border px-4 py-3 transition-colors hover:bg-muted/50">
       <div className="flex items-center gap-3">
         <span className="flex h-7 w-7 items-center justify-center rounded bg-primary text-xs font-semibold text-primary-foreground">{String(index + 1).padStart(2, "0")}</span>
-        <span className="text-sm font-medium text-foreground">{subject.name}</span>
+        {isAdmin ? (
+          <Link href={`/admin/courses/${slug}/subjects/${subject.id}/questions`} className="text-sm font-medium text-secondary hover:underline">{subject.name}</Link>
+        ) : (
+          <span className="text-sm font-medium text-foreground">{subject.name}</span>
+        )}
       </div>
       <span className="text-xs text-muted-foreground">{subject.question_count} Q</span>
     </div>
@@ -517,7 +527,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                   {subjectsLoading ? (
                     <div className="flex items-center justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                   ) : subjects && subjects.length > 0 ? (
-                    subjects.map((s, idx) => editMode ? <EditableSubjectRow key={s.id} subject={s} index={idx} slug={slug} /> : <SubjectRow key={s.id} subject={s} index={idx} />)
+                    subjects.map((s, idx) => editMode ? <EditableSubjectRow key={s.id} subject={s} index={idx} slug={slug} isAdmin={isAdmin} /> : <SubjectRow key={s.id} subject={s} index={idx} slug={slug} isAdmin={isAdmin} />)
                   ) : (
                     <div className="p-6 text-center text-sm text-muted-foreground">No subjects found for this course.</div>
                   )}
