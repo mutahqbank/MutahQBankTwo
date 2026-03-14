@@ -5,11 +5,14 @@ import useSWR, { mutate } from "swr"
 import Link from "next/link"
 import { 
   Loader2, Plus, Edit, Trash2, Home, ChevronRightIcon,
-  ToggleLeft, ToggleRight, Check, X, ArrowLeft
+  ToggleLeft, ToggleRight, Check, X, ArrowLeft, Image as ImageIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-// Type matches the GET response from the API we created
+interface Option { id?: number; option: string; correct: boolean; selection_count?: number }
+interface Figure { id?: number; image_url: string; public_id?: string; figure_type?: string | number; uploading?: boolean }
+interface SubQuestion { id?: number; subquestion_text: string; answer_html: string }
+
 interface AdminQuestion {
   id: number
   question_text: string
@@ -21,6 +24,9 @@ interface AdminQuestion {
   subject_name: string
   question_type: string
   exam_period: string
+  options: Option[]
+  figures: Figure[]
+  sub_questions: SubQuestion[]
 }
 
 export default function AdminSubjectQuestionsPage({ params }: { params: Promise<{ slug: string, subjectId: string }> }) {
@@ -34,14 +40,17 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
     explanation: "",
     active: true,
     type_id: 1, // 1: MCQ, 2: Case Based
-    period_id: 1 as number | null // 1: Mid, 2: Final
+    period_id: 1 as number | null, // 1: Mid, 2: Final
+    options: [] as Option[],
+    figures: [] as Figure[],
+    sub_questions: [] as SubQuestion[]
   })
   const [saving, setSaving] = useState(false)
 
   const subjectName = questions?.[0]?.subject_name || "Subject"
 
   const handleAddNew = () => {
-    setForm({ question: "", explanation: "", active: true, type_id: 1, period_id: 1 })
+    setForm({ question: "", explanation: "", active: true, type_id: 1, period_id: 1, options: [], figures: [], sub_questions: [] })
     setEditingId("new")
   }
 
@@ -51,7 +60,10 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
       explanation: q.explanation_html || "",
       active: q.active,
       type_id: q.type_id || 1,
-      period_id: q.period_id || 1
+      period_id: q.period_id || 1,
+      options: q.options || [],
+      figures: q.figures || [],
+      sub_questions: q.sub_questions || []
     })
     setEditingId(q.id)
   }
@@ -107,7 +119,6 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
     }
   }
 
-  // Quick toggle without opening edit form
   const toggleActive = async (q: AdminQuestion) => {
     try {
       await fetch(`/api/admin/questions/${q.id}`, {
@@ -123,7 +134,6 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
 
   return (
     <div className="min-h-screen bg-muted/20 pb-20">
-      {/* Breadcrumb Navigation */}
       <nav className="bg-background border-b border-border px-4 py-3 sticky top-0 z-10">
         <div className="mx-auto flex max-w-7xl items-center gap-2 text-sm">
           <Link href="/" className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
@@ -139,7 +149,6 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
       </nav>
 
       <main className="mx-auto max-w-7xl px-4 py-8">
-        {/* Header Section */}
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
@@ -161,7 +170,6 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
           </Button>
         </div>
 
-        {/* Existing Questions List */}
         <div className="bg-background rounded-xl border border-border shadow-sm overflow-hidden">
           {isLoading ? (
             <div className="flex justify-center p-12">
@@ -171,7 +179,6 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
             <div className="divide-y divide-border">
               {questions.map((q, idx) => (
                 <div key={q.id} className="p-5 hover:bg-muted/30 transition-colors">
-                  {/* Question Display */}
                   <div className={`flex flex-col gap-3 ${!q.active ? 'opacity-60' : ''}`}>
                     <div className="flex justify-between items-start gap-4">
                       <div className="flex items-start gap-3 flex-1">
@@ -179,7 +186,6 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
                           {idx + 1}
                         </span>
                         <div className="flex-1 space-y-2">
-                          {/* Raw text display as requested */}
                           <div className="text-sm font-medium text-foreground whitespace-pre-wrap font-mono bg-muted/50 p-3 rounded-md border border-border/50">
                             {q.question_text || "No question text"}
                           </div>
@@ -197,11 +203,14 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
                             {q.period_id === 1 && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">Mid</span>}
                             {q.period_id === 2 && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Final</span>}
                             {!q.active && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">Inactive</span>}
+
+                            {q.options?.length > 0 && <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-muted-foreground/20 text-muted-foreground">{q.options.length} Options</span>}
+                            {q.figures?.length > 0 && <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-muted-foreground/20 text-muted-foreground">{q.figures.length} Figures</span>}
+                            {q.sub_questions?.length > 0 && <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-muted-foreground/20 text-muted-foreground">{q.sub_questions.length} Sub-questions</span>}
                           </div>
                         </div>
                       </div>
 
-                      {/* Actions */}
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => toggleActive(q)} className="p-2 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted" title="Toggle Active">
                           {q.active ? <ToggleRight className="h-5 w-5 text-green-500" /> : <ToggleLeft className="h-5 w-5" />}
@@ -229,11 +238,10 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
             </div>
           )}
 
-          {/* Modal Overlay for Add/Edit */}
           {editingId !== null && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 sm:p-6" onClick={() => setEditingId(null)}>
               <div 
-                className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-background shadow-2xl ring-1 ring-border" 
+                className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl bg-background shadow-2xl ring-1 ring-border" 
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between border-b border-border px-6 py-4 sticky top-0 bg-background z-10">
@@ -260,75 +268,309 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
   )
 }
 
-// Reusable form component for both New and Edit states
 function QuestionForm({ form, setForm, onSave, onCancel, saving, isNew }: any) {
+
+  const addOption = () => {
+    setForm({ ...form, options: [...form.options, { option: "", correct: false }] })
+  }
+  const removeOption = (idx: number) => {
+    setForm({ ...form, options: form.options.filter((_: any, i: number) => i !== idx) })
+  }
+  const updateOption = (idx: number, field: string, value: any) => {
+    const newOptions = [...form.options]
+    if (field === 'correct' && value === true) {
+      newOptions.forEach(o => o.correct = false) // Single correct answer for MCQ
+    }
+    newOptions[idx] = { ...newOptions[idx], [field]: value }
+    setForm({ ...form, options: newOptions })
+  }
+
+  const addFigure = () => {
+    setForm({ ...form, figures: [...form.figures, { image_url: "", figure_type: 1, uploading: false }] })
+  }
+  const removeFigure = (idx: number) => {
+    setForm({ ...form, figures: form.figures.filter((_: any, i: number) => i !== idx) })
+  }
+  
+  const handleImageUpload = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Limit to 15MB (same as backend)
+    if (file.size > 15 * 1024 * 1024) {
+      alert("File is too large. Maximum size is 15MB.")
+      return
+    }
+
+    // Set uploading state
+    const newFigures = [...form.figures]
+    newFigures[idx] = { ...newFigures[idx], uploading: true }
+    setForm({ ...form, figures: newFigures })
+
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to upload image")
+
+      // Update with secure URL and public ID
+      const updatedFigures = [...form.figures]
+      updatedFigures[idx] = { 
+        ...updatedFigures[idx], 
+        image_url: data.secure_url,
+        public_id: data.public_id,
+        uploading: false 
+      }
+      setForm({ ...form, figures: updatedFigures })
+      
+    } catch (error: any) {
+      alert(error.message)
+      // Reset uploading state on failure
+      const revertedFigures = [...form.figures]
+      revertedFigures[idx] = { ...revertedFigures[idx], uploading: false }
+      setForm({ ...form, figures: revertedFigures })
+    }
+  }
+
+  const addSubQuestion = () => {
+    setForm({ ...form, sub_questions: [...form.sub_questions, { subquestion_text: "", answer_html: "" }] })
+  }
+  const removeSubQuestion = (idx: number) => {
+    setForm({ ...form, sub_questions: form.sub_questions.filter((_: any, i: number) => i !== idx) })
+  }
+  const updateSubQuestion = (idx: number, field: string, value: any) => {
+    const newSubs = [...form.sub_questions]
+    newSubs[idx] = { ...newSubs[idx], [field]: value }
+    setForm({ ...form, sub_questions: newSubs })
+  }
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-4 mb-2">
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input 
-            type="checkbox" 
-            checked={form.active} 
-            onChange={(e) => setForm({ ...form, active: e.target.checked })}
-            className="rounded border-border"
-          />
-          <span className="font-medium text-foreground">Active</span>
-        </label>
-      </div>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-4">
+          <div className="flex items-center gap-4 mb-2">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={form.active} 
+                onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                className="rounded border-border accent-primary"
+              />
+              <span className="font-medium text-foreground">Active</span>
+            </label>
+          </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground mb-1">Question Type</label>
-          <select 
-            value={form.type_id} 
-            onChange={(e) => setForm({ ...form, type_id: parseInt(e.target.value) })}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-secondary focus:border-secondary"
-          >
-            <option value={1}>Multiple Choice (MCQ)</option>
-            <option value={2}>Case Based Question (CBQ)</option>
-          </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground mb-1">Question Type</label>
+              <select 
+                value={form.type_id} 
+                onChange={(e) => setForm({ ...form, type_id: parseInt(e.target.value) })}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-secondary focus:border-secondary"
+              >
+                <option value={1}>Multiple Choice (MCQ)</option>
+                <option value={2}>Case Based Question (CBQ)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground mb-1">Period</label>
+              <select 
+                value={form.period_id || 1} 
+                onChange={(e) => setForm({ ...form, period_id: parseInt(e.target.value) })}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-secondary focus:border-secondary"
+              >
+                <option value={1}>Mid</option>
+                <option value={2}>Final</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1">Question Content (Raw HTML / Text)</label>
+            <textarea 
+              rows={4}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono text-foreground focus:ring-secondary focus:border-secondary"
+              value={form.question}
+              onChange={(e) => setForm({ ...form, question: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1">Explanation (Raw HTML / Text)</label>
+            <textarea 
+              rows={3}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono text-foreground focus:ring-secondary focus:border-secondary"
+              value={form.explanation}
+              onChange={(e) => setForm({ ...form, explanation: e.target.value })}
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground mb-1">Period</label>
-          <select 
-            value={form.period_id || 1} 
-            onChange={(e) => setForm({ ...form, period_id: parseInt(e.target.value) })}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-secondary focus:border-secondary"
-          >
-            <option value={1}>Mid</option>
-            <option value={2}>Final</option>
-          </select>
+
+        {/* Figures Manager (Right Column) */}
+        <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-foreground">Figures / Images</h4>
+            <Button type="button" variant="outline" size="sm" onClick={addFigure} className="h-7 px-2 text-xs bg-background">
+              <Plus className="mr-1 h-3 w-3" /> Add Image
+            </Button>
+          </div>
+          <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
+            {form.figures.map((fig: any, idx: number) => (
+              <div key={idx} className="relative rounded-md border border-border bg-background p-3 shadow-sm">
+                <button 
+                  type="button" onClick={() => removeFigure(idx)} 
+                  className="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-destructive hover:bg-destructive hover:text-white transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+                
+                {fig.uploading ? (
+                  <div className="flex flex-col items-center justify-center py-6 h-24 bg-muted/20 border-2 border-dashed border-border rounded">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mb-2" />
+                    <span className="text-xs text-muted-foreground font-medium">Uploading to Cloudinary...</span>
+                  </div>
+                ) : fig.image_url ? (
+                  <div className="relative group">
+                    <img src={fig.image_url} alt="Uploaded figure" className="h-24 w-full rounded object-contain bg-muted/50 border border-border" />
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded cursor-pointer">
+                      <span className="text-white text-xs font-semibold">Change Image</span>
+                      <input 
+                        type="file" 
+                        accept="image/jpeg,image/png,image/webp" 
+                        onChange={(e) => handleImageUpload(idx, e)}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-4 bg-muted/10 border-2 border-dashed border-border rounded hover:bg-muted/30 transition-colors">
+                    <label className="flex flex-col items-center cursor-pointer w-full h-full">
+                      <ImageIcon className="h-6 w-6 text-muted-foreground/60 mb-2" />
+                      <span className="text-xs font-medium text-secondary hover:text-secondary/80">Click to upload image</span>
+                      <span className="text-[10px] text-muted-foreground mt-1">JPG, PNG, WEBP (Max 15MB)</span>
+                      <input 
+                        type="file" 
+                        accept="image/jpeg,image/png,image/webp" 
+                        onChange={(e) => handleImageUpload(idx, e)}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            ))}
+            {form.figures.length === 0 && (
+              <div className="py-4 text-center border-2 border-dashed border-border rounded-lg">
+                <ImageIcon className="mx-auto h-6 w-6 text-muted-foreground/40 mb-1" />
+                <p className="text-[11px] text-muted-foreground">No figures attached</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div>
-        <label className="block text-xs font-semibold text-muted-foreground mb-1">Question Content (Raw HTML / Text)</label>
-        <textarea 
-          rows={5}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono text-foreground focus:ring-secondary focus:border-secondary"
-          value={form.question}
-          onChange={(e) => setForm({ ...form, question: e.target.value })}
-          placeholder="<p>Question text...</p>"
-        />
-      </div>
+      <hr className="border-border" />
 
-      <div>
-        <label className="block text-xs font-semibold text-muted-foreground mb-1">Explanation (Raw HTML / Text)</label>
-        <textarea 
-          rows={3}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono text-foreground focus:ring-secondary focus:border-secondary"
-          value={form.explanation}
-          onChange={(e) => setForm({ ...form, explanation: e.target.value })}
-          placeholder="<p>Detailed explanation...</p>"
-        />
-      </div>
+      {/* MCQs Option Manager */}
+      {form.type_id === 1 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-foreground">MCQ Options</h4>
+            <Button type="button" variant="outline" size="sm" onClick={addOption}>
+              <Plus className="mr-2 h-4 w-4" /> Add Option
+            </Button>
+          </div>
+          <div className="grid gap-3">
+            {form.options.map((opt: any, idx: number) => (
+              <div key={idx} className="flex items-center gap-3 rounded-lg border border-border bg-background p-2 pr-3">
+                <div className="flex flex-col items-center justify-center pl-2 pt-1 border-r border-border pr-3">
+                  <input 
+                    type="checkbox" 
+                    checked={opt.correct} 
+                    onChange={(e) => updateOption(idx, 'correct', e.target.checked)}
+                    className="h-5 w-5 rounded-sm border-border accent-green-600 cursor-pointer"
+                    title="Mark as correct answer"
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-0.5 font-semibold">Correct</span>
+                </div>
+                <textarea
+                  rows={2}
+                  value={opt.option}
+                  placeholder={`Option ${idx + 1}...`}
+                  onChange={(e) => updateOption(idx, 'option', e.target.value)}
+                  className="flex-1 font-mono text-sm resize-none rounded-md border-transparent bg-muted/20 px-3 py-2 focus:border-border focus:bg-background focus:ring-secondary"
+                />
+                <button type="button" onClick={() => removeOption(idx)} className="text-destructive/60 hover:text-destructive p-2">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            {form.options.length === 0 && (
+              <p className="text-sm text-muted-foreground italic py-4">Add options for this multiple choice question.</p>
+            )}
+          </div>
+        </div>
+      )}
 
-      <div className="flex gap-3 pt-2">
-        <Button onClick={onSave} disabled={saving} size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
+      {/* CBQ Sub-questions Manager */}
+      {form.type_id === 2 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-foreground">Sub-Questions</h4>
+            <Button type="button" variant="outline" size="sm" onClick={addSubQuestion}>
+              <Plus className="mr-2 h-4 w-4" /> Add Sub-Question
+            </Button>
+          </div>
+          <div className="grid gap-3">
+            {form.sub_questions.map((sq: any, idx: number) => (
+              <div key={idx} className="flex gap-3 rounded-lg border border-border bg-background p-4 relative">
+                <button type="button" onClick={() => removeSubQuestion(idx)} className="absolute right-3 top-3 text-destructive/60 hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary text-xs font-semibold text-primary-foreground">
+                  {idx + 1}
+                </div>
+                <div className="flex-1 space-y-3 pr-6">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground">Sub-question text</label>
+                    <textarea
+                      rows={2}
+                      value={sq.subquestion_text}
+                      onChange={(e) => updateSubQuestion(idx, 'subquestion_text', e.target.value)}
+                      className="w-full font-mono text-sm mt-1 rounded-md border border-border px-3 py-2 focus:ring-secondary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground">Answer / Explanation HTML</label>
+                    <textarea
+                      rows={2}
+                      value={sq.answer_html}
+                      onChange={(e) => updateSubQuestion(idx, 'answer_html', e.target.value)}
+                      className="w-full font-mono text-sm mt-1 rounded-md border border-border px-3 py-2 focus:ring-secondary"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            {form.sub_questions.length === 0 && (
+              <p className="text-sm text-muted-foreground italic py-4">Add sub-questions for this case based scenario.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-3 pt-4 border-t border-border mt-6">
+        <Button onClick={onSave} disabled={saving} className="bg-secondary text-secondary-foreground hover:bg-secondary/90 flex-1 sm:flex-none">
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-          {isNew ? "Create Question" : "Save Changes"}
+          {isNew ? "Create Full Question" : "Save Changes"}
         </Button>
-        <Button onClick={onCancel} disabled={saving} variant="outline" size="sm">
+        <Button onClick={onCancel} disabled={saving} variant="outline" className="flex-1 sm:flex-none">
           <X className="mr-2 h-4 w-4" /> Cancel
         </Button>
       </div>

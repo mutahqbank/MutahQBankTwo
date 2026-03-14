@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // --- FILE VALIDATION ---
     if (screenshot) {
       if (screenshot.size > MAX_FILE_SIZE) {
-        return NextResponse.json({ error: "Screenshot file is too large. Maximum size is 5MB." }, { status: 400 })
+        return NextResponse.json({ error: "Screenshot file is too large. Maximum size is 15MB." }, { status: 400 })
       }
       if (!ALLOWED_TYPES.includes(screenshot.type)) {
         return NextResponse.json({ error: "Invalid file type. Only JPG, PNG, WEBP, and PDF are allowed." }, { status: 400 })
