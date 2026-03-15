@@ -63,7 +63,7 @@ export async function PUT(
       
       for (const fig of figures) {
         if (fig.id) {
-          await query(`UPDATE figures SET figure = $1, public_id = $2 WHERE id = $3 AND question_id = $4`, [fig.image_url, fig.public_id || '', fig.id, questionId])
+          await query(`UPDATE figures SET figure = $1, public_id = $2, type_id = $3 WHERE id = $4 AND question_id = $5`, [fig.image_url, fig.public_id || '', fig.type_id || 1, fig.id, questionId])
         } else {
           await query(`INSERT INTO figures (figure, public_id, question_id, type_id) VALUES ($1, $2, $3, $4)`, [fig.image_url, fig.public_id || '', questionId, fig.type_id || 1])
         }

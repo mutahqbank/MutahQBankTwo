@@ -34,6 +34,7 @@ export async function GET(
             'id', f.id, 
             'image_url', f.figure, 
             'public_id', f.public_id, 
+            'type_id', f.type_id,
             'figure_type', ft.type
           ) ORDER BY f.id)
           FROM figures f

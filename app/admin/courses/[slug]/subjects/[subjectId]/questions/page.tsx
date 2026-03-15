@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button"
 
 interface Option { id?: number; option: string; correct: boolean; selection_count?: number }
-interface Figure { id?: number; image_url: string; public_id?: string; figure_type?: string | number; uploading?: boolean }
+interface Figure { id?: number; image_url: string; public_id?: string; figure_type?: string | number; uploading?: boolean; file?: File; preview_url?: string }
 interface SubQuestion { id?: number; subquestion_text: string; answer_html: string }
 
 interface AdminQuestion {
@@ -43,6 +43,7 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
     period_id: 1 as number | null, // 1: Mid, 2: Final
     options: [] as Option[],
     figures: [] as Figure[],
+    explanation_figures: [] as Figure[],
     sub_questions: [] as SubQuestion[]
   })
   const [saving, setSaving] = useState(false)
@@ -50,11 +51,14 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
   const subjectName = questions?.[0]?.subject_name || "Subject"
 
   const handleAddNew = () => {
-    setForm({ question: "", explanation: "", active: true, type_id: 1, period_id: 1, options: [], figures: [], sub_questions: [] })
+    setForm({ question: "", explanation: "", active: true, type_id: 1, period_id: 1, options: [], figures: [], explanation_figures: [], sub_questions: [] })
     setEditingId("new")
   }
 
   const handleEdit = (q: AdminQuestion) => {
+    const allFigures = q.figures || []
+    const questionFigures = allFigures.filter((f: any) => !f.type_id || f.type_id === 1)
+    const explanationFigures = allFigures.filter((f: any) => f.type_id === 2)
     setForm({
       question: q.question_text || "",
       explanation: q.explanation_html || "",
@@ -62,7 +66,8 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
       type_id: q.type_id || 1,
       period_id: q.period_id || 1,
       options: q.options || [],
-      figures: q.figures || [],
+      figures: questionFigures,
+      explanation_figures: explanationFigures,
       sub_questions: q.sub_questions || []
     })
     setEditingId(q.id)
@@ -76,18 +81,42 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
 
     setSaving(true)
     try {
+      // Upload any pending files to Cloudinary first
+      const uploadFigure = async (fig: any) => {
+        if (fig.file) {
+          const formData = new FormData()
+          formData.append("file", fig.file)
+          const res = await fetch("/api/admin/upload", { method: "POST", body: formData })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || "Failed to upload image")
+          return { ...fig, image_url: data.secure_url, public_id: data.public_id, file: undefined, preview_url: undefined }
+        }
+        return { ...fig, file: undefined, preview_url: undefined }
+      }
+
+      const uploadedQuestionFigs = await Promise.all(form.figures.map(uploadFigure))
+      const uploadedExplanationFigs = await Promise.all(form.explanation_figures.map(uploadFigure))
+
+      // Merge question figures (type_id=1) and explanation figures (type_id=2) into one array
+      const mergedFigures = [
+        ...uploadedQuestionFigs.map((f: any) => ({ ...f, figure_type: 1, type_id: 1 })),
+        ...uploadedExplanationFigs.map((f: any) => ({ ...f, figure_type: 2, type_id: 2 }))
+      ]
+      const payload = { ...form, figures: mergedFigures }
+      delete (payload as any).explanation_figures
+
       if (editingId === "new") {
         const res = await fetch(`/api/admin/subjects/${subjectId}/questions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form)
+          body: JSON.stringify(payload)
         })
         if (!res.ok) throw new Error("Failed to create question")
       } else {
         const res = await fetch(`/api/admin/questions/${editingId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form)
+          body: JSON.stringify(payload)
         })
         if (!res.ok) throw new Error("Failed to update question")
       }
@@ -285,57 +314,31 @@ function QuestionForm({ form, setForm, onSave, onCancel, saving, isNew }: any) {
     setForm({ ...form, options: newOptions })
   }
 
-  const addFigure = () => {
-    setForm({ ...form, figures: [...form.figures, { image_url: "", figure_type: 1, uploading: false }] })
+  // Generic figure helpers that work for both 'figures' and 'explanation_figures'
+  const addFigureToKey = (key: 'figures' | 'explanation_figures', typeId: number) => {
+    setForm({ ...form, [key]: [...form[key], { image_url: "", figure_type: typeId, uploading: false }] })
   }
-  const removeFigure = (idx: number) => {
-    setForm({ ...form, figures: form.figures.filter((_: any, i: number) => i !== idx) })
+  const removeFigureFromKey = (key: 'figures' | 'explanation_figures', idx: number) => {
+    // Revoke blob URL if present to avoid memory leaks
+    const fig = form[key][idx]
+    if (fig.preview_url) URL.revokeObjectURL(fig.preview_url)
+    setForm({ ...form, [key]: form[key].filter((_: any, i: number) => i !== idx) })
   }
   
-  const handleImageUpload = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  // Store file locally with a blob preview — upload happens on Save
+  const handleFileSelect = (key: 'figures' | 'explanation_figures', idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Limit to 15MB (same as backend)
     if (file.size > 15 * 1024 * 1024) {
       alert("File is too large. Maximum size is 15MB.")
       return
     }
 
-    // Set uploading state
-    const newFigures = [...form.figures]
-    newFigures[idx] = { ...newFigures[idx], uploading: true }
-    setForm({ ...form, figures: newFigures })
-
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-
-      const res = await fetch("/api/admin/upload", {
-        method: "POST",
-        body: formData
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to upload image")
-
-      // Update with secure URL and public ID
-      const updatedFigures = [...form.figures]
-      updatedFigures[idx] = { 
-        ...updatedFigures[idx], 
-        image_url: data.secure_url,
-        public_id: data.public_id,
-        uploading: false 
-      }
-      setForm({ ...form, figures: updatedFigures })
-      
-    } catch (error: any) {
-      alert(error.message)
-      // Reset uploading state on failure
-      const revertedFigures = [...form.figures]
-      revertedFigures[idx] = { ...revertedFigures[idx], uploading: false }
-      setForm({ ...form, figures: revertedFigures })
-    }
+    const previewUrl = URL.createObjectURL(file)
+    const newFigures = [...form[key]]
+    newFigures[idx] = { ...newFigures[idx], file, preview_url: previewUrl, image_url: "" }
+    setForm({ ...form, [key]: newFigures })
   }
 
   const addSubQuestion = () => {
@@ -349,6 +352,71 @@ function QuestionForm({ form, setForm, onSave, onCancel, saving, isNew }: any) {
     newSubs[idx] = { ...newSubs[idx], [field]: value }
     setForm({ ...form, sub_questions: newSubs })
   }
+
+  // Reusable figure section renderer
+  const renderFigureSection = (key: 'figures' | 'explanation_figures', label: string, typeId: number, borderColor: string) => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-bold text-foreground">{label}</h4>
+        <Button type="button" variant="outline" size="sm" onClick={() => addFigureToKey(key, typeId)} className="h-6 px-2 text-[10px] bg-background">
+          <Plus className="mr-1 h-3 w-3" /> Add
+        </Button>
+      </div>
+      <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
+        {form[key].map((fig: any, idx: number) => (
+          <div key={idx} className="relative rounded-md border border-border bg-background p-2 shadow-sm">
+            <button 
+              type="button" onClick={() => removeFigureFromKey(key, idx)} 
+              className="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-destructive hover:bg-destructive hover:text-white transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+            
+            {fig.uploading ? (
+              <div className="flex flex-col items-center justify-center py-4 h-20 bg-muted/20 border-2 border-dashed border-border rounded">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mb-1" />
+                <span className="text-[10px] text-muted-foreground font-medium">Uploading...</span>
+              </div>
+            ) : (fig.image_url || fig.preview_url) ? (
+              <div className="relative group">
+                <img src={fig.preview_url || fig.image_url} alt={label} className="h-20 w-full rounded object-contain bg-muted/50 border border-border" />
+                {fig.preview_url && <span className="absolute top-1 left-1 text-[8px] bg-amber-500 text-white px-1 rounded font-bold">Pending upload</span>}
+                <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded cursor-pointer">
+                  <span className="text-white text-[10px] font-semibold">Change Image</span>
+                  <input 
+                    type="file" 
+                    accept="image/jpeg,image/png,image/webp" 
+                    onChange={(e) => handleFileSelect(key, idx, e)}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-3 bg-muted/10 border-2 border-dashed border-border rounded hover:bg-muted/30 transition-colors">
+                <label className="flex flex-col items-center cursor-pointer w-full h-full">
+                  <ImageIcon className="h-5 w-5 text-muted-foreground/60 mb-1" />
+                  <span className="text-[10px] font-medium text-secondary hover:text-secondary/80">Click to upload</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5">JPG, PNG, WEBP (Max 15MB)</span>
+                  <input 
+                    type="file" 
+                    accept="image/jpeg,image/png,image/webp" 
+                    onChange={(e) => handleFileSelect(key, idx, e)}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+        ))}
+        {form[key].length === 0 && (
+          <div className="py-3 text-center border-2 border-dashed border-border rounded-lg">
+            <ImageIcon className="mx-auto h-5 w-5 text-muted-foreground/40 mb-1" />
+            <p className="text-[10px] text-muted-foreground">No images</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
@@ -413,65 +481,10 @@ function QuestionForm({ form, setForm, onSave, onCancel, saving, isNew }: any) {
         </div>
 
         {/* Figures Manager (Right Column) */}
-        <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-bold text-foreground">Figures / Images</h4>
-            <Button type="button" variant="outline" size="sm" onClick={addFigure} className="h-7 px-2 text-xs bg-background">
-              <Plus className="mr-1 h-3 w-3" /> Add Image
-            </Button>
-          </div>
-          <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
-            {form.figures.map((fig: any, idx: number) => (
-              <div key={idx} className="relative rounded-md border border-border bg-background p-3 shadow-sm">
-                <button 
-                  type="button" onClick={() => removeFigure(idx)} 
-                  className="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-destructive hover:bg-destructive hover:text-white transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-                
-                {fig.uploading ? (
-                  <div className="flex flex-col items-center justify-center py-6 h-24 bg-muted/20 border-2 border-dashed border-border rounded">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mb-2" />
-                    <span className="text-xs text-muted-foreground font-medium">Uploading to Cloudinary...</span>
-                  </div>
-                ) : fig.image_url ? (
-                  <div className="relative group">
-                    <img src={fig.image_url} alt="Uploaded figure" className="h-24 w-full rounded object-contain bg-muted/50 border border-border" />
-                    <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded cursor-pointer">
-                      <span className="text-white text-xs font-semibold">Change Image</span>
-                      <input 
-                        type="file" 
-                        accept="image/jpeg,image/png,image/webp" 
-                        onChange={(e) => handleImageUpload(idx, e)}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-4 bg-muted/10 border-2 border-dashed border-border rounded hover:bg-muted/30 transition-colors">
-                    <label className="flex flex-col items-center cursor-pointer w-full h-full">
-                      <ImageIcon className="h-6 w-6 text-muted-foreground/60 mb-2" />
-                      <span className="text-xs font-medium text-secondary hover:text-secondary/80">Click to upload image</span>
-                      <span className="text-[10px] text-muted-foreground mt-1">JPG, PNG, WEBP (Max 15MB)</span>
-                      <input 
-                        type="file" 
-                        accept="image/jpeg,image/png,image/webp" 
-                        onChange={(e) => handleImageUpload(idx, e)}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                )}
-              </div>
-            ))}
-            {form.figures.length === 0 && (
-              <div className="py-4 text-center border-2 border-dashed border-border rounded-lg">
-                <ImageIcon className="mx-auto h-6 w-6 text-muted-foreground/40 mb-1" />
-                <p className="text-[11px] text-muted-foreground">No figures attached</p>
-              </div>
-            )}
-          </div>
+        <div className="space-y-5 rounded-xl border border-border bg-muted/20 p-4">
+          {renderFigureSection('figures', '📷 Question Images', 1, 'blue')}
+          <hr className="border-border" />
+          {renderFigureSection('explanation_figures', '📝 Explanation Images', 2, 'amber')}
         </div>
       </div>
 

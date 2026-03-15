@@ -9,8 +9,6 @@ export async function POST(request: NextRequest) {
   try {
     // Basic admin check
     const user = await getServerUser()
-    // In a real app we'd verify user.role === 'admin' here if we had it in the session
-    // Since this is an admin route, we assume access is controlled via middleware or we can just check user exists for now.
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
