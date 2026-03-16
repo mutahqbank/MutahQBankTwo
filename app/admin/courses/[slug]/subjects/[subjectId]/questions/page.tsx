@@ -3,6 +3,7 @@
 import { use, useState } from "react"
 import useSWR, { mutate } from "swr"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
 import { 
   Loader2, Plus, Edit, Trash2, Home, ChevronRightIcon,
   ToggleLeft, ToggleRight, Check, X, ArrowLeft, Image as ImageIcon,
@@ -40,6 +41,7 @@ interface AdminQuestion {
 
 export default function AdminSubjectQuestionsPage({ params }: { params: Promise<{ slug: string, subjectId: string }> }) {
   const { slug, subjectId } = use(params)
+  const { user, isAdmin, isInstructor, isLoading: authLoading } = useAuth()
   
   const { data: questions, isLoading } = useSWR<AdminQuestion[]>(`/api/admin/subjects/${subjectId}/questions`)
   
@@ -57,6 +59,27 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
   })
   const [saving, setSaving] = useState(false)
   const [rawText, setRawText] = useState("")
+
+  // Permission Check
+  if (authLoading) return <div className="p-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
+  
+  if (isInstructor && !isAdmin) {
+    const isAllowed = user?.allowed_courses?.some(c => c.toLowerCase() === slug.replace(/-/g, ' ').toLowerCase())
+    if (!isAllowed) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="text-center space-y-4">
+            <X className="h-12 w-12 text-red-500 mx-auto" />
+            <h1 className="text-2xl font-bold text-slate-900">Access Restricted</h1>
+            <p className="text-slate-500">You do not have permission to manage questions for this course ({slug}).</p>
+            <Button asChild variant="outline">
+              <Link href="/admin/kitchen">Go back to Kitchen</Link>
+            </Button>
+          </div>
+        </div>
+      )
+    }
+  }
 
   const handleRawImport = async () => {
     if (!rawText.trim()) return

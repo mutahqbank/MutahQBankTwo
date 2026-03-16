@@ -6,14 +6,14 @@ import { useEffect } from "react"
 import { Loader2 } from "lucide-react"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-    const { isAdmin, isLoading } = useAuth()
+    const { isAdmin, isInstructor, isLoading } = useAuth()
     const router = useRouter()
 
     useEffect(() => {
-        if (!isLoading && !isAdmin) {
+        if (!isLoading && !isAdmin && !isInstructor) {
             router.replace("/")
         }
-    }, [isLoading, isAdmin, router])
+    }, [isLoading, isAdmin, isInstructor, router])
 
     if (isLoading) {
         return (
@@ -23,7 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         )
     }
 
-    if (!isAdmin) {
+    if (!isAdmin && !isInstructor) {
         return null
     }
 

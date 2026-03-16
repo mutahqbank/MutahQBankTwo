@@ -6,6 +6,7 @@ import type { User } from "./types"
 interface AuthContextType {
   user: User | null
   isAdmin: boolean
+  isInstructor: boolean
   isLoading: boolean
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>
   register: (data: { username: string; email: string; password: string; full_name: string; phone: string }) => Promise<{ success: boolean; error?: string }>
@@ -15,6 +16,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isAdmin: false,
+  isInstructor: false,
   isLoading: true,
   login: async () => ({ success: false }),
   register: async () => ({ success: false }),
@@ -64,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const isAdmin = user?.role === "admin"
+  const isInstructor = user?.role === "instructor"
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -107,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, isInstructor, isLoading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   )
