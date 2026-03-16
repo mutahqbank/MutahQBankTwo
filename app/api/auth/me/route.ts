@@ -22,7 +22,8 @@ export async function GET() {
         email: user.email,
         full_name: [user.first_name, user.last_name].filter(Boolean).join(" ") || null,
         phone: user.phone,
-        role: user.role === "admin" ? "admin" : "user",
+        role: user.role === "admin" ? "admin" : (user.role === "instructor" ? "instructor" : "user"),
+        allowed_courses: user.allowed_courses,
         is_banned: false,
     })
 }

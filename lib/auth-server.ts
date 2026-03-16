@@ -16,10 +16,12 @@ export async function getServerUser() {
         u.email,
         u.phone,
         a.username,
-        r.role
+        r.role,
+        du.allowed_courses
       FROM accounts a
       JOIN users u ON a.user_id = u.id
       JOIN users_roles r ON a.role_id = r.id
+      LEFT JOIN dashboard_users du ON a.username = du.username
       WHERE a.token = $1 AND a.active = true
     `, [token])
 
