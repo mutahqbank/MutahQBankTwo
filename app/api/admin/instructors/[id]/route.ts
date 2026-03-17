@@ -65,7 +65,7 @@ export async function PATCH(
       await query("UPDATE accounts SET role_id = $1 WHERE user_id = $2", [userRoleId, parseInt(id)])
       
       // 3. Deactivate in dashboard_users (optional, or just update role)
-      await query("UPDATE dashboard_users SET role_id = $1, active = false WHERE username = $2", [userRoleId, username])
+      await query("UPDATE dashboard_users SET role = $1, active = false WHERE username = $2", ['user', username])
 
       return NextResponse.json({ success: true, message: "User demoted to regular user" })
     }
@@ -101,7 +101,7 @@ export async function DELETE(
     const userRoleId = roleResult.rows[0].id
 
     await query("UPDATE accounts SET role_id = $1 WHERE user_id = $2", [userRoleId, parseInt(id)])
-    await query("UPDATE dashboard_users SET role_id = $1, active = false WHERE username = $2", [userRoleId, username])
+    await query("UPDATE dashboard_users SET role = $1, active = false WHERE username = $2", ['user', username])
 
     return NextResponse.json({ success: true })
   } catch (error) {

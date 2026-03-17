@@ -44,9 +44,12 @@ export async function PATCH(
     const courseName = courseResult.rows[0].course
     console.log(`Question [${id}] Course ID: ${courseId}, Course Name: ${courseName}`);
 
-    if (user.role === "instructor" && !(user.allowed_courses || []).includes(courseName)) {
-      console.log(`PATCH Error: Forbidden for instructor [${user.id}]`);
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (user.role === "instructor") {
+      const allowed = (user.allowed_courses || []).map((c: string) => c.toLowerCase())
+      if (!allowed.includes(courseName.toLowerCase())) {
+        console.log(`PATCH Error: Forbidden for instructor [${user.id}]. Course "${courseName}" not in [${allowed.join(', ')}]`);
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
     }
 
     // 2. Build Update SQL
@@ -131,8 +134,11 @@ export async function DELETE(
     
     const courseId = currentQ.rows[0].course_id
     const courseResult = await query("SELECT course FROM courses WHERE id = $1", [courseId])
-    if (user.role === "instructor" && !(user.allowed_courses || []).includes(courseResult.rows[0].course)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (user.role === "instructor") {
+      const allowed = (user.allowed_courses || []).map((c: string) => c.toLowerCase())
+      if (!allowed.includes(courseResult.rows[0].course.toLowerCase())) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
     }
 
     await query("DELETE FROM questions WHERE id = $1", [id])

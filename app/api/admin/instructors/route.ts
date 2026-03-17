@@ -89,14 +89,14 @@ export async function POST(request: NextRequest) {
     if (dashResult.rows.length > 0) {
       await query(`
         UPDATE dashboard_users 
-        SET allowed_courses = $1, role_id = $2, active = true 
+        SET allowed_courses = $1, role = $2, active = true 
         WHERE username = $3
-      `, [allowedCoursesJson, instructorRoleId, username])
+      `, [allowedCoursesJson, 'instructor', username])
     } else {
       await query(`
-        INSERT INTO dashboard_users (username, allowed_courses, role_id, active)
+        INSERT INTO dashboard_users (username, allowed_courses, role, active)
         VALUES ($1, $2, $3, true)
-      `, [username, allowedCoursesJson, instructorRoleId])
+      `, [username, allowedCoursesJson, 'instructor'])
     }
 
     return NextResponse.json({ success: true })

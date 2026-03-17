@@ -61,9 +61,8 @@ export async function POST(
     if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
     const course = courseRes.rows[0]
 
-    // Instructors can manage subjects for kitchen/staging courses (active = false)
-    // For main courses (active = true), check allowed_courses
-    if (isInstructor && !isAdmin && course.active === true) {
+    // Instructors can manage subjects for their allowed courses
+    if (isInstructor && !isAdmin) {
       const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
       if (!isAllowed) {
         return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
@@ -104,8 +103,8 @@ export async function PUT(
     if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
     const course = courseRes.rows[0]
 
-    // Instructors can manage subjects for kitchen/staging courses (active = false)
-    if (isInstructor && !isAdmin && course.active === true) {
+    // Instructors can manage subjects for their allowed courses
+    if (isInstructor && !isAdmin) {
       const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
       if (!isAllowed) {
         return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
@@ -156,8 +155,8 @@ export async function DELETE(
     if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
     const course = courseRes.rows[0]
 
-    // Instructors can manage subjects for kitchen/staging courses (active = false)
-    if (isInstructor && !isAdmin && course.active === true) {
+    // Instructors can manage subjects for their allowed courses
+    if (isInstructor && !isAdmin) {
       const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
       if (!isAllowed) {
         return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
