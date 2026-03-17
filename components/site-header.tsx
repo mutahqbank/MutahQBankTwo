@@ -4,15 +4,13 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { Menu, LogOut, Users, Receipt, MessageSquare, Home, BookOpen, UserCircle, CreditCard, Settings, CookingPot } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
-const BLOCKED_ADMIN_IDS = [164, 500]
-
 export function SiteHeader() {
-  const { user, isAdmin, isInstructor, logout } = useAuth()
+  const { user, isAdmin, isInstructor, isLoading, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const showAdminLinks = (isAdmin || isInstructor) && user && !BLOCKED_ADMIN_IDS.includes(user.id)
+  const showAdminLinks = !isLoading && (isAdmin || isInstructor) && !!user
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -44,18 +42,22 @@ export function SiteHeader() {
             <Home className="mr-1 inline-block h-4 w-4" />
             Home
           </Link>
-          {!showAdminLinks && user && (
-            <Link href="/my-courses" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
-              <BookOpen className="mr-1 inline-block h-4 w-4" />
-              My Courses
-            </Link>
-          )}
-          {showAdminLinks && (
+          {isLoading ? (
+            <div className="h-4 w-20 animate-pulse rounded bg-primary-foreground/10" />
+          ) : (
             <>
-              <Link href="/admin/kitchen" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
-                <CookingPot className="mr-1 inline-block h-4 w-4" />
-                Kitchen
-              </Link>
+              {user && (
+                <Link href="/my-courses" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
+                  <BookOpen className="mr-1 inline-block h-4 w-4" />
+                  My Courses
+                </Link>
+              )}
+              {showAdminLinks && (
+                <Link href="/admin/kitchen" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
+                  <CookingPot className="mr-1 inline-block h-4 w-4" />
+                  Kitchen
+                </Link>
+              )}
               {isAdmin && (
                 <>
                   <Link href="/admin/users" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
@@ -85,7 +87,9 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-3">
-          {user ? (
+          {isLoading ? (
+            <div className="h-9 w-9 animate-pulse rounded-full bg-primary-foreground/10" />
+          ) : user ? (
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -152,7 +156,7 @@ export function SiteHeader() {
             <Link href="/" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
               Home
             </Link>
-            {!showAdminLinks && user && (
+            {user && (
               <>
                 <Link href="/my-courses" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
                   My Courses

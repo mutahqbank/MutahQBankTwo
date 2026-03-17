@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
       full_name: [user.first_name, user.last_name].filter(Boolean).join(" ") || null,
       phone: user.phone,
-      role: user.role === "admin" ? "admin" : "user",
+      role: user.role === "admin" ? "admin" : (user.role === "instructor" ? "instructor" : "user"),
       is_banned: !user.active,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

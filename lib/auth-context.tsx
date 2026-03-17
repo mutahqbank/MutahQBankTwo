@@ -8,6 +8,7 @@ interface AuthContextType {
   isAdmin: boolean
   isInstructor: boolean
   isLoading: boolean
+  refreshUser: () => Promise<void>
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>
   register: (data: { username: string; email: string; password: string; full_name: string; phone: string }) => Promise<{ success: boolean; error?: string }>
   logout: () => void
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isInstructor: false,
   isLoading: true,
+  refreshUser: async () => { },
   login: async () => ({ success: false }),
   register: async () => ({ success: false }),
   logout: () => { },
@@ -27,26 +29,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    // Rely on the secure HTTP-Only cookie to authenticate the session on load
-    fetch("/api/auth/me")
-      .then(async res => {
-        if (res.ok) return res.json()
-
-        // Handle invalid sessions explicitly
+  const fetchUser = async () => {
+    try {
+      const res = await fetch("/api/auth/me")
+      if (res.ok) {
+        const data = await res.json()
+        setUser(data)
+      } else {
         const errorData = await res.json().catch(() => ({}))
         if (res.status === 401 && errorData.error === "invalid_session") {
           if (window.location.pathname !== "/login") {
             window.location.href = "/login?message=Session expired or logged in elsewhere"
           }
-          throw new Error("Invalid session")
         }
+        setUser(null)
+      }
+    } catch {
+      setUser(null)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-        throw new Error("No active session")
-      })
-      .then(data => setUser(data))
-      .catch(() => setUser(null))
-      .finally(() => setIsLoading(false))
+  useEffect(() => {
+    fetchUser()
 
     // Aggressive polling every 5 minutes to continuously enforce single-session on idle pages
     const intervalId = setInterval(() => {
@@ -67,6 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = !!(user && user.role === "admin")
   const isInstructor = !!(user && user.role === "instructor")
+
+  const refreshUser = async () => {
+    setIsLoading(true)
+    await fetchUser()
+  }
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -110,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, isInstructor, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAdmin, isInstructor, isLoading, refreshUser, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const BLOCKED_ADMIN_IDS = [164, 500]
+// No blocked IDs anymore
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
@@ -46,9 +46,8 @@ export async function middleware(request: NextRequest) {
 
             const isInstructor = user.role === 'instructor'
             const isAdmin = user.role === 'admin'
-            const isBlocked = BLOCKED_ADMIN_IDS.includes(user.id)
-
-            if ((!isAdmin && !isInstructor) || isBlocked) {
+            
+            if (!isAdmin && !isInstructor) {
                 if (pathname.startsWith('/api/')) {
                     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
                 }
