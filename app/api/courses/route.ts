@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 
 export const revalidate = 60
@@ -29,5 +29,26 @@ export async function GET() {
   } catch (error) {
     console.error("Failed to fetch courses:", error)
     return NextResponse.json([], { status: 500 })
+  }
+}
+export async function POST(request: NextRequest) {
+  try {
+    const { name, background } = await request.json()
+    if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 })
+
+    const public_id = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') + '-' + Math.random().toString(36).substring(2, 7)
+    
+    const result = await query(
+      "INSERT INTO courses (course, public_id, active, background) VALUES ($1, $2, false, $3) RETURNING id, course AS name",
+      [name, public_id, background || "/images/courses/default.jpg"]
+    )
+    return NextResponse.json(result.rows[0])
+  } catch (error: any) {
+    console.error("Failed to create course:", error)
+    return NextResponse.json({ 
+      error: "Internal Server Error", 
+      details: error.message,
+      code: error.code 
+    }, { status: 500 })
   }
 }

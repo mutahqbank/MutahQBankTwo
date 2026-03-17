@@ -7,11 +7,18 @@ export async function GET() {
       SELECT
         c.id,
         c.course AS name,
-        (SELECT COUNT(*) FROM questions q
-          JOIN subjects s ON q.subject_id = s.id
-          WHERE s.course_id = c.id AND q.active = true AND s.active = true) AS questions_count
+        c.active,
+        c.background AS hero_image,
+        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status != 'active'), 0) AS kitchen_total,
+        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status = 'unclassified'), 0) AS kitchen_unclassified,
+        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status = 'draft'), 0) AS kitchen_classified,
+        CASE 
+          WHEN (SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status != 'active') > 0 
+          THEN ROUND((SELECT COUNT(*)::float FROM questions q WHERE q.course_id = c.id AND q.status = 'draft') / (SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status != 'active') * 100)
+          ELSE 0 
+        END AS kitchen_percentage
       FROM courses c
-      ORDER BY c.course ASC
+      ORDER BY c.active ASC, c.course ASC
     `)
     return NextResponse.json(result.rows)
   } catch (error) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import crypto from "crypto"
 import { getServerUser } from "@/lib/auth-server"
+import { writeFile } from "fs/promises"
+import path from "path"
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024 // 15MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"]
@@ -31,8 +33,21 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.CLOUDINARY_API_KEY
     const apiSecret = process.env.CLOUDINARY_API_SECRET
 
+    // LOCAL FALLBACK if Cloudinary is not configured
     if (!cloudName || !apiKey || !apiSecret) {
-      return NextResponse.json({ error: "Server configuration error for image upload." }, { status: 500 })
+      console.warn("Cloudinary not configured, falling back to local storage.")
+      const buffer = Buffer.from(await file.arrayBuffer())
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const filename = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${safeName}`
+      const uploadDir = path.join(process.cwd(), "public", "uploads")
+      const filePath = path.join(uploadDir, filename)
+      
+      await writeFile(filePath, buffer)
+      
+      return NextResponse.json({
+        secure_url: `/uploads/${filename}`,
+        public_id: filename
+      }, { status: 201 })
     }
 
     const timestamp = Math.round(new Date().getTime() / 1000).toString()

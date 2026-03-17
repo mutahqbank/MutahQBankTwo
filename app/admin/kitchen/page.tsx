@@ -18,10 +18,18 @@ import {
   Filter,
   Check,
   X,
-  AlertCircle
+  AlertCircle,
+  Copy,
+  Trash2,
+  RefreshCw,
+  RotateCcw,
+  UploadCloud,
+  Code,
+  Image as ImageIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import useSWR from "swr"
+import { toast } from "sonner"
 
 /* --- Types --- */
 type QuestionStatus = "unclassified" | "draft" | "flagged" | "pending_approval" | "approved"
@@ -38,29 +46,46 @@ interface KitchenQuestion {
 interface Course {
   id: number
   name: string
+  active: boolean
   lecture_count: number
   mcq_count: number
   kitchen_total: number
   kitchen_classified: number
   kitchen_unclassified: number
   kitchen_percentage: number
+  hero_image: string | null
+}
+
+/* --- Utils --- */
+const formatToQOCE = (questions: any[]) => {
+  return (questions || []).map((q: any) => {
+    const optionsText = (q.options || []).map((o: any, i: number) => {
+      const text = typeof o === 'string' ? o : (o.option || o.text || "")
+      return `${String.fromCharCode(65 + i)}) ${text}${i === q.correct_index ? ' [CORRECT]' : ''}`
+    }).join('\n')
+    return `QUESTION: ${q.question}\n${optionsText}\nEXPLANATION: ${q.explanation || ''}\n---\n`
+  }).join('\n')
 }
 
 export default function KitchenPage() {
   const { user, isAdmin, isInstructor } = useAuth()
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [activeSection, setActiveSection] = useState<string>(isAdmin ? "approvals" : "selection")
+  const [workflowIndex, setWorkflowIndex] = useState(0)
   const [unclassifiedCount, setUnclassifiedCount] = useState(0)
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
   
   // Data Fetching
-  const { data: allCourses } = useSWR<Course[]>("/api/courses/all")
-  const { data: subjects } = useSWR(selectedCourse ? `/api/courses/${selectedCourse.id}/subjects` : null)
+  const { data: allCourses, mutate: mutateCourses } = useSWR<Course[]>("/api/courses/all")
+  const { data: subjects, mutate: mutateSubjects } = useSWR(selectedCourse ? `/api/courses/${selectedCourse.id}/subjects` : null)
   const { data: unclassifiedQuestions, mutate: mutatePool } = useSWR<KitchenQuestion[]>(
     selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}&status=unclassified` : null
   )
   const { data: pendingApprovalQuestions, mutate: mutateApprovals } = useSWR<KitchenQuestion[]>(
     isAdmin ? `/api/admin/kitchen/all-pending` : null
+  )
+  const { data: draftQuestions, mutate: mutateDrafts } = useSWR<KitchenQuestion[]>(
+    selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}&status=draft` : null
   )
 
   useEffect(() => {
@@ -73,6 +98,9 @@ export default function KitchenPage() {
   const availableCourses = isAdmin 
     ? allCourses 
     : allCourses?.filter(c => allowedCourseNames.map(ac => ac.toLowerCase()).includes(c.name.toLowerCase()))
+
+  // Keep selected course data fresh from allCourses
+  const activeCourse = selectedCourse ? allCourses?.find(c => c.id === selectedCourse.id) || selectedCourse : null
 
   if (!user || (!isAdmin && !isInstructor)) {
     return <div className="p-10 text-center">Unauthorized</div>
@@ -118,6 +146,7 @@ export default function KitchenPage() {
             courses={availableCourses || []} 
             isAdmin={isAdmin}
             onSelect={(c) => { setSelectedCourse(c); setActiveSection("pool") }} 
+            mutate={mutateCourses}
           />
         ) : (
           <div className="space-y-8">
@@ -133,16 +162,32 @@ export default function KitchenPage() {
                 </button>
                 <div className="flex items-center gap-4">
                   <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">{selectedCourse.name}</h2>
-                  <Button variant="outline" size="sm" className="rounded-lg h-8 text-xs font-bold border-slate-200 text-slate-500">
-                    Export All
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="rounded-lg h-8 text-xs font-bold border-slate-200 text-slate-500">
+                      Export All
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="rounded-lg h-8 text-xs font-bold border-orange-200 text-orange-600 bg-orange-50 hover:bg-orange-100 flex items-center gap-2"
+                      onClick={() => {
+                        const allQs = [...(unclassifiedQuestions || []), ...(subjects?.flatMap((s: any) => s.questions) || [])]
+                        const txt = formatToQOCE(allQs)
+                        navigator.clipboard.writeText(txt)
+                        toast.success("All MCQs copied in Q/O/C/E format!")
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copy Q/O/C/E (All)
+                    </Button>
+                  </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <StatBadge label="Total" value={selectedCourse.kitchen_total} color="bg-slate-100 text-slate-500" />
-                <StatBadge label="Classified" value={selectedCourse.kitchen_classified} color="bg-green-50 text-green-600" />
-                <StatBadge label="Unclassified" value={selectedCourse.kitchen_unclassified} color="bg-orange-50 text-orange-600 underline decoration-2 underline-offset-4" />
+                <StatBadge label="Total" value={activeCourse?.kitchen_total || 0} color="bg-slate-100 text-slate-500" />
+                <StatBadge label="Classified" value={activeCourse?.kitchen_classified || 0} color="bg-green-50 text-green-600" />
+                <StatBadge label="Unclassified" value={activeCourse?.kitchen_unclassified || 0} color="bg-orange-50 text-orange-600 underline decoration-2 underline-offset-4" />
               </div>
             </div>
 
@@ -191,7 +236,7 @@ export default function KitchenPage() {
               {activeSection === "import" && (
                 <ImportView 
                   courseId={selectedCourse.id} 
-                  onSuccess={() => { setActiveSection("pool"); mutatePool() }} 
+                  onSuccess={() => { mutatePool() }} 
                 />
               )}
               {activeSection === "pool" && (
@@ -200,7 +245,8 @@ export default function KitchenPage() {
                   questions={unclassifiedQuestions || []} 
                   subjects={subjects || []}
                   mutate={mutatePool}
-                  onStartWorkflow={() => setActiveSection("workflow")}
+                  onStartWorkflow={() => { setWorkflowIndex(0); setActiveSection("workflow") }}
+                  onEditQuestion={(idx: number) => { setWorkflowIndex(idx); setActiveSection("workflow") }}
                 />
               )}
               {activeSection === "workflow" && (
@@ -208,13 +254,21 @@ export default function KitchenPage() {
                   questions={unclassifiedQuestions || []}
                   subjects={subjects || []}
                   mutate={mutatePool}
+                  mutateDrafts={mutateDrafts}
+                  mutateSubjects={mutateSubjects}
+                  mutateCourses={mutateCourses}
                   onClose={() => setActiveSection("pool")}
+                  courseName={selectedCourse?.name}
+                  initialIndex={workflowIndex}
                  />
               )}
-              {activeSection === "lectures" && (
+              {activeSection === "lectures" && activeCourse && (
                 <LecturesView 
-                  courseId={selectedCourse.id} 
+                  courseId={activeCourse.id} 
                   subjects={subjects || []} 
+                  draftQuestions={draftQuestions || []}
+                  mutateDrafts={mutateDrafts}
+                  mutateSubjects={mutateSubjects}
                 />
               )}
               {activeSection === "flagged" && <FlaggedView courseId={selectedCourse.id} />}
@@ -275,69 +329,260 @@ function StatBadge({ label, value, color }: { label: string, value: any, color: 
   )
 }
 
-function SelectionView({ courses, onSelect, isAdmin }: { courses: Course[], onSelect: (c: Course) => void, isAdmin: boolean }) {
-  return (
-    <div className="space-y-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Your Courses</h2>
-          <p className="text-slate-500 font-medium">Manage and classify questions for your assigned courses.</p>
+function SelectionView({ courses, onSelect, isAdmin, mutate }: { courses: Course[], onSelect: (c: Course) => void, isAdmin: boolean, mutate: any }) {
+  const [newCourseName, setNewCourseName] = useState("")
+  const [newCourseImage, setNewCourseImage] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+
+  const stagingCourses = (courses || []).filter(c => !Boolean(c.active))
+  const activeCourses = (courses || []).filter(c => Boolean(c.active))
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setNewCourseImage(file)
+      const reader = new FileReader()
+      reader.onloadend = () => setPreviewUrl(reader.result as string)
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleCreate = async () => {
+    if (!newCourseName || !newCourseImage) {
+      toast.error("Name and Image are required")
+      return
+    }
+    
+    setIsCreating(true)
+    const toastId = toast.loading("Creating course...")
+    
+    try {
+      const formData = new FormData()
+      formData.append("file", newCourseImage)
+      
+      const uploadRes = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData
+      })
+      
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json()
+        throw new Error(err.error || "Image upload failed")
+      }
+      const uploadData = await uploadRes.json()
+      const imageUrl = uploadData.secure_url
+
+      const res = await fetch("/api/courses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCourseName, background: imageUrl })
+      })
+      
+      if (res.ok) {
+        toast.success("Course created successfully!", { id: toastId })
+        setNewCourseName("")
+        setNewCourseImage(null)
+        setPreviewUrl(null)
+        mutate()
+      } else {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to create course")
+      }
+    } catch (e: any) {
+      toast.error(e.message, { id: toastId })
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleDelete = async (e: React.MouseEvent, courseId: number) => {
+    e.stopPropagation()
+    if (!confirm("Are you sure? This will delete all questions in this course.")) return
+    
+    try {
+      const res = await fetch(`/api/courses/${courseId}`, { method: "DELETE" })
+      if (res.ok) {
+        toast.success("Deleted")
+        mutate()
+      }
+    } catch (e) {
+      toast.error("Failed to delete")
+    }
+  }
+
+  const handleToggleStatus = async (e: React.MouseEvent, courseId: number, currentStatus: boolean) => {
+    e.stopPropagation()
+    const action = currentStatus ? "deactivate" : "activate"
+    if (!confirm(`Are you sure you want to ${action} this course?`)) return
+
+    try {
+      const res = await fetch(`/api/courses/${courseId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !currentStatus })
+      })
+      if (res.ok) {
+        toast.success(currentStatus ? "Course deactivated" : "Course activated")
+        mutate()
+      } else {
+        const err = await res.json()
+        toast.error(err.error || "Failed to update status")
+      }
+    } catch (e) {
+      toast.error("Failed to update status")
+    }
+  }
+
+  const renderCourseCard = (course: Course) => (
+    <div
+      key={course.id}
+      onClick={() => onSelect(course)}
+      className="group bg-white border border-slate-100 rounded-[32px] p-2 text-left transition-all hover:shadow-2xl hover:shadow-slate-200 flex flex-col gap-4 relative overflow-hidden h-[400px] cursor-pointer"
+    >
+      {/* Header Image */}
+      <div className="h-48 bg-slate-100 rounded-[24px] overflow-hidden relative">
+        <img 
+          src={course.hero_image || "/images/courses/default.jpg"} 
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+          alt={course.name} 
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        <div className="absolute bottom-4 left-6">
+          <h3 className="text-xl font-black text-white uppercase tracking-tight leading-tight">
+            {course.name}
+          </h3>
         </div>
+        
         {isAdmin && (
-          <div className="flex items-center gap-3">
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl h-12 px-6 shadow-lg shadow-orange-200 transition-all hover:-translate-y-0.5">
-              <Plus className="h-5 w-5 mr-2" />
-              New Course
-            </Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-12 px-6 shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5">
-              <Plus className="h-5 w-5 mr-2" />
-              New Case Course
-            </Button>
+          <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+            <button 
+              onClick={(e) => handleToggleStatus(e, course.id, Boolean(course.active))}
+              className={`p-2 rounded-xl backdrop-blur-md text-white transition-all ${
+                Boolean(course.active) ? "bg-blue-500/80 hover:bg-blue-600" : "bg-green-500/80 hover:bg-green-600"
+              }`}
+              title={Boolean(course.active) ? "Bring back to staging" : "Activate course"}
+            >
+              {Boolean(course.active) ? <RotateCcw className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+            </button>
+            <button 
+              onClick={(e) => handleDelete(e, course.id)}
+              className="p-2 rounded-xl bg-red-500/80 backdrop-blur-md text-white hover:bg-red-600 transition-all"
+              title="Delete course"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
         )}
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {courses.map(course => (
-          <button
-            key={course.id}
-            onClick={() => onSelect(course)}
-            className="group bg-white border border-slate-200 rounded-[24px] p-6 text-left transition-all hover:shadow-2xl hover:shadow-slate-200 hover:border-orange-500/50 flex flex-col gap-6 relative overflow-hidden"
-          >
-            <div className="flex items-start justify-between">
-              <h3 className="text-xl font-bold text-slate-800 group-hover:text-orange-600 transition-colors uppercase tracking-wide pr-8">
-                {course.name}
-              </h3>
-              <div className="absolute top-6 right-6 p-2 rounded-lg bg-slate-50 group-hover:bg-orange-50 transition-colors">
-                <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-orange-500" />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">In Kitchen</p>
-                <p className="text-lg font-black text-slate-700">{course.kitchen_total} Questions</p>
-              </div>
-              <div className="space-y-1 text-right">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Unclassified</p>
-                <p className="text-lg font-black text-orange-600">{course.kitchen_unclassified}</p>
-              </div>
-            </div>
+      <div className="px-6 flex-1 flex flex-col justify-between pb-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">In Kitchen</p>
+            <p className="text-lg font-black text-slate-800">{course.kitchen_total}</p>
+          </div>
+          <div className="space-y-1 text-right">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unclassified</p>
+            <p className="text-lg font-black text-[#D99450]">{course.kitchen_unclassified}</p>
+          </div>
+        </div>
 
-            <div className="space-y-3 pt-2">
-              <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-50">
-                <div 
-                  className={`h-full transition-all duration-1000 ${course.kitchen_percentage === 100 ? 'bg-orange-500' : 'bg-orange-400 opacity-60'}`}
-                  style={{ width: `${course.kitchen_percentage}%` }}
+        <div className="space-y-3">
+          <div className="h-2 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+            <div 
+              className="h-full bg-[#D99450] transition-all duration-1000"
+              style={{ width: `${course.kitchen_percentage}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic pt-0.5">
+              {course.kitchen_percentage}% Ready
+            </span>
+            <div className="bg-slate-50 group-hover:bg-[#D99450]/10 p-2 rounded-xl transition-colors">
+              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-[#D99450]" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-16">
+      <div className="space-y-10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight tracking-tight uppercase">Kitchen Dashboard</h2>
+            <p className="text-slate-500 font-medium">Manage your staging courses and classify questions.</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Create Card - Only for Admins */}
+          {isAdmin && (
+            <div className="group bg-[#0F172A] p-2 rounded-[32px] shadow-2xl border border-slate-800 flex flex-col gap-2 overflow-hidden min-h-[400px]">
+              {/* Image Area */}
+              <div 
+                className="flex-1 bg-[#E7E0D4] rounded-[24px] relative flex flex-center cursor-pointer hover:bg-[#DDD5C9] transition-colors overflow-hidden group/upload"
+                onClick={() => document.getElementById('course-image-input')?.click()}
+              >
+                {previewUrl ? (
+                  <img src={previewUrl} className="w-full h-full object-cover" alt="Preview" />
+                ) : (
+                  <div className="m-auto flex flex-col items-center gap-4">
+                    <UploadCloud className="h-16 w-16 text-[#DDD5C9] group-hover/upload:text-[#CBBFAF] transition-transform group-hover/upload:scale-110" />
+                  </div>
+                )}
+                <input 
+                  id="course-image-input"
+                  type="file" 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleImageChange}
                 />
               </div>
-              <p className="text-[11px] font-black text-right text-orange-500/80 uppercase tracking-tighter italic">
-                {course.kitchen_percentage}% Classified
-              </p>
+
+              {/* Form Area */}
+              <div className="p-3 space-y-2">
+                <input 
+                  type="text" 
+                  placeholder="Name"
+                  className="w-full h-12 bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 text-center font-bold text-[#0F172A] outline-none focus:ring-2 focus:ring-orange-500/20"
+                  value={newCourseName}
+                  onChange={(e) => setNewCourseName(e.target.value)}
+                />
+                <Button 
+                  onClick={handleCreate}
+                  disabled={isCreating}
+                  className="w-full h-12 bg-[#D99450] hover:bg-[#C98440] text-[#0F172A] font-black rounded-xl uppercase tracking-widest text-xs shadow-lg shadow-black/20 disabled:opacity-50"
+                >
+                  {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+                </Button>
+              </div>
             </div>
-          </button>
-        ))}
+          )}
+
+          {stagingCourses.map(course => renderCourseCard(course))}
+        </div>
       </div>
+
+      {activeCourses.length > 0 && (
+        <div className="space-y-10 animate-in fade-in duration-700">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <div className="w-full border-t border-slate-200"></div>
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-slate-50 px-6 text-sm font-black text-slate-400 uppercase tracking-[0.3em]">Activated Courses</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {activeCourses.map(course => renderCourseCard(course))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -351,23 +596,37 @@ function ImportView({ courseId, onSuccess }: any) {
     if (!importText.trim()) return
     setIsImporting(true)
     try {
-      const blocks = importText.split(/(?:^|\n)\s*(?=Q\))/g).filter(b => b.trim().length > 5)
+      const blocks = importText.split(/(?:^|\n|>)\s*(?=Q\)|<b>Q\)|<span>Q\))/i).filter(b => b.trim().length > 5)
       
+      if (blocks.length === 0) {
+        toast.error("No raw blocks detected. Check your format.")
+        setIsImporting(false)
+        return
+      }
+
+      toast.info(`Attempting to parse ${blocks.length} blocks...`)
+
       const parseMCQ = (text: string) => {
-        const questionMatch = text.match(/Q\)\s*([\s\S]*?)\s*(?=\n\s*O\)|\n\s*C\)|\n\s*E\)|$)/i)
-        const question = questionMatch ? questionMatch[1].trim() : ""
+        // Clean up entities but PRESERVE newlines for structured content
+        const workingText = text.replace(/&nbsp;/g, ' ')
+        
+        // Question
+        const qMatch = workingText.match(/(?:Q\)|<b>Q\)|<span>Q\))\s*(?:<\/b>|<\/span>)?\s*([\s\S]*?)\s*(?=\s*(?:O\)|<b>O\)|C\)|<b>C\)|E\)|<b>E\)|$))/i)
+        
+        // Options - match multiple
+        const oMatches = [...workingText.matchAll(/(?:O\)|<b>O\)|<span>O\))\s*(?:<\/b>|<\/span>)?\s*([\s\S]*?)\s*(?=\s*(?:O\)|<b>O\)|C\)|<b>C\)|E\)|<b>E\)|$))/gi)]
+        const options = oMatches.map(m => m[1].trim())
 
-        const optionMatches = [...text.matchAll(/(?:\n|^)\s*O\)\s*([\s\S]*?)\s*(?=\n\s*O\)|\n\s*C\)|\n\s*E\)|$)/gi)]
-        const options = optionMatches.map(m => m[1].trim())
+        // Correct Index
+        const cMatch = workingText.match(/(?:C\)|<b>C\)|<span>C\))\s*(?:<\/b>|<\/span>)?\s*(\d+)/i)
+        const correctIdx = cMatch ? parseInt(cMatch[1]) : 0
 
-        const correctMatch = text.match(/(?:\n|^)\s*C\)\s*(\d+)/i)
-        const correctIdx = correctMatch ? parseInt(correctMatch[1]) : 0
-
-        const explanationMatch = text.match(/(?:\n|^)\s*E\)\s*([\s\S]*)$/i)
-        const explanation = explanationMatch ? explanationMatch[1].trim() : ""
+        // Explanation - take everything after E)
+        const eMatch = workingText.match(/(?:E\)|<b>E\)|<span>E\))\s*(?:<\/b>|<\/span>)?\s*([\s\S]*)$/i)
+        const explanation = eMatch ? eMatch[1].trim() : ""
 
         return {
-          question,
+          question: qMatch ? qMatch[1].trim() : "",
           explanation,
           options: options.map((opt, i) => ({
             option: opt,
@@ -377,16 +636,32 @@ function ImportView({ courseId, onSuccess }: any) {
         }
       }
 
-      const questionsData = blocks.map(parseMCQ)
+      const questionsData = blocks.map(parseMCQ).filter(q => q.question.trim().length > 3)
+
+      if (questionsData.length === 0) {
+        toast.error(`Detected ${blocks.length} blocks, but failed to extract valid questions from them. Ensure markers (Q, O, C, E) are present.`)
+        setIsImporting(false)
+        return
+      }
+
+      toast.loading(`Importing ${questionsData.length} questions...`)
 
       const res = await fetch("/api/admin/kitchen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ course_id: courseId, questions: questionsData })
       })
+
       if (res.ok) {
+        toast.success(`Successfully imported ${questionsData.length} questions`)
         setImportText("")
         onSuccess()
+      } else {
+        const err = await res.json()
+        toast.error(err.details || err.error || "Failed to import questions", {
+          description: err.stack ? "Check console for full stack trace" : undefined,
+          duration: 5000
+        })
       }
     } catch (e) {
       console.error(e)
@@ -395,7 +670,7 @@ function ImportView({ courseId, onSuccess }: any) {
     }
   }
 
-  const questionCount = importText.split(/(?:^|\n)\s*(?=Q\))/g).filter(b => b.trim().length > 5).length
+  const questionCount = importText.split(/(?:^|\n|>)\s*(?=Q\)|<b>Q\)|<span>Q\))/i).filter(b => b.trim().length > 5).length
 
   return (
     <div className="bg-white p-10 rounded-[32px] border border-slate-200 shadow-sm space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -438,7 +713,7 @@ function ImportView({ courseId, onSuccess }: any) {
   )
 }
 
-function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow }: any) {
+function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEditQuestion }: any) {
   const [isClassifying, setIsClassifying] = useState<number | null>(null)
 
   const handleUpdate = async (id: number, data: any) => {
@@ -501,7 +776,7 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow }: an
                   <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl" onClick={() => handleDelete(q.id)}>
                     <X className="h-5 w-5" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-10 px-4 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl font-bold text-xs uppercase tracking-widest" onClick={() => {}}>
+                  <Button variant="ghost" size="sm" className="h-10 px-4 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl font-bold text-xs uppercase tracking-widest" onClick={() => onEditQuestion(idx)}>
                     Edit
                   </Button>
                 </div>
@@ -561,70 +836,527 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow }: an
   )
 }
 
-function LecturesView({ courseId, subjects }: any) {
-  const { data: draftQuestions, mutate } = useSWR<KitchenQuestion[]>(
-    courseId ? `/api/admin/kitchen?course_id=${courseId}&status=draft` : null
-  )
+function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects }: any) {
+  const [newLectureName, setNewLectureName] = useState("")
+  const [newLectureDesc, setNewLectureDesc] = useState("")
+  const [bulkText, setBulkText] = useState("")
+  const [isAdding, setIsAdding] = useState(false)
+  const [mode, setMode] = useState<"single" | "bulk">("single")
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null)
+  const [editingQuestion, setEditingQuestion] = useState<any>(null)
 
-  const handleAction = async (id: number, status: string) => {
-    await fetch(`/api/admin/kitchen/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status })
-    })
-    mutate()
+  const handleAddLecture = async () => {
+    if (!newLectureName.trim()) return
+    setIsAdding(true)
+    try {
+      const res = await fetch(`/api/courses/${courseId}/subjects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newLectureName })
+      })
+      if (res.ok) {
+        toast.success("Lecture created successfully")
+        setNewLectureName("")
+        setNewLectureDesc("")
+        mutateSubjects()
+      } else {
+        toast.error("Failed to create lecture")
+      }
+    } catch (e) {
+      toast.error("An error occurred")
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
+  const handleBulkImport = async () => {
+    if (!bulkText.trim()) return
+    setIsAdding(true)
+    try {
+      const lines = bulkText.split("\n")
+      const cleanedLectures = lines
+        .map(l => l.trim())
+        .filter(l => {
+          // Ignore purely numeric lines (e.g. "01", "1.")
+          if (/^\d+\.?$/.test(l)) return false
+          // Ignore lines containing "Details" (case-insensitive)
+          if (/Details/i.test(l)) return false
+          return l.length > 0
+        })
+
+      if (cleanedLectures.length === 0) {
+        toast.error("No valid lectures found in the list.")
+        setIsAdding(false)
+        return
+      }
+
+      toast.info(`Processing ${cleanedLectures.length} lectures...`)
+      
+      let successCount = 0
+      let lastError = ""
+      for (const name of cleanedLectures) {
+        const res = await fetch(`/api/courses/${courseId}/subjects`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name })
+        })
+        if (res.ok) {
+          successCount++
+        } else {
+          const errData = await res.json().catch(() => ({}))
+          lastError = errData.error || `Error ${res.status}`
+          console.error(`Failed to add lecture "${name}":`, res.status, errData)
+        }
+      }
+
+      if (successCount === 0 && cleanedLectures.length > 0) {
+        toast.error(`Failed to add: ${lastError}`)
+      } else {
+        toast.success(`Successfully added ${successCount} lectures!`)
+      }
+      setBulkText("")
+      mutateSubjects()
+    } catch (e) {
+      toast.error("An error occurred during bulk import")
+    } finally {
+      setIsAdding(false)
+    }
   }
 
   const handleApproveAll = async (subjectId: number) => {
-    const qsInSubject = draftQuestions?.filter(q => q.subject_id === subjectId) || []
-    for (const q of qsInSubject) {
-      await fetch(`/api/admin/kitchen/${q.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "pending_approval" })
-      })
+    const qsInSubject = draftQuestions?.filter((q: any) => q.subject_id == subjectId) || []
+    try {
+      for (const q of qsInSubject) {
+        const res = await fetch(`/api/admin/kitchen/${q.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "pending_approval" })
+        })
+        if (!res.ok) throw new Error(`Failed to approve question ${q.id}`)
+      }
+      toast.success(`Successfully approved ${qsInSubject.length} questions`)
+    } catch (err: any) {
+      toast.error(err.message || "Failed to approve all questions")
+    } finally {
+      mutateDrafts?.()
     }
-    mutate()
   }
 
   // Group questions by subject
   const subjectsWithDrafts = subjects.map((sub: any) => ({
     ...sub,
-    questions: draftQuestions?.filter(q => q.subject_id === sub.id) || []
-  })).filter((s: any) => draftQuestions ? true : false) // Show all subjects or just with drafts? Reference shows "Existing Lectures"
+    questions: draftQuestions?.filter((q: any) => q.subject_id == sub.id) || []
+  }))
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="space-y-6">
-        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Existing Lectures</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {subjectsWithDrafts.length === 0 ? (
-            <div className="md:col-span-2 text-center py-20 bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200">
-              <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No lectures created yet.</p>
+      {/* Add New Lecture Form */}
+      {!selectedSubjectId && (
+        <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Add New Lecture</h3>
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+             <button 
+              onClick={() => setMode("single")}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'single' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400'}`}
+            >
+              Single
+            </button>
+            <button 
+              onClick={() => setMode("bulk")}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'bulk' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400'}`}
+            >
+              Bulk Import
+            </button>
+          </div>
+        </div>
+
+        {mode === "single" ? (
+          <div className="space-y-4">
+             <input 
+              className="w-full h-14 px-6 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:bg-white outline-none transition-all text-slate-700 font-bold placeholder:text-slate-300"
+              placeholder="Lecture Name (e.g. Brain Anatomy)"
+              value={newLectureName}
+              onChange={(e) => setNewLectureName(e.target.value)}
+            />
+            <textarea 
+              className="w-full h-24 p-6 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:bg-white outline-none transition-all text-slate-600 font-medium text-sm placeholder:text-slate-300"
+              placeholder="Description (Optional): Helps AI accurately classify questions."
+              value={newLectureDesc}
+              onChange={(e) => setNewLectureDesc(e.target.value)}
+            />
+            <div className="flex justify-end">
+              <Button 
+                onClick={handleAddLecture}
+                disabled={isAdding || !newLectureName.trim()}
+                className="bg-[#94A3B8] hover:bg-slate-500 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-slate-100 uppercase tracking-widest text-xs"
+              >
+                {isAdding ? "Adding..." : "Add Lecture"}
+              </Button>
             </div>
-          ) : (
-            subjectsWithDrafts.map((sub: any) => (
-              <div key={sub.id} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm hover:border-orange-500/50 transition-all group flex items-center justify-between">
-                <div className="space-y-1">
-                  <h4 className="font-black text-slate-800 uppercase tracking-tight group-hover:text-orange-600 transition-colors">{sub.subject}</h4>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{sub.questions.length} Questions</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-slate-400 text-sm font-medium">
+              Paste a list of lectures. Numbers (e.g., "01") and "Details" keywords will be ignored automatically.
+            </p>
+            <textarea 
+              className="w-full h-64 p-6 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:bg-white outline-none transition-all text-slate-700 font-mono text-xs leading-relaxed placeholder:text-slate-300"
+              placeholder="01&#10;Brain Anomalies&#10;Details&#10;02&#10;Spinal Injuries&#10;Details..."
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+            />
+            <div className="flex justify-end">
+              <Button 
+                onClick={handleBulkImport}
+                disabled={isAdding || !bulkText.trim()}
+                className="bg-[#94A3B8] hover:bg-slate-500 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-slate-100 uppercase tracking-widest text-xs"
+              >
+                {isAdding ? "Processing..." : "Process List"}
+              </Button>
+            </div>
+          </div>
+        )}
+        </div>
+      )}
+
+      <div className="space-y-8">
+        {selectedSubjectId ? (
+          <div className="space-y-8 animate-in fade-in slide-in-from-left-6 duration-700">
+             {/* Header Section */}
+             <div className="bg-white p-12 rounded-[40px] border border-slate-200 shadow-sm text-center space-y-6 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 via-orange-500 to-teal-500" />
+                <div className="flex items-center justify-between mb-8">
+                  <button 
+                    onClick={() => setSelectedSubjectId(null)}
+                    className="flex items-center gap-2 text-xs font-black text-slate-400 hover:text-orange-500 uppercase tracking-widest transition-all group"
+                  >
+                    <ArrowRight className="h-4 w-4 rotate-180 group-hover:-translate-x-1 transition-transform" />
+                    Back to Lectures
+                  </button>
+                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <span>Subjects</span>
+                    <ChevronRight className="h-3 w-3" />
+                    <span>{courseId === 1 ? 'Pediatric' : 'General'}</span>
+                    <ChevronRight className="h-3 w-3" />
+                    <span className="text-slate-900">{subjects.find((s: any) => s.id == selectedSubjectId)?.subject}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                   <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl">
-                      <X className="h-4 w-4" />
-                   </Button>
-                   <div className="p-2 rounded-lg bg-slate-50 group-hover:bg-orange-50 transition-colors">
-                      <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-orange-500" />
-                   </div>
+
+                <div className="space-y-2">
+                  <h2 className="text-5xl font-black text-slate-900 tracking-tight">{subjects.find((s: any) => s.id == selectedSubjectId)?.subject}</h2>
+                  <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-xs">
+                    {subjectsWithDrafts.find((s: any) => s.id == selectedSubjectId)?.questions.length || 0} MCQs assigned
+                  </p>
                 </div>
+
+                <div className="pt-4 space-y-4">
+                  <Button 
+                    onClick={() => {
+                      const qs = subjectsWithDrafts.find((s: any) => s.id == selectedSubjectId)?.questions || []
+                      const txt = formatToQOCE(qs)
+                      navigator.clipboard.writeText(txt)
+                      toast.success("All questions copied in Q/O/C/E format!")
+                    }}
+                    className="bg-[#6366F1] hover:bg-[#4F46E5] text-white font-black h-16 px-12 rounded-[20px] shadow-xl shadow-indigo-100 flex items-center gap-3 mx-auto transition-all hover:-translate-y-1 active:scale-95"
+                  >
+                    <ClipboardList className="h-6 w-6" />
+                    <span className="text-lg">Copy All</span>
+                  </Button>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Formats as Q/I/O/C/E for easy export</p>
+                </div>
+             </div>
+
+             <div className="space-y-6">
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight ml-2">Preview</h3>
+                <div className="grid gap-8">
+                  {subjectsWithDrafts.find((s: any) => s.id == selectedSubjectId)?.questions.length === 0 ? (
+                    <div className="text-center py-20 bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200">
+                      <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">No questions assigned to this lecture yet.</p>
+                    </div>
+                  ) : (
+                    subjectsWithDrafts.find((s: any) => s.id == selectedSubjectId)?.questions.map((q: any, idx: number) => (
+                      <KitchenQuestionCard 
+                        key={q.id} 
+                        question={q} 
+                        index={idx} 
+                        onEdit={() => setEditingQuestion(q)}
+                        onDelete={async () => {
+                          if (confirm("Permanently delete this question?")) {
+                            await fetch(`/api/admin/kitchen/${q.id}`, { method: "DELETE" })
+                            mutateDrafts()
+                            toast.success("Question deleted")
+                          }
+                        }}
+                      />
+                    ))
+                  )}
+                </div>
+             </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {subjectsWithDrafts.length === 0 ? (
+              <div className="md:col-span-full text-center py-24 bg-white rounded-[40px] border border-slate-200 border-dashed">
+                <p className="text-slate-400 font-black uppercase tracking-widest text-sm">No lectures created yet.</p>
+                <p className="text-slate-400 text-xs mt-2 font-medium">Add your first lecture above to get started.</p>
               </div>
-            ))
-          )}
+            ) : (
+              subjectsWithDrafts.map((sub: any) => (
+                <div 
+                  key={sub.id} 
+                  onClick={() => setSelectedSubjectId(sub.id)}
+                  className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:border-orange-500/50 hover:shadow-xl hover:shadow-orange-500/5 transition-all group cursor-pointer relative overflow-hidden"
+                >
+                  <div className="space-y-1">
+                    <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-orange-600 transition-colors leading-tight">{sub.subject}</h4>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{sub.questions.length || 0} Questions</p>
+                  </div>
+                  <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-50">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-10 px-4 text-orange-600 hover:bg-orange-50 border border-transparent hover:border-orange-100 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const txt = formatToQOCE(sub.questions)
+                        navigator.clipboard.writeText(txt)
+                        toast.success(`${sub.subject} copied!`)
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      Copy QOCE
+                    </Button>
+                    <div className="p-2.5 rounded-xl bg-slate-50 group-hover:bg-orange-500 transition-all group-hover:translate-x-1">
+                        <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-white" />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Editing Dialog */}
+      {editingQuestion && (
+        <QuestionEditDialog 
+          question={editingQuestion} 
+          onClose={() => setEditingQuestion(null)}
+          onSave={async (updatedData: any) => {
+            const res = await fetch(`/api/admin/kitchen/${editingQuestion.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updatedData)
+            })
+            if (res.ok) {
+              toast.success("Question updated successfully!")
+              mutateDrafts()
+              setEditingQuestion(null)
+            } else {
+              const err = await res.json()
+              toast.error(err.details || err.error || "Failed to update")
+            }
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/* --- Premium Question Card Component --- */
+function KitchenQuestionCard({ question, index, onEdit, onDelete }: any) {
+  return (
+    <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow">
+      {/* Top Header */}
+      <div className="px-10 py-5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+         <span className="text-slate-400 font-bold text-sm tracking-tight">Case {index + 1}</span>
+         <div className="flex items-center gap-6">
+           <button onClick={onEdit} className="text-[#6366F1] font-bold text-sm hover:underline">Edit</button>
+           <button onClick={onDelete} className="text-red-400 hover:text-red-500 transition-colors">
+              <Trash2 className="h-4 w-4" />
+           </button>
+         </div>
+      </div>
+
+      <div className="p-10 space-y-8">
+        {/* Question Content */}
+        <div className="space-y-6">
+           <div className="prose prose-slate max-w-none">
+             <h3 className="text-[19px] font-bold text-[#1E293B] leading-snug tracking-tight" dangerouslySetInnerHTML={{ __html: question.question }} />
+           </div>
+
+           {/* Options List */}
+           <div className="space-y-3">
+              {(question.options || []).map((opt: any, i: number) => {
+                const optText = typeof opt === 'string' ? opt : (opt.option || opt.text || "")
+                const isCorrect = i === question.correct_index
+                return (
+                  <div key={i} className="flex items-start gap-4">
+                    <div className={`mt-1.5 w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${isCorrect ? 'border-green-500 bg-green-500' : 'border-slate-300'}`}>
+                      {isCorrect && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                    <p className={`text-[16px] font-medium leading-relaxed ${isCorrect ? 'text-green-600' : 'text-slate-600'}`}>
+                      {optText}
+                    </p>
+                  </div>
+                )
+              })}
+           </div>
+        </div>
+
+        {/* Explanation Section */}
+        {question.explanation && (
+          <div className="bg-[#F8FAFC] rounded-[24px] overflow-hidden border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-300">
+             <div className="px-6 py-2.5 bg-slate-200/50 inline-block rounded-br-2xl">
+                <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]">Explanation</span>
+             </div>
+             <div className="p-8 prose prose-slate max-w-none">
+                <div 
+                  className="text-[15px] font-medium text-slate-700 leading-relaxed" 
+                  dangerouslySetInnerHTML={{ __html: question.explanation }} 
+                />
+             </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* --- Robust Question Edit Dialog --- */
+function QuestionEditDialog({ question, onClose, onSave }: any) {
+  const [editData, setEditData] = useState({
+    question: question.question,
+    options: question.options || ["", "", "", ""],
+    correct_index: question.correct_index || 0,
+    explanation: question.explanation || ""
+  })
+  const [showQPreview, setShowQPreview] = useState(false)
+  const [showEPreview, setShowEPreview] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      await onSave(editData)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-5xl max-h-[95vh] rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+        <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between shrink-0">
+          <div className="space-y-1">
+            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Edit MCQ</h3>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">HTML Preview Enabled</p>
+          </div>
+          <button onClick={onClose} className="p-3 hover:bg-slate-100 rounded-2xl transition-all">
+            <X className="h-6 w-6 text-slate-400" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-12 space-y-12">
+          {/* Question Text */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Question Content</p>
+              <button 
+                onClick={() => setShowQPreview(!showQPreview)}
+                className="text-xs font-black uppercase text-orange-600 hover:text-orange-700 transition-all flex items-center gap-2"
+              >
+                {showQPreview ? <><Code className="h-4 w-4" /> Edit Code</> : <><ImageIcon className="h-4 w-4" /> Preview</>}
+              </button>
+            </div>
+            <div className="rounded-[28px] border border-slate-100 bg-slate-50 overflow-hidden min-h-[160px] shadow-inner">
+              {showQPreview ? (
+                <div className="p-8 bg-white prose prose-slate max-w-none">
+                  <div className="text-xl font-bold text-slate-800 leading-relaxed" dangerouslySetInnerHTML={{ __html: editData.question }} />
+                </div>
+              ) : (
+                <textarea 
+                  className="w-full h-40 p-8 bg-slate-50 border-none outline-none text-slate-800 font-mono text-sm leading-relaxed scrollbar-hide"
+                  value={editData.question}
+                  onChange={(e) => setEditData({ ...editData, question: e.target.value })}
+                  placeholder="Enter question HTML..."
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Options Section */}
+          <div className="space-y-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Options Management</p>
+            <div className="grid gap-3">
+              {editData.options.map((opt: string, i: number) => (
+                <div key={i} className={`flex items-center gap-5 bg-white border ${editData.correct_index === i ? 'border-green-500 bg-green-50/10' : 'border-slate-100'} p-5 rounded-[24px] hover:border-slate-200 transition-all group`}>
+                  <button 
+                    onClick={() => setEditData({ ...editData, correct_index: i })}
+                    className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${editData.correct_index === i ? 'border-green-500 bg-green-500 shadow-lg shadow-green-100' : 'border-slate-200 hover:border-green-200'}`}
+                  >
+                    {editData.correct_index === i && <Check className="h-4 w-4 text-white stroke-[4px]" />}
+                  </button>
+                  <input 
+                    value={opt}
+                    onChange={(e) => {
+                      const newOpts = [...editData.options]
+                      newOpts[i] = e.target.value
+                      setEditData({ ...editData, options: newOpts })
+                    }}
+                    className="flex-1 bg-transparent border-none outline-none text-[15px] font-bold text-slate-700 placeholder:text-slate-300"
+                    placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Explanation Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Explanation (Rich Content)</p>
+              <button 
+                onClick={() => setShowEPreview(!showEPreview)}
+                className="text-xs font-black uppercase text-orange-600 hover:text-orange-700 transition-all flex items-center gap-2"
+              >
+                {showEPreview ? <><Code className="h-4 w-4" /> Edit Code</> : <><ImageIcon className="h-4 w-4" /> Preview</>}
+              </button>
+            </div>
+            <div className="rounded-[28px] border border-slate-100 bg-slate-50 overflow-hidden min-h-[200px] shadow-inner">
+              {showEPreview ? (
+                <div className="p-8 bg-white prose prose-slate max-w-none">
+                  <div className="text-[15px] font-medium text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: editData.explanation || '<p class="italic text-slate-400">No explanation content yet...</p>' }} />
+                </div>
+              ) : (
+                <textarea 
+                  className="w-full h-64 p-8 bg-slate-50 border-none outline-none text-slate-800 font-mono text-sm leading-relaxed"
+                  value={editData.explanation}
+                  onChange={(e) => setEditData({ ...editData, explanation: e.target.value })}
+                  placeholder="Enter explanation HTML..."
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-10 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-4 shrink-0">
+          <Button variant="ghost" onClick={onClose} className="font-bold text-slate-400 hover:text-slate-600 h-14 px-8 rounded-2xl">Cancel</Button>
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving}
+            className="bg-[#0F172A] hover:bg-slate-900 text-white font-black px-12 h-14 rounded-2xl shadow-2xl shadow-slate-200 uppercase tracking-widest text-xs flex items-center gap-3"
+          >
+            {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle className="h-5 w-5" />}
+            Save changes
+          </Button>
         </div>
       </div>
     </div>
   )
 }
+
 
 function FlaggedView({ courseId }: any) {
   const { data: questions, mutate } = useSWR<KitchenQuestion[]>(
@@ -714,9 +1446,46 @@ function AllQuestionsView({ courseId }: any) {
 }
 
 
-function WorkflowView({ questions, subjects, mutate, onClose }: any) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+function WorkflowView({ 
+  questions, 
+  subjects, 
+  mutate,         // mutatePool (unclassified)
+  mutateDrafts,   // mutateDrafts (classified)
+  mutateSubjects, // update subject counts
+  mutateCourses,  // update main dashboard counts
+  onClose, 
+  courseName, 
+  initialIndex = 0 
+}: any) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [isSaving, setIsSaving] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [lastAction, setLastAction] = useState<any>(null)
+  const [showPreview, setShowPreview] = useState(true)
+  const [showQuestionPreview, setShowQuestionPreview] = useState(true)
+
+  const LastActionNotification = ({ action, onUndo }: any) => {
+    if (!action) return null;
+    return (
+      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-6 duration-500">
+        <div className="bg-[#0F172A] rounded-[24px] flex items-center justify-between gap-10 px-8 py-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[380px]">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.1em] leading-none">Last Action</p>
+            <p className="text-white text-[15px] font-bold leading-none">
+              Moved to <span className="text-[#D99450]">{action.subjectName}</span>
+            </p>
+          </div>
+          <button 
+            onClick={onUndo}
+            className="bg-white hover:bg-slate-50 text-[#0F172A] font-black rounded-[18px] h-[48px] px-6 flex items-center gap-2.5 text-sm transition-all shadow-xl active:scale-95"
+          >
+            <RotateCcw className="h-4 w-4 text-[#D99450]" />
+            Undo
+          </button>
+        </div>
+      </div>
+    );
+  };
   
   const q = questions[currentIndex]
   
@@ -750,30 +1519,78 @@ function WorkflowView({ questions, subjects, mutate, onClose }: any) {
   }
 
   const handleUpdate = async (data: any, next = true) => {
-    setIsSaving(true)
+    const prevSubjectId = q.subject_id;
+    const effectiveSubjectId = data.subject_id || editData.subject_id;
+    setIsSaving(true);
     try {
-      await fetch(`/api/admin/kitchen/${q.id}`, {
+      const res = await fetch(`/api/admin/kitchen/${q.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...editData, ...data })
-      })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.details || errData.error || `Error ${res.status}`);
+      }
+
+      // Track last action for undo if it's a classification
+      if (effectiveSubjectId) {
+        const subjectName = subjects.find((s: any) => s.id === Number(effectiveSubjectId))?.subject || "Unknown";
+        setLastAction({
+          questionId: q.id,
+          prevSubjectId: prevSubjectId,
+          subjectName: subjectName
+        });
+        // Auto-hide after 5 seconds
+        setTimeout(() => setLastAction(null), 5000);
+      }
+
       if (next) {
+        // Refresh all potentially affected lists to keep counters accurate
+        mutate?.()
+        mutateDrafts?.()
+        mutateSubjects?.()
+        mutateCourses?.()
+        
         if (currentIndex < questions.length - 1) {
           setCurrentIndex(currentIndex + 1)
         } else {
-          mutate() // Refresh pool
           onClose()
         }
       } else {
-        mutate()
+        mutate?.()
+        mutateDrafts?.()
+        mutateSubjects?.()
+        mutateCourses?.()
       }
     } finally {
       setIsSaving(false)
     }
   }
 
+  const handleUndo = async () => {
+    if (!lastAction) return;
+    setIsSaving(true);
+    try {
+      await fetch(`/api/admin/kitchen/${lastAction.questionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject_id: lastAction.prevSubjectId, status: 'unclassified' })
+      });
+      setLastAction(null);
+      mutate();
+      toast.success("Action undone successfully");
+    } catch (error) {
+      toast.error("Failed to undo action");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Left Column: Edit Content */}
       <div className="lg:col-span-3 space-y-6">
         <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-8 space-y-8">
@@ -796,12 +1613,39 @@ function WorkflowView({ questions, subjects, mutate, onClose }: any) {
 
           <div className="space-y-6">
              <div className="space-y-3">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Question Text</p>
-                <textarea 
-                  className="w-full h-32 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:bg-white outline-none transition-all text-slate-800 font-medium text-sm leading-relaxed"
-                  value={editData.question}
-                  onChange={(e) => setEditData({ ...editData, question: e.target.value })} 
-                />
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Question Text</p>
+                  <button 
+                     onClick={() => setShowQuestionPreview(!showQuestionPreview)}
+                     className="text-[10px] font-black uppercase text-secondary hover:text-secondary/80 transition-all flex items-center gap-1.5"
+                   >
+                     {showQuestionPreview ? (
+                       <>
+                         <Code className="h-3 w-3" />
+                         Switch to Edit Code
+                       </>
+                     ) : (
+                       <>
+                         <ImageIcon className="h-3 w-3" />
+                         Switch to Preview
+                       </>
+                     )}
+                   </button>
+                </div>
+                {showQuestionPreview ? (
+                  <div className="w-full min-h-[120px] p-6 bg-white border border-slate-100 rounded-2xl prose prose-slate max-w-none overflow-y-auto">
+                    <div 
+                      className="text-lg font-bold text-slate-800 leading-relaxed" 
+                      dangerouslySetInnerHTML={{ __html: editData.question }} 
+                    />
+                  </div>
+                ) : (
+                  <textarea 
+                    className="w-full h-32 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:bg-white outline-none transition-all text-slate-800 font-medium text-sm leading-relaxed"
+                    value={editData.question}
+                    onChange={(e) => setEditData({ ...editData, question: e.target.value })} 
+                  />
+                )}
              </div>
 
              <div className="space-y-3">
@@ -833,12 +1677,40 @@ function WorkflowView({ questions, subjects, mutate, onClose }: any) {
              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Explanation (HTML Supported)</p>
+                  <button 
+                     onClick={() => setShowPreview(!showPreview)}
+                     className="text-[10px] font-black uppercase text-secondary hover:text-secondary/80 transition-all flex items-center gap-1.5"
+                   >
+                     {showPreview ? (
+                       <>
+                         <Code className="h-3 w-3" />
+                         Switch to Edit Code
+                       </>
+                     ) : (
+                       <>
+                         <ImageIcon className="h-3 w-3" />
+                         Switch to Preview
+                       </>
+                     )}
+                   </button>
                 </div>
-                <textarea 
-                  className="w-full h-32 p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:bg-white outline-none transition-all text-slate-800 font-medium text-sm leading-relaxed"
-                  value={editData.explanation}
-                  onChange={(e) => setEditData({ ...editData, explanation: e.target.value })}
-                />
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 overflow-hidden flex flex-col min-h-[160px]">
+                   {showPreview ? (
+                     <div className="flex-1 p-6 bg-white prose prose-slate max-w-none overflow-y-auto">
+                       <div 
+                         className="text-sm font-medium text-slate-700 leading-relaxed" 
+                         dangerouslySetInnerHTML={{ __html: editData.explanation || '<p class="text-slate-400 italic font-bold uppercase tracking-widest text-[10px]">No explanation content yet...</p>' }} 
+                       />
+                     </div>
+                   ) : (
+                     <textarea 
+                       className="w-full h-40 p-4 bg-slate-50 border-none rounded-2xl focus:ring-0 outline-none transition-all text-slate-800 font-mono text-sm leading-relaxed"
+                       value={editData.explanation}
+                       onChange={(e) => setEditData({ ...editData, explanation: e.target.value })}
+                       placeholder="Write or paste explanation HTML here..."
+                     />
+                   )}
+                </div>
              </div>
           </div>
         </div>
@@ -875,22 +1747,59 @@ function WorkflowView({ questions, subjects, mutate, onClose }: any) {
          <div className="bg-white rounded-[32px] border border-slate-200 p-6 space-y-6 sticky top-24">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Classify to Lecture</p>
             
-            <Button 
-              className="w-full h-14 bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
+             <Button 
+              className={`w-full h-14 font-black rounded-2xl shadow-xl flex items-center justify-center gap-3 uppercase tracking-widest text-xs transition-all duration-300 ${
+                isAnalyzing 
+                  ? "bg-[#9333EA] text-white shadow-indigo-200" 
+                  : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white shadow-indigo-100"
+              }`}
+              disabled={isAnalyzing}
               onClick={async () => {
-                const res = await fetch("/api/admin/kitchen/classify-ai", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ question: editData.question, subjects })
-                })
-                const data = await res.json()
-                if (data.suggested_subject_id) {
-                  setEditData({ ...editData, subject_id: data.suggested_subject_id })
-                  // Optional: handleUpdate({ subject_id: data.suggested_subject_id, status: 'draft' })
+                setIsAnalyzing(true)
+                const toastId = toast.loading("AI is analyzing the question...")
+                try {
+                  const res = await fetch("/api/admin/kitchen/classify-ai", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                      question: editData.question, 
+                      subjects,
+                      explanation: editData.explanation,
+                      courseName
+                    })
+                  })
+                  
+                  const data = await res.json()
+                  if (!res.ok) throw new Error(data.error || "AI classification failed")
+
+                  if (data.suggested_subject_id) {
+                    setEditData({ ...editData, subject_id: data.suggested_subject_id })
+                    toast.success(`Suggested: ${data.reasoning || "Matched subject!"}`, { id: toastId })
+                    // If high/medium confidence, auto-save and move next
+                    if (data.confidence === 'high' || data.confidence === 'medium') {
+                      handleUpdate({ subject_id: data.suggested_subject_id, status: 'draft' })
+                    }
+                  } else {
+                    toast.error("AI couldn't find a matching lecture. Try manual classification.", { id: toastId })
+                  }
+                } catch (e: any) {
+                  console.error("AI Auto-Classify Error:", e)
+                  toast.error(`AI Error: ${e.message || "Unauthorized"}`, { id: toastId })
+                } finally {
+                  setIsAnalyzing(false)
                 }
               }}
             >
-              ✨ AI Auto-Classify
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  ✨ AI Auto-Classify
+                </>
+              )}
             </Button>
 
             <div className="relative">
@@ -929,6 +1838,8 @@ function WorkflowView({ questions, subjects, mutate, onClose }: any) {
          </div>
       </div>
     </div>
+    <LastActionNotification action={lastAction} onUndo={handleUndo} />
+    </>
   )
 }
 

@@ -57,11 +57,13 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const courseRes = await query(`SELECT id, course FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
+    const courseRes = await query(`SELECT id, course, active FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
     if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
     const course = courseRes.rows[0]
 
-    if (isInstructor && !isAdmin) {
+    // Instructors can manage subjects for kitchen/staging courses (active = false)
+    // For main courses (active = true), check allowed_courses
+    if (isInstructor && !isAdmin && course.active === true) {
       const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
       if (!isAllowed) {
         return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
@@ -98,11 +100,12 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const courseRes = await query(`SELECT id, course FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
+    const courseRes = await query(`SELECT id, course, active FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
     if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
     const course = courseRes.rows[0]
 
-    if (isInstructor && !isAdmin) {
+    // Instructors can manage subjects for kitchen/staging courses (active = false)
+    if (isInstructor && !isAdmin && course.active === true) {
       const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
       if (!isAllowed) {
         return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
@@ -149,11 +152,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const courseRes = await query(`SELECT id, course FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
+    const courseRes = await query(`SELECT id, course, active FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
     if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
     const course = courseRes.rows[0]
 
-    if (isInstructor && !isAdmin) {
+    // Instructors can manage subjects for kitchen/staging courses (active = false)
+    if (isInstructor && !isAdmin && course.active === true) {
       const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
       if (!isAllowed) {
         return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })

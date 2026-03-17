@@ -42,8 +42,8 @@ export async function getServerUser() {
         }
 
         return user
-    } catch (error) {
-        console.error("Failed to authenticate session token:", error)
+    } catch (error: any) {
+        console.error("SERVER AUTH ERROR:", error.message, error.stack);
         return null
     }
 }

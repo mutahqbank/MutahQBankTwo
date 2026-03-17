@@ -5,6 +5,7 @@ import "./globals.css"
 import { SWRProvider } from "@/app/swr-provider"
 import { AuthProvider } from "@/lib/auth-context"
 import { AppShell } from "@/components/app-shell"
+import { Toaster } from "sonner"
 
 const _inter = Inter({ subsets: ["latin"] })
 
@@ -27,10 +28,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased" suppressHydrationWarning>
         <SWRProvider>
           <AuthProvider>
             <AppShell>{children}</AppShell>
+            <Toaster richColors position="top-right" />
           </AuthProvider>
         </SWRProvider>
       </body>

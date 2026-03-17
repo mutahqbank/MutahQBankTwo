@@ -1,0 +1,18 @@
+[2] Psychiatry | Active: true
+[10] Neurosurgery | Active: true
+[12] Ophthalmology | Active: true
+[14] Orthopedic  | Active: true
+[15] Neuromedicine | Active: true
+[16] ENT | Active: true
+[20] Family Medicine | Active: true
+[21] Urology | Active: true
+[22] Dermatology | Active: true
+[24] Forensic | Active: true
+[25] Anesthesia | Active: true
+[27] Surgery(MiniOSCE) | Active: true
+[28] Pediatric(MiniOSCE) | Active: true
+[29] OBS and GYN (MiniOSCE) | Active: true
+[30] Internal Medicine(MiniOSCE) | Active: true
+[31] Radiology | Active: true
+[32] Surgery(Final) | Active: true
+[38] TEST TEST | Active: false

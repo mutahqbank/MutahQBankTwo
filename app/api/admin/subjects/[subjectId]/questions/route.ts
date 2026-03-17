@@ -49,7 +49,7 @@ export async function GET(
           ) ORDER BY o.id)
           FROM options o WHERE o.question_id = q.id
         ), '[]'::json) AS options,
-s
+
         -- Aggregate Figures
         COALESCE((
           SELECT json_agg(json_build_object(

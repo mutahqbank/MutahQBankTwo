@@ -94,3 +94,23 @@ export async function PUT(
     return NextResponse.json({ error: "Failed to update course" }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  try {
+    const { slug } = await params
+    const user = await getServerUser()
+    if (user?.role !== 'admin') {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Safeguard: Only delete courses that are NOT active (Staging Area courses)
+    await query(`DELETE FROM courses WHERE (public_id = $1 OR id::text = $1) AND active = false`, [slug])
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Failed to delete course:", error)
+    return NextResponse.json({ error: "Failed to delete course" }, { status: 500 })
+  }
+}

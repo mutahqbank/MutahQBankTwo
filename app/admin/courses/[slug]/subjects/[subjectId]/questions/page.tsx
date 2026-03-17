@@ -60,6 +60,7 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
   })
   const [saving, setSaving] = useState(false)
   const [rawText, setRawText] = useState("")
+  const [showPreview, setShowPreview] = useState(true)
 
   // Permission Check
   if (authLoading || (isInstructor && courseLoading)) return <div className="p-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
@@ -661,17 +662,45 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
                     <div className="space-y-3">
                       <div className="flex items-center justify-between px-1">
                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Explanation (E) - HTML Supported</label>
-                        <button className="text-[10px] font-black uppercase text-primary hover:underline transition-all">Switch to Edit Code</button>
+                        <button 
+                          onClick={() => setShowPreview(!showPreview)}
+                          className="text-[10px] font-black uppercase text-secondary hover:text-secondary/80 transition-all flex items-center gap-1.5"
+                        >
+                          {showPreview ? (
+                            <>
+                              <Code className="h-3 w-3" />
+                              Switch to Edit Code
+                            </>
+                          ) : (
+                            <>
+                              <ImageIcon className="h-3 w-3" />
+                              Switch to Preview
+                            </>
+                          )}
+                        </button>
                       </div>
-                      <div className="rounded-3xl border border-border bg-background shadow-sm overflow-hidden flex flex-col">
-                        {renderToolbar('explanation')}
-                        <textarea 
-                          rows={8}
-                          className="w-full bg-transparent p-6 text-sm font-medium text-slate-700 focus:ring-0 outline-none transition-all leading-relaxed whitespace-pre-wrap"
-                          value={form.explanation}
-                          onChange={(e) => setForm({ ...form, explanation: e.target.value })}
-                          placeholder="Write or paste explanation HTML here..."
-                        />
+                      <div className="rounded-3xl border border-border bg-background shadow-sm overflow-hidden flex flex-col min-h-[300px]">
+                        {showPreview ? (
+                          <div className="flex-1 p-8 bg-slate-50/30 overflow-y-auto">
+                            <div className="prose prose-slate max-w-none">
+                              <div 
+                                className="text-sm font-medium text-slate-700 leading-relaxed" 
+                                dangerouslySetInnerHTML={{ __html: form.explanation || '<p class="text-slate-400 italic">No explanation content yet...</p>' }} 
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {renderToolbar('explanation')}
+                            <textarea 
+                              rows={12}
+                              className="w-full bg-transparent p-6 text-sm font-mono text-slate-700 focus:ring-0 outline-none transition-all leading-relaxed whitespace-pre-wrap flex-1"
+                              value={form.explanation}
+                              onChange={(e) => setForm({ ...form, explanation: e.target.value })}
+                              placeholder="Write or paste explanation HTML here..."
+                            />
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
