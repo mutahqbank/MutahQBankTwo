@@ -65,8 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(intervalId)
   }, [])
 
-  const isAdmin = user?.role === "admin"
-  const isInstructor = user?.role === "instructor"
+  const isAdmin = !!(user && user.role === "admin")
+  const isInstructor = !!(user && user.role === "instructor")
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
