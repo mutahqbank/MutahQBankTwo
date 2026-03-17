@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
+import { getServerUser } from "@/lib/auth-server"
 
 export const revalidate = 60;
 
@@ -56,8 +57,26 @@ export async function POST(
 ) {
   try {
     const { slug } = await params
-    const fallbackCourseId = await getCourseId(slug)
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
 
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const courseRes = await query(`SELECT id, course FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
+    if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+    const course = courseRes.rows[0]
+
+    if (isInstructor && !isAdmin) {
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
+
+    const fallbackCourseId = course.id
     const { price, users_limit, duration, course_ids } = await request.json()
 
     if (!price || price <= 0) return NextResponse.json({ error: "Price is required" }, { status: 400 })
@@ -66,9 +85,7 @@ export async function POST(
     // Determine which courses to link
     const linkedCourses: number[] = Array.isArray(course_ids) && course_ids.length > 0
       ? course_ids
-      : fallbackCourseId ? [fallbackCourseId] : []
-
-    if (linkedCourses.length === 0) return NextResponse.json({ error: "At least one course is required" }, { status: 400 })
+      : [fallbackCourseId]
 
     // Create the package
     const pkgResult = await query(
@@ -95,7 +112,24 @@ export async function PUT(
 ) {
   try {
     const { slug } = await params
-    await getCourseId(slug)
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
+
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const courseRes = await query(`SELECT id, course FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
+    if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+    const course = courseRes.rows[0]
+
+    if (isInstructor && !isAdmin) {
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
 
     const { id, price, users_limit, duration, active, course_ids } = await request.json()
     if (!id) return NextResponse.json({ error: "Package id is required" }, { status: 400 })
@@ -135,8 +169,24 @@ export async function DELETE(
 ) {
   try {
     const { slug } = await params
-    const courseId = await getCourseId(slug)
-    if (!courseId) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
+
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const courseRes = await query(`SELECT id, course FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
+    if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+    const course = courseRes.rows[0]
+
+    if (isInstructor && !isAdmin) {
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
 
     const { id } = await request.json()
     if (!id) return NextResponse.json({ error: "Package id is required" }, { status: 400 })

@@ -273,11 +273,17 @@ function QuestionView({ q, selectedId, cbqAnswers, revealed, onSelect, onCbqAnsw
 export default function SessionDashboardPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
   const courseId = parseInt(slug) || 0
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, isInstructor } = useAuth()
 
   // Subscription check
+  const canAccess = isAdmin || (isInstructor && user?.allowed_courses?.some(c => 
+    c.toLowerCase() === courseData?.name?.toLowerCase() || 
+    c.toLowerCase() === slug.toLowerCase() ||
+    c.toLowerCase() === slug.replace(/-/g, ' ').toLowerCase()
+  ))
+  
   const { data: subCheck, isLoading: subLoading } = useSWR(
-    user && !isAdmin ? `/api/subscriptions/check?user_id=${user.id}&course_id=${courseId}` : null
+    user && !canAccess ? `/api/subscriptions/check?user_id=${user.id}&course_id=${courseId}` : null
   )
   const { data: courseData } = useSWR(`/api/courses/${slug}`)
   const { data: subjects } = useSWR<DBSubject[]>(`/api/courses/${slug}/subjects`)
@@ -669,7 +675,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   }
 
   // ─── Guard: subscription check ─────────────────────────────────
-  if (!isAdmin) {
+  if (!canAccess) {
     if (subLoading) {
       return <div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-secondary" /></div>
     }

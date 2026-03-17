@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
+import { getServerUser } from "@/lib/auth-server"
 
 export const revalidate = 60;
 
@@ -43,16 +44,32 @@ export async function PUT(
 ) {
   try {
     const { slug } = await params
-    const body = await request.json()
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
+
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
     const courseResult = await query(
-      `SELECT id FROM courses WHERE public_id = $1 OR id::text = $1`,
+      `SELECT id, course FROM courses WHERE public_id = $1 OR id::text = $1`,
       [slug]
     )
     if (courseResult.rows.length === 0) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 })
     }
-    const courseId = courseResult.rows[0].id
+    const course = courseResult.rows[0]
+
+    if (isInstructor && !isAdmin) {
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
+
+    const courseId = course.id
+    const body = await request.json()
 
     const fields: string[] = []
     const values: unknown[] = []

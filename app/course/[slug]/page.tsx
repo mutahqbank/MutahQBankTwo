@@ -13,7 +13,7 @@ import {
 
 const fetcher_deprecated = null // Global provider is used
 
-const BLOCKED_ADMIN_IDS = [164, 500, 509]
+const BLOCKED_ADMIN_IDS = [164, 500]
 
 /* ─── Types ─── */
 interface DBSubject { id: number; name: string; course_id: number; active: boolean; question_count: string | number }
@@ -335,7 +335,7 @@ function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSele
    ═══════════════════════════════════════════ */
 export default function CourseDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, isInstructor } = useAuth()
   const [editMode, setEditMode] = useState(false)
   const [addingSubject, setAddingSubject] = useState(false)
   const [newSubjectName, setNewSubjectName] = useState("")
@@ -357,7 +357,12 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
   const { data: subCheck } = useSWR<{ subscribed: boolean }>(
     user && !isAdmin ? `/api/subscriptions/check?user_id=${user.id}&course_id=${slug}` : null
   )
-  const isSubscribed = isAdmin || subCheck?.subscribed === true
+  const isAllowedInstructor = isInstructor && user?.allowed_courses?.some(c => 
+    c.toLowerCase() === course?.name?.toLowerCase() || 
+    c.toLowerCase() === slug.replace(/-/g, ' ').toLowerCase()
+  )
+  const canModify = !!(isAdmin || isAllowedInstructor)
+  const isSubscribed = canModify || subCheck?.subscribed === true
 
   const addSubject = useCallback(async () => {
     if (!newSubjectName.trim()) return
@@ -425,7 +430,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           <div className="mx-auto flex max-w-7xl flex-col sm:flex-row items-start sm:items-center justify-between gap-y-2">
             <span className="text-sm font-medium text-amber-800">Editing Mode is enabled. Changes are saved per section.</span>
             <div className="flex flex-wrap items-center gap-3">
-              {user && !BLOCKED_ADMIN_IDS.includes(user.id) && (
+              {user && isAdmin && !BLOCKED_ADMIN_IDS.includes(user.id) && (
                 <Button variant="destructive" size="sm" onClick={() => setShowDeactivateModal(true)}>
                   Deactivate All Subscriptions
                 </Button>
@@ -448,7 +453,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
         <div className="relative z-10 px-4 py-16 text-center">
           <h1 className="text-balance text-3xl font-bold text-white md:text-4xl">{course.name}</h1>
           {!course.is_active && <span className="mt-2 inline-block rounded bg-red-500/80 px-3 py-1 text-xs font-medium text-white">Inactive</span>}
-          {isAdmin && !editMode && (
+          {canModify && !editMode && (
             <div className="mt-4"><Button onClick={() => setEditMode(true)} className="bg-secondary text-secondary-foreground hover:bg-secondary/90"><Edit3 className="mr-2 h-4 w-4" /> Enable Editing Mode</Button></div>
           )}
         </div>
@@ -527,7 +532,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                   {subjectsLoading ? (
                     <div className="flex items-center justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                   ) : subjects && subjects.length > 0 ? (
-                    subjects.map((s, idx) => editMode ? <EditableSubjectRow key={s.id} subject={s} index={idx} slug={slug} isAdmin={isAdmin} /> : <SubjectRow key={s.id} subject={s} index={idx} slug={slug} isAdmin={isAdmin} />)
+                    subjects.map((s, idx) => editMode ? <EditableSubjectRow key={s.id} subject={s} index={idx} slug={slug} isAdmin={canModify} /> : <SubjectRow key={s.id} subject={s} index={idx} slug={slug} isAdmin={canModify} />)
                   ) : (
                     <div className="p-6 text-center text-sm text-muted-foreground">No subjects found for this course.</div>
                   )}

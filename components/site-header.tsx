@@ -2,17 +2,17 @@
 
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
-import { Menu, LogOut, Users, Receipt, MessageSquare, Home, BookOpen, UserCircle, CreditCard, Settings } from "lucide-react"
+import { Menu, LogOut, Users, Receipt, MessageSquare, Home, BookOpen, UserCircle, CreditCard, Settings, CookingPot } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
-const BLOCKED_ADMIN_IDS = [164, 500, 509]
+const BLOCKED_ADMIN_IDS = [164, 500]
 
 export function SiteHeader() {
-  const { user, isAdmin, logout } = useAuth()
+  const { user, isAdmin, isInstructor, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const showAdminLinks = isAdmin && user && !BLOCKED_ADMIN_IDS.includes(user.id)
+  const showAdminLinks = (isAdmin || isInstructor) && user && !BLOCKED_ADMIN_IDS.includes(user.id)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -52,22 +52,34 @@ export function SiteHeader() {
           )}
           {showAdminLinks && (
             <>
-              <Link href="/admin/users" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
-                <Users className="mr-1 inline-block h-4 w-4" />
-                Users
+              <Link href="/admin/kitchen" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
+                <CookingPot className="mr-1 inline-block h-4 w-4" />
+                Kitchen
               </Link>
-              <Link href="/admin/subscriptions" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
-                <CreditCard className="mr-1 inline-block h-4 w-4" />
-                Subscriptions
-              </Link>
-              <Link href="/admin/transactions" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
-                <Receipt className="mr-1 inline-block h-4 w-4" />
-                Transactions
-              </Link>
-              <Link href="/admin/feeds" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
-                <MessageSquare className="mr-1 inline-block h-4 w-4" />
-                Feeds
-              </Link>
+              {isAdmin && (
+                <>
+                  <Link href="/admin/users" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
+                    <Users className="mr-1 inline-block h-4 w-4" />
+                    Users
+                  </Link>
+                  <Link href="/admin/instructors" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
+                    <Users className="mr-1 inline-block h-4 w-4" />
+                    Instructors
+                  </Link>
+                  <Link href="/admin/subscriptions" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
+                    <CreditCard className="mr-1 inline-block h-4 w-4" />
+                    Subscriptions
+                  </Link>
+                  <Link href="/admin/transactions" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
+                    <Receipt className="mr-1 inline-block h-4 w-4" />
+                    Transactions
+                  </Link>
+                  <Link href="/admin/feeds" className="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">
+                    <MessageSquare className="mr-1 inline-block h-4 w-4" />
+                    Feeds
+                  </Link>
+                </>
+              )}
             </>
           )}
         </nav>
@@ -155,18 +167,28 @@ export function SiteHeader() {
             )}
             {showAdminLinks && (
               <>
-                <Link href="/admin/users" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
-                  Users
+                <Link href="/admin/kitchen" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
+                  Kitchen
                 </Link>
-                <Link href="/admin/subscriptions" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
-                  Subscriptions
-                </Link>
-                <Link href="/admin/transactions" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
-                  Transactions
-                </Link>
-                <Link href="/admin/feeds" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
-                  Feeds
-                </Link>
+                {isAdmin && (
+                  <>
+                    <Link href="/admin/users" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
+                      Users
+                    </Link>
+                    <Link href="/admin/instructors" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
+                      Instructors
+                    </Link>
+                    <Link href="/admin/subscriptions" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
+                      Subscriptions
+                    </Link>
+                    <Link href="/admin/transactions" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
+                      Transactions
+                    </Link>
+                    <Link href="/admin/feeds" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
+                      Feeds
+                    </Link>
+                  </>
+                )}
                 <Link href="/admin/profile" className="rounded-md px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={() => setMobileOpen(false)}>
                   Profile Settings
                 </Link>

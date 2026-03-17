@@ -72,7 +72,7 @@ export default function KitchenPage() {
   const allowedCourseNames = user?.allowed_courses || []
   const availableCourses = isAdmin 
     ? allCourses 
-    : allCourses?.filter(c => allowedCourseNames.includes(c.name))
+    : allCourses?.filter(c => allowedCourseNames.map(ac => ac.toLowerCase()).includes(c.name.toLowerCase()))
 
   if (!user || (!isAdmin && !isInstructor)) {
     return <div className="p-10 text-center">Unauthorized</div>

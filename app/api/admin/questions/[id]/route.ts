@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
+import { getServerUser } from "@/lib/auth-server"
 
 export async function PUT(
   request: NextRequest,
@@ -8,6 +9,32 @@ export async function PUT(
   try {
     const { id } = await params
     const questionId = parseInt(id)
+    
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
+
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (isInstructor && !isAdmin) {
+      const courseRes = await query(`
+        SELECT c.course 
+        FROM questions q
+        JOIN subjects s ON q.subject_id = s.id
+        JOIN courses c ON s.course_id = c.id
+        WHERE q.id = $1
+      `, [questionId])
+      
+      const courseName = courseRes.rows[0]?.course
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === courseName?.toLowerCase())
+      
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
+
     const body = await request.json()
     const { question, explanation, active, type_id, period_id, options, figures, sub_questions } = body
 
@@ -65,7 +92,7 @@ export async function PUT(
         if (fig.id) {
           await query(`UPDATE figures SET figure = $1, public_id = $2, type_id = $3 WHERE id = $4 AND question_id = $5`, [fig.image_url, fig.public_id || '', fig.type_id || 1, fig.id, questionId])
         } else {
-          await query(`INSERT INTO figures (figure, public_id, question_id, type_id) VALUES ($1, $2, $3, $4)`, [fig.image_url, fig.public_id || '', questionId, fig.type_id || 1])
+          await query(`INSERT INTO figures (figure, public_id, question_id, type_id) VALUES ($1, $2, $3, $4)`, [fig.image_url, fig.public_id || '', questionId, fig.figure_type || 1])
         }
       }
     }
@@ -102,12 +129,38 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
+    const questionId = parseInt(id)
+    
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
+
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (isInstructor && !isAdmin) {
+      const courseRes = await query(`
+        SELECT c.course 
+        FROM questions q
+        JOIN subjects s ON q.subject_id = s.id
+        JOIN courses c ON s.course_id = c.id
+        WHERE q.id = $1
+      `, [questionId])
+      
+      const courseName = courseRes.rows[0]?.course
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === courseName?.toLowerCase())
+      
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
     
     // Manual cascading deletes (just in case fk hasn't ON DELETE CASCADE)
-    await query(`DELETE FROM options WHERE question_id = $1`, [parseInt(id)])
-    await query(`DELETE FROM figures WHERE question_id = $1`, [parseInt(id)])
-    await query(`DELETE FROM sub_questions WHERE case_id = $1`, [parseInt(id)])
-    await query(`DELETE FROM questions WHERE id = $1`, [parseInt(id)])
+    await query(`DELETE FROM options WHERE question_id = $1`, [questionId])
+    await query(`DELETE FROM figures WHERE question_id = $1`, [questionId])
+    await query(`DELETE FROM sub_questions WHERE case_id = $1`, [questionId])
+    await query(`DELETE FROM questions WHERE id = $1`, [questionId])
     
     return NextResponse.json({ success: true })
   } catch (error) {

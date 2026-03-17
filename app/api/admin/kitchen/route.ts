@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
   const courseName = courseResult.rows[0].course
 
   if (user.role === "instructor") {
-    const allowed = user.allowed_courses || []
-    if (!allowed.includes(courseName)) {
+    const allowed = (user.allowed_courses || []).map((c: string) => c.toLowerCase())
+    if (!allowed.includes(courseName.toLowerCase())) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
   }
@@ -75,8 +75,11 @@ export async function POST(request: NextRequest) {
     // Security Check
     const courseResult = await query("SELECT course FROM courses WHERE id = $1", [course_id])
     if (courseResult.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
-    if (user.role === "instructor" && !(user.allowed_courses || []).includes(courseResult.rows[0].course)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (user.role === "instructor") {
+      const allowed = (user.allowed_courses || []).map((c: string) => c.toLowerCase())
+      if (!allowed.includes(courseResult.rows[0].course.toLowerCase())) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
     }
 
     const insertedIds = []

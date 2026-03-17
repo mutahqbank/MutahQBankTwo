@@ -27,7 +27,21 @@ export async function getServerUser() {
 
         if (result.rows.length === 0) return null
 
-        return result.rows[0]
+        const user = result.rows[0]
+        if (user.role) user.role = user.role.toLowerCase()
+        
+        // Ensure allowed_courses is an array
+        if (typeof user.allowed_courses === 'string') {
+          try {
+            user.allowed_courses = JSON.parse(user.allowed_courses)
+          } catch {
+            user.allowed_courses = []
+          }
+        } else if (!user.allowed_courses) {
+          user.allowed_courses = []
+        }
+
+        return user
     } catch (error) {
         console.error("Failed to authenticate session token:", error)
         return null

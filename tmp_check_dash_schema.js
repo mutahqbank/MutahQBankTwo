@@ -6,8 +6,7 @@ const pool = new Pool({
 
 async function main() {
   try {
-    const res = await pool.query("SELECT name, slug FROM courses");
-    console.log("ALL_COURSES");
+    const res = await pool.query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'dashboard_users'");
     console.log(JSON.stringify(res.rows, null, 2));
   } catch (e) {
     console.error(e);

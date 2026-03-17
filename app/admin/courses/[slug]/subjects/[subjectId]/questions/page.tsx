@@ -44,6 +44,7 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
   const { user, isAdmin, isInstructor, isLoading: authLoading } = useAuth()
   
   const { data: questions, isLoading } = useSWR<AdminQuestion[]>(`/api/admin/subjects/${subjectId}/questions`)
+  const { data: course, isLoading: courseLoading } = useSWR(`/api/courses/${slug}`)
   
   const [editingId, setEditingId] = useState<number | "new" | null>(null)
   const [form, setForm] = useState({
@@ -61,10 +62,13 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
   const [rawText, setRawText] = useState("")
 
   // Permission Check
-  if (authLoading) return <div className="p-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
+  if (authLoading || (isInstructor && courseLoading)) return <div className="p-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
   
   if (isInstructor && !isAdmin) {
-    const isAllowed = user?.allowed_courses?.some(c => c.toLowerCase() === slug.replace(/-/g, ' ').toLowerCase())
+    const isAllowed = user?.allowed_courses?.some(c => 
+      c.toLowerCase() === course?.name?.toLowerCase() || 
+      c.toLowerCase() === slug.replace(/-/g, ' ').toLowerCase()
+    )
     if (!isAllowed) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50">

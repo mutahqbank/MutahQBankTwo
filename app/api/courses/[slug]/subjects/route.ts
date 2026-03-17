@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
+import { getServerUser } from "@/lib/auth-server"
 
 export const revalidate = 60;
 
@@ -23,6 +24,7 @@ export async function GET(
     const result = await query(`
       SELECT
         s.id,
+        s.subject,
         s.subject AS name,
         s.course_id,
         s.active,
@@ -47,14 +49,31 @@ export async function POST(
 ) {
   try {
     const { slug } = await params
-    const courseId = await getCourseId(slug)
-    if (!courseId) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
 
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const courseRes = await query(`SELECT id, course FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
+    if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+    const course = courseRes.rows[0]
+
+    if (isInstructor && !isAdmin) {
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
+
+    const courseId = course.id
     const { name } = await request.json()
     if (!name?.trim()) return NextResponse.json({ error: "Subject name is required" }, { status: 400 })
 
     const result = await query(
-      `INSERT INTO subjects (subject, course_id, active) VALUES ($1, $2, true) RETURNING id, subject AS name, course_id, active`,
+      `INSERT INTO subjects (subject, course_id, active) VALUES ($1, $2, true) RETURNING id, subject, subject AS name, course_id, active`,
       [name.trim(), courseId]
     )
 
@@ -71,9 +90,26 @@ export async function PUT(
 ) {
   try {
     const { slug } = await params
-    const courseId = await getCourseId(slug)
-    if (!courseId) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
 
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const courseRes = await query(`SELECT id, course FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
+    if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+    const course = courseRes.rows[0]
+
+    if (isInstructor && !isAdmin) {
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
+
+    const courseId = course.id
     const { id, name, active } = await request.json()
     if (!id) return NextResponse.json({ error: "Subject id is required" }, { status: 400 })
 
@@ -105,9 +141,26 @@ export async function DELETE(
 ) {
   try {
     const { slug } = await params
-    const courseId = await getCourseId(slug)
-    if (!courseId) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
 
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const courseRes = await query(`SELECT id, course FROM courses WHERE public_id = $1 OR id::text = $1`, [slug])
+    if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+    const course = courseRes.rows[0]
+
+    if (isInstructor && !isAdmin) {
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === course.course.toLowerCase())
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
+
+    const courseId = course.id
     const { id } = await request.json()
     if (!id) return NextResponse.json({ error: "Subject id is required" }, { status: 400 })
 

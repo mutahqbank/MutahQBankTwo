@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
+import { getServerUser } from "@/lib/auth-server"
 
 // GET all questions for a specific subject (Admin view: ignores active status)
 export async function GET(
@@ -8,6 +9,27 @@ export async function GET(
 ) {
   try {
     const { subjectId } = await params
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
+
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (isInstructor && !isAdmin) {
+      const courseRes = await query(`
+        SELECT c.course 
+        FROM subjects s 
+        JOIN courses c ON s.course_id = c.id 
+        WHERE s.id = $1
+      `, [parseInt(subjectId)])
+      const courseName = courseRes.rows[0]?.course
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === courseName?.toLowerCase())
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
 
     const sql = `
       SELECT 
@@ -27,7 +49,7 @@ export async function GET(
           ) ORDER BY o.id)
           FROM options o WHERE o.question_id = q.id
         ), '[]'::json) AS options,
-
+s
         -- Aggregate Figures
         COALESCE((
           SELECT json_agg(json_build_object(
@@ -75,6 +97,28 @@ export async function POST(
 ) {
   try {
     const { subjectId } = await params
+    const user = await getServerUser()
+    const isAdmin = user?.role === 'admin'
+    const isInstructor = user?.role === 'instructor'
+
+    if (!isAdmin && !isInstructor) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (isInstructor && !isAdmin) {
+      const courseRes = await query(`
+        SELECT c.course 
+        FROM subjects s 
+        JOIN courses c ON s.course_id = c.id 
+        WHERE s.id = $1
+      `, [parseInt(subjectId)])
+      const courseName = courseRes.rows[0]?.course
+      const isAllowed = user.allowed_courses?.some((c: string) => c.toLowerCase() === courseName?.toLowerCase())
+      if (!isAllowed) {
+        return NextResponse.json({ error: "Permission denied for this course" }, { status: 403 })
+      }
+    }
+
     const body = await request.json()
     const { question, explanation, active, type_id, period_id, options, figures, sub_questions } = body
 
