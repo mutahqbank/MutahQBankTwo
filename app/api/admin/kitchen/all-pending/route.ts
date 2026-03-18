@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       JOIN subjects s ON q.subject_id = s.id
       JOIN courses c ON s.course_id = c.id
       WHERE q.status = 'pending_approval'
-      ORDER BY q.updated_at DESC
+      ORDER BY q.id DESC
     `)
     return NextResponse.json(result.rows)
   } catch (error) {

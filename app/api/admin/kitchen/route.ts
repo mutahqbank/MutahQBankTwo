@@ -47,10 +47,10 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       const statusArr = status.split(',')
-      sql += ` AND q.status = ANY($2)`
+      sql += ` AND (q.status = ANY($2) OR q.active = false)`
       params.push(statusArr)
     } else {
-      sql += ` AND q.status != 'active'`
+      sql += ` AND (q.status != 'active' OR q.active = false)`
     }
 
     sql += ` ORDER BY q.id DESC`

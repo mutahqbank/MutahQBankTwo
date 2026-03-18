@@ -77,7 +77,7 @@ export default function KitchenPage() {
     isAdmin ? `/api/admin/kitchen/all-pending` : null
   )
   const { data: draftQuestions, mutate: mutateDrafts } = useSWR<KitchenQuestion[]>(
-    selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}&status=draft` : null
+    selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}` : null
   )
 
   useEffect(() => {
@@ -242,6 +242,8 @@ export default function KitchenPage() {
                   draftQuestions={draftQuestions || []}
                   mutateDrafts={mutateDrafts}
                   mutateSubjects={mutateSubjects}
+                  isAdmin={isAdmin}
+                  mutateCourses={mutateCourses}
                 />
               )}
               {activeSection === "flagged" && <FlaggedView courseId={selectedCourse.id} />}
@@ -853,7 +855,7 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
   )
 }
 
-function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects }: any) {
+function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, courseName, mutateCourses }: any) {
   const [newLectureName, setNewLectureName] = useState("")
   const [newLectureDesc, setNewLectureDesc] = useState("")
   const [bulkText, setBulkText] = useState("")
@@ -861,6 +863,66 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
   const [mode, setMode] = useState<"single" | "bulk">("single")
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null)
   const [editingQuestion, setEditingQuestion] = useState<any>(null)
+  const [isActivating, setIsActivating] = useState(false)
+  
+  // Group questions by subject
+  const subjectsWithDrafts = (subjects || []).map((sub: any) => ({
+    ...sub,
+    questions: (draftQuestions || []).filter((q: any) => q.subject_id == sub.id)
+  }))
+
+  const totalDrafts = subjectsWithDrafts.reduce((acc: number, s: any) => acc + s.questions.length, 0)
+
+  const handleActivateQuestion = async (qId: number) => {
+    try {
+      const res = await fetch(`/api/admin/kitchen/${qId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: 'active', active: true })
+      })
+      if (res.ok) {
+        toast.success("Question activated!")
+        mutateDrafts()
+        mutateSubjects()
+        mutateCourses()
+      } else {
+        toast.error("Failed to activate")
+      }
+    } catch (e) {
+      toast.error("Error activating question")
+    }
+  }
+
+  const handleBulkActivate = async () => {
+    if (!confirm(`Are you sure you want to activate all ${totalDrafts} classified questions? They will be moved from the kitchen to the live question bank.`)) return
+    
+    setIsActivating(true)
+    const tid = toast.loading("Activating questions...")
+    try {
+      const res = await fetch("/api/admin/kitchen/activate-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ course_id: courseId })
+      })
+      
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(data.message || `Activated ${data.count} questions`, { id: tid, duration: 5000 })
+        // Refresh all data
+        await Promise.all([
+          mutateDrafts?.(),
+          mutateSubjects?.(),
+          mutateCourses?.()
+        ])
+      } else {
+        throw new Error(data.error || "Failed to activate questions")
+      }
+    } catch (e: any) {
+      toast.error(e.message, { id: tid })
+    } finally {
+      setIsActivating(false)
+    }
+  }
 
   const handleAddLecture = async () => {
     if (!newLectureName.trim()) return
@@ -959,14 +1021,34 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
     }
   }
 
-  // Group questions by subject
-  const subjectsWithDrafts = subjects.map((sub: any) => ({
-    ...sub,
-    questions: draftQuestions?.filter((q: any) => q.subject_id == sub.id) || []
-  }))
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Header with Title and Bulk Activate */}
+      {!selectedSubjectId && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Lectures (Classification)</h3>
+            <p className="text-slate-500 font-medium text-sm">Review questions moved to specific lectures before they go live.</p>
+          </div>
+          
+          {isAdmin && (
+            <Button 
+              onClick={handleBulkActivate}
+              disabled={isActivating || totalDrafts === 0}
+              className={`font-black h-12 px-6 rounded-xl shadow-lg flex items-center gap-2 uppercase tracking-widest text-xs transition-all active:scale-95 ${
+                totalDrafts > 0 
+                  ? 'bg-teal-500 hover:bg-teal-600 text-white shadow-teal-100' 
+                  : 'bg-slate-100 text-slate-400 shadow-none cursor-not-allowed'
+              }`}
+            >
+              <CheckCircle className="h-4 w-4" />
+              {isActivating ? "Activating..." : `Activate All Drafts (${totalDrafts})`}
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Add New Lecture Form */}
       {!selectedSubjectId && (
         <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-6">
@@ -1082,7 +1164,9 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                         key={q.id} 
                         question={q} 
                         index={idx} 
+                        isAdmin={isAdmin}
                         onEdit={() => setEditingQuestion(q)}
+                        onActivate={() => handleActivateQuestion(q.id)}
                         onDelete={async () => {
                           if (confirm("Permanently delete this question?")) {
                             await fetch(`/api/admin/kitchen/${q.id}`, { method: "DELETE" })
@@ -1154,15 +1238,32 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
 }
 
 /* --- Premium Question Card Component --- */
-function KitchenQuestionCard({ question, index, onEdit, onDelete }: any) {
+function KitchenQuestionCard({ question, index, onEdit, onDelete, onActivate, isAdmin }: any) {
   return (
     <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow">
       {/* Top Header */}
       <div className="px-10 py-5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
-         <span className="text-slate-400 font-bold text-sm tracking-tight">Case {index + 1}</span>
+         <span className="text-slate-400 font-bold text-sm tracking-tight flex items-center gap-3">
+           Case {index + 1}
+           {question.active === false && (
+             <span className="bg-amber-50 text-amber-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-100">
+               Deactivated
+             </span>
+           )}
+         </span>
          <div className="flex items-center gap-6">
-           <button onClick={onEdit} className="text-[#6366F1] font-bold text-sm hover:underline">Edit</button>
-           <button onClick={onDelete} className="text-red-400 hover:text-red-500 transition-colors">
+           {isAdmin && (
+             <button 
+               onClick={onActivate} 
+               title="Activate Question"
+               className="flex items-center gap-1.5 text-teal-600 font-black text-[10px] uppercase tracking-widest hover:bg-teal-50 px-3 py-1.5 rounded-xl transition-all border border-transparent hover:border-teal-100"
+             >
+               <CheckCircle className="h-3.5 w-3.5" />
+               Activate
+             </button>
+           )}
+           <button onClick={onEdit} className="text-[#6366F1] font-bold text-[10px] uppercase tracking-widest hover:underline">Edit</button>
+           <button onClick={onDelete} title="Delete Permanently" className="text-red-400 hover:text-red-500 transition-colors">
               <Trash2 className="h-4 w-4" />
            </button>
          </div>
@@ -1606,7 +1707,11 @@ function WorkflowView({
       const res = await fetch(`/api/admin/kitchen/${processedId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...editData, ...data })
+        body: JSON.stringify({ 
+          ...editData, 
+          ...data,
+          status: data.status || "draft" // Default to draft when classified
+        })
       });
 
       if (!res.ok) {
