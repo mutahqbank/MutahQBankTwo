@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     timestamp: new Date().toISOString(),
     env: {
       has_db_url: !!process.env.DATABASE_URL,
-      has_gemini_key: !!process.env.GEMINI_API_KEY,
+      has_openai_key: !!process.env.OPENAI_API_KEY,
     }
   }
 

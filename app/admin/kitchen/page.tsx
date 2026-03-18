@@ -580,26 +580,68 @@ function ImportView({ courseId, onSuccess }: any) {
       toast.info(`Attempting to parse ${blocks.length} blocks...`)
 
       const parseMCQ = (text: string) => {
-        // Clean up entities but PRESERVE newlines for structured content
+        // Clean up entities but PRESERVE newlines
         const workingText = text.replace(/&nbsp;/g, ' ')
         
-        // Question
-        const qMatch = workingText.match(/(?:Q\)|<b>Q\)|<span>Q\))\s*(?:<\/b>|<\/span>)?\s*([\s\S]*?)\s*(?=\s*(?:O\)|<b>O\)|C\)|<b>C\)|E\)|<b>E\)|$))/i)
-        
-        // Options - match multiple
-        const oMatches = [...workingText.matchAll(/(?:O\)|<b>O\)|<span>O\))\s*(?:<\/b>|<\/span>)?\s*([\s\S]*?)\s*(?=\s*(?:O\)|<b>O\)|C\)|<b>C\)|E\)|<b>E\)|$))/gi)]
-        const options = oMatches.map(m => m[1].trim())
+        // Marker patterns for finding positions
+        const qRegex = /(?:^|\s|>)(?:Q\)|<b>Q\)|<span>Q\))/i
+        const oRegex = /(?:^|\s|>)(?:O\)|<b>O\)|<span>O\))/gi
+        const cRegex = /(?:^|\s|>)(?:C\)|<b>C\)|<span>C\))/gi
+        const eRegex = /(?:^|\s|>)(?:E\)|<b>E\)|<span>E\))/gi
 
-        // Correct Index
-        const cMatch = workingText.match(/(?:C\)|<b>C\)|<span>C\))\s*(?:<\/b>|<\/span>)?\s*(\d+)/i)
-        const correctIdx = cMatch ? parseInt(cMatch[1]) : 0
+        const markers: { type: 'Q' | 'O' | 'C' | 'E', index: number, length: number }[] = []
 
-        // Explanation - take everything after E)
-        const eMatch = workingText.match(/(?:E\)|<b>E\)|<span>E\))\s*(?:<\/b>|<\/span>)?\s*([\s\S]*)$/i)
-        const explanation = eMatch ? eMatch[1].trim() : ""
+        // Find Q
+        const qMatch = qRegex.exec(workingText)
+        if (qMatch) markers.push({ type: 'Q', index: qMatch.index, length: qMatch[0].length })
+
+        // Find ALL Os
+        let oMatch;
+        while ((oMatch = oRegex.exec(workingText)) !== null) {
+          markers.push({ type: 'O', index: oMatch.index, length: oMatch[0].length })
+        }
+
+        // Find ALL Cs (Correct)
+        let cMatch;
+        while ((cMatch = cRegex.exec(workingText)) !== null) {
+          markers.push({ type: 'C', index: cMatch.index, length: cMatch[0].length })
+        }
+
+        // Find ALL Es (Explanations)
+        let eMatch;
+        while ((eMatch = eRegex.exec(workingText)) !== null) {
+          markers.push({ type: 'E', index: eMatch.index, length: eMatch[0].length })
+        }
+
+        // Sort markers by position
+        markers.sort((a, b) => a.index - b.index)
+
+        let question = ""
+        const options: string[] = []
+        let correctIdx = 0
+        let explanation = ""
+
+        for (let i = 0; i < markers.length; i++) {
+          const current = markers[i]
+          const next = markers[i + 1]
+          const start = current.index + current.length
+          const end = next ? next.index : workingText.length
+          const content = workingText.slice(start, end).trim()
+
+          if (current.type === 'Q') question = content
+          else if (current.type === 'O') options.push(content)
+          else if (current.type === 'C') {
+             const m = content.match(/\d+/)
+             if (m) correctIdx = parseInt(m[0])
+          }
+          else if (current.type === 'E') {
+            // Append if multiple E markers found (rare, but handles duplicates)
+            explanation = explanation ? (explanation + "\n" + content) : content
+          }
+        }
 
         return {
-          question: qMatch ? qMatch[1].trim() : "",
+          question: question || "Untitled Question",
           explanation,
           options: options.map((opt, i) => ({
             option: opt,
@@ -617,7 +659,7 @@ function ImportView({ courseId, onSuccess }: any) {
         return
       }
 
-      toast.loading(`Importing ${questionsData.length} questions...`)
+      const loadingId = toast.loading(`Importing ${questionsData.length} questions...`)
 
       const res = await fetch("/api/admin/kitchen", {
         method: "POST",
@@ -626,12 +668,13 @@ function ImportView({ courseId, onSuccess }: any) {
       })
 
       if (res.ok) {
-        toast.success(`Successfully imported ${questionsData.length} questions`)
+        toast.success(`Successfully imported ${questionsData.length} questions`, { id: loadingId, duration: 5000 })
         setImportText("")
         onSuccess()
       } else {
         const err = await res.json()
         toast.error(err.details || err.error || "Failed to import questions", {
+          id: loadingId,
           description: err.stack ? "Check console for full stack trace" : undefined,
           duration: 5000
         })
@@ -1088,6 +1131,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
         <QuestionEditDialog 
           question={editingQuestion} 
           onClose={() => setEditingQuestion(null)}
+          subjects={subjects}
           onSave={async (updatedData: any) => {
             const res = await fetch(`/api/admin/kitchen/${editingQuestion.id}`, {
               method: "PATCH",
@@ -1170,12 +1214,13 @@ function KitchenQuestionCard({ question, index, onEdit, onDelete }: any) {
 }
 
 /* --- Robust Question Edit Dialog --- */
-function QuestionEditDialog({ question, onClose, onSave }: any) {
+function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
   const [editData, setEditData] = useState({
     question: question.question,
     options: question.options || ["", "", "", ""],
     correct_index: question.correct_index || 0,
-    explanation: question.explanation || ""
+    explanation: question.explanation || "",
+    subject_id: question.subject_id
   })
   const [showQPreview, setShowQPreview] = useState(false)
   const [showEPreview, setShowEPreview] = useState(false)
@@ -1201,6 +1246,26 @@ function QuestionEditDialog({ question, onClose, onSave }: any) {
           <button onClick={onClose} className="p-3 hover:bg-slate-100 rounded-2xl transition-all">
             <X className="h-6 w-6 text-slate-400" />
           </button>
+        </div>
+
+        {/* Relocation Section */}
+        <div className="px-10 py-4 border-b border-slate-100 bg-orange-50/30 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4 flex-1">
+             <span className="text-[10px] font-black uppercase text-orange-600 tracking-widest whitespace-nowrap">Relocate to Lecture</span>
+             <select 
+               className="flex-1 max-w-sm h-10 px-4 bg-white border border-orange-100 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500/20 transition-all cursor-pointer"
+               value={editData.subject_id || ""}
+               onChange={(e) => setEditData({ ...editData, subject_id: Number(e.target.value) })}
+             >
+               <option value="" disabled>Select a lecture...</option>
+               {(subjects || []).map((s: any) => (
+                 <option key={s.id} value={s.id}>{s.subject}</option>
+               ))}
+             </select>
+          </div>
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white px-3 py-1.5 rounded-lg border border-slate-100 ml-4">
+             Current Status: Classified
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-12 space-y-12">
@@ -1471,28 +1536,39 @@ function WorkflowView({
       </div>
     );
   };
+
+  // Filter out questions that have already been processed in this session
+  const remainingQuestions = (questions || []).filter((q: any) => !processedIds.has(q.id))
   
-  const q = questions[currentIndex]
-  
+  // The current question is based on the remaining pool and the user's skip index
+  const q = remainingQuestions[currentIndex]
   const [editData, setEditData] = useState<any>(null)
 
   useEffect(() => {
-    if (q && !processedIds.has(q.id)) {
+    if (q) {
+      const clean = (text: string) => {
+        if (!text) return "";
+        return text
+          .replace(/\[cite_start\]/gi, "")
+          .replace(/\[cite:.*?\]/gi, "")
+          .trim();
+      };
+
       setEditData({
-        question: q.question,
-        options: q.options || ["", "", "", ""],
+        question: clean(q.question),
+        options: (q.options || ["", "", "", ""]).map((opt: any) => 
+          typeof opt === 'string' ? clean(opt) : clean(opt.option || "")
+        ),
         correct_index: q.correct_index || 0,
-        explanation: q.explanation || "",
+        explanation: clean(q.explanation || ""),
         subject_id: q.subject_id
       })
-    } else if (q && processedIds.has(q.id)) {
-      // This question is already processed but still in the list (awaiting SWR)
-      // We clear editData to show a loading state and prevent re-classification
+    } else {
       setEditData(null)
     }
-  }, [q, processedIds])
+  }, [q])
 
-  if (!q || !editData) {
+  if (remainingQuestions.length === 0) {
     return (
       <div className="bg-white p-20 rounded-[32px] border border-slate-200 text-center space-y-4">
         <div className="bg-green-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
@@ -1507,69 +1583,71 @@ function WorkflowView({
     )
   }
 
+  // Handle case where currentIndex might be out of range after a move
+  if (!q && remainingQuestions.length > 0) {
+    if (currentIndex > 0) {
+      setCurrentIndex(Math.max(0, remainingQuestions.length - 1))
+      return null // Wait for re-render
+    }
+  }
+
+  if (!q || !editData) return null; // Loading state
+
   const handleUpdate = async (data: any, next = true) => {
     const prevSubjectId = q.subject_id;
     const effectiveSubjectId = data.subject_id || editData.subject_id;
     setIsSaving(true);
-    setIsTransitioning(true); // Block all UI interactions
+    setIsTransitioning(true);
     
     try {
-      // Optimistically mark as processed
-      setProcessedIds(prev => new Set(prev).add(q.id))
-      setEditData(null) 
-
-      const res = await fetch(`/api/admin/kitchen/${q.id}`, {
+      // Mark as processed immediately for seamless transition
+      const processedId = q.id;
+      
+      const res = await fetch(`/api/admin/kitchen/${processedId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...editData, ...data })
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.details || errData.error || `Error ${res.status}`);
+        throw new Error(`Failed to move question`);
       }
 
-      // Track last action for undo if it's a classification
+      setProcessedIds(prev => new Set(prev).add(processedId))
+
       if (effectiveSubjectId) {
         const subjectName = subjects.find((s: any) => s.id === Number(effectiveSubjectId))?.subject || "Unknown";
         setLastAction({
-          questionId: q.id,
+          questionId: processedId,
           prevSubjectId: prevSubjectId,
           subjectName: subjectName
         });
-        // Auto-hide after 5 seconds
         setTimeout(() => setLastAction(null), 5000);
       }
 
+      // If we are at the last question of the remaining pool (excluding what we just moved)
+      // and we want to go 'next', but there's nothing left, we stay at current index 
+      // which will catch the 'remaining.length === 0' in the render
       if (next) {
-        // Refresh all potentially affected lists to keep counters accurate
-        await Promise.all([
-          mutate?.(),
-          mutateDrafts?.(),
-          mutateSubjects?.(),
-          mutateCourses?.()
-        ])
-        
-        // Since questions stay in the pool (status=unclassified,flagged)
-        // we always advance the index unless we are at the end.
-        if (currentIndex < questions.length - 1) {
-          setCurrentIndex(currentIndex + 1)
-        } else {
-          onClose()
+        // If we processed an item and we were at the end of the skip list, 
+        // we might want to move back if the pool is now smaller than our index
+        if (currentIndex >= remainingQuestions.length - 1) {
+          setCurrentIndex(Math.max(0, remainingQuestions.length - 2))
         }
-      } else {
-        mutate?.()
-        mutateDrafts?.()
-        mutateSubjects?.()
-        mutateCourses?.()
       }
+
+      // Refresh SWR in background
+      mutate?.();
+      mutateDrafts?.();
+      mutateSubjects?.();
+      mutateCourses?.();
+
     } catch (error) {
        console.error("Update failed:", error)
        toast.error("Failed to move question")
     } finally {
       setIsSaving(false)
-      // Small delay to allow SWR to settle and avoid the index flicker
-      setTimeout(() => setIsTransitioning(false), 300)
+      setTimeout(() => setIsTransitioning(false), 200)
     }
   }
 
@@ -1802,18 +1880,18 @@ function WorkflowView({
                   )
 
                   if (data.success && data.lectureId > 0) {
-                    toast.success(`AI Matched: ${data.reasoning}`, { id: toastId })
+                    toast.success(`AI Matched: ${data.reasoning}`, { id: toastId, duration: 5000 })
                     // Auto-Save, State Update, and Auto-Advance (per User Spec)
                     await handleUpdate({ 
                       subject_id: data.lectureId, 
                       status: 'draft' 
                     })
                   } else {
-                    toast.error(`AI Decision: ${data.reasoning}`, { id: toastId })
+                    toast.error(`AI Decision: ${data.reasoning}`, { id: toastId, duration: 5000 })
                   }
                 } catch (e: any) {
                   console.error("AI Auto-Classify Error:", e)
-                  toast.error(`AI Error: ${e.message}`, { id: toastId })
+                  toast.error(`AI Error: ${e.message}`, { id: toastId, duration: 5000 })
                 } finally {
                   setIsAnalyzing(false)
                   if (!isSaving) setIsTransitioning(false)

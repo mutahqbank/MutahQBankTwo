@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 import { getServerUser } from "@/lib/auth-server"
-import { suggestCategoryWithGemini } from "@/lib/gemini"
+import { suggestCategoryWithOpenAI } from "@/lib/openai"
 
 export async function POST(request: NextRequest) {
   const user = await getServerUser()
@@ -13,8 +13,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const key = process.env.GEMINI_API_KEY;
-    console.log(`AI Classification Attempt. Key starts with: ${key ? key.substring(0, 4) + "****" : "MISSING"}`);
+    const key = process.env.OPENAI_API_KEY;
+    console.log(`AI Classification Attempt (OpenAI). Key starts with: ${key ? key.substring(0, 10) + "****" : "MISSING"}`);
     const { question, subjects, explanation, courseName, options } = await request.json()
 
     if (!question || !subjects || !Array.isArray(subjects)) {
@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
       })
       .map((s: any) => ({ id: s.id, name: s.subject || s.name }))
 
-    // 2. Try Gemini AI classification
-    const aiResult = await suggestCategoryWithGemini(
+    // 2. Try OpenAI AI classification
+    const aiResult = await suggestCategoryWithOpenAI(
       question,
       explanation || "",
       options || [],
@@ -45,16 +45,7 @@ export async function POST(request: NextRequest) {
         suggested_subject_id: aiResult.lectureId,
         reasoning: aiResult.reasoning,
         confidence: "high",
-        method: "gemini"
-      })
-    }
-
-    if (aiResult && aiResult.lectureId > 0) {
-      return NextResponse.json({
-        suggested_subject_id: aiResult.lectureId,
-        reasoning: aiResult.reasoning,
-        confidence: "high",
-        method: "gemini"
+        method: "openai"
       })
     }
 
@@ -62,10 +53,10 @@ export async function POST(request: NextRequest) {
       suggested_subject_id: null,
       reasoning: aiResult?.reasoning || "No clear medical match found by AI.",
       confidence: "none",
-      method: "gemini"
+      method: "openai"
     })
   } catch (error: any) {
-    console.error("AI Classification failed:", error)
+    console.error("AI Classification failed (OpenAI):", error)
     return NextResponse.json({ 
       error: "AI service currently unavailable", 
       details: error.message 

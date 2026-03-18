@@ -1,6 +1,6 @@
 'use server'
 
-import { suggestCategoryWithGemini } from "@/lib/gemini";
+import { suggestCategoryWithOpenAI } from "@/lib/openai";
 import { query } from "@/lib/database";
 import { getServerUser } from "@/lib/auth-server";
 
@@ -12,7 +12,7 @@ export async function suggestCategoryAction(
   question: string,
   explanation: string,
   options: string[],
-  subjects: { id: number; name: string; description?: string }[],
+  subjects: any[],
   courseName: string
 ) {
   // 1. Security Check (Runs on server)
@@ -23,15 +23,26 @@ export async function suggestCategoryAction(
 
   // 2. Data Preparation
   // Ensure we only pass the necessary lightweight lecture data to the AI service
-  const filteredSubjects = subjects
+  console.log(`AI Classification Request - User: ${user.username}, Course: ${courseName}, Subjects Count: ${subjects?.length}`);
+  
+  const filteredSubjects = (subjects || [])
     .filter(s => {
-      const name = s.name.toLowerCase();
-      const hasEmoji = /\p{Emoji}/u.test(name) && !/^\d+$/.test(name); // Exclude things that are just emojis/symbols but keep pure numbers if they exist
+      const name = (s.name || s.subject || "").toLowerCase();
+      if (!name) return false;
+      
+      const hasEmoji = /\p{Emoji}/u.test(name) && !/^\d+$/.test(name);
       return !name.includes("unclassified pool") && !name.includes("---") && !hasEmoji;
-    });
+    })
+    .map(s => ({
+      id: s.id,
+      name: s.name || s.subject || "Unknown",
+      description: s.description
+    }));
 
-  // 3. Call Gemini Service (Deterministic + Clinical Inference)
-  const aiResult = await suggestCategoryWithGemini(
+  console.log(`Filtered Subjects Count: ${filteredSubjects.length}`);
+
+  // 3. Call OpenAI Service (Deterministic + Clinical Inference)
+  const aiResult = await suggestCategoryWithOpenAI(
     question,
     explanation || "",
     options || [],
