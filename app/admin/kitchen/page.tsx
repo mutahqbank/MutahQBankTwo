@@ -25,11 +25,13 @@ import {
   RotateCcw,
   UploadCloud,
   Code,
+  BrainCircuit,
   Image as ImageIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import useSWR from "swr"
+import useSWR, { mutate as globalMutate } from "swr"
 import { toast } from "sonner"
+import { suggestCategoryAction } from "@/app/actions/ai-actions"
 
 /* --- Types --- */
 type QuestionStatus = "unclassified" | "draft" | "flagged" | "pending_approval" | "approved"
@@ -56,16 +58,6 @@ interface Course {
   hero_image: string | null
 }
 
-/* --- Utils --- */
-const formatToQOCE = (questions: any[]) => {
-  return (questions || []).map((q: any) => {
-    const optionsText = (q.options || []).map((o: any, i: number) => {
-      const text = typeof o === 'string' ? o : (o.option || o.text || "")
-      return `${String.fromCharCode(65 + i)}) ${text}${i === q.correct_index ? ' [CORRECT]' : ''}`
-    }).join('\n')
-    return `QUESTION: ${q.question}\n${optionsText}\nEXPLANATION: ${q.explanation || ''}\n---\n`
-  }).join('\n')
-}
 
 export default function KitchenPage() {
   const { user, isAdmin, isInstructor } = useAuth()
@@ -79,7 +71,7 @@ export default function KitchenPage() {
   const { data: allCourses, mutate: mutateCourses } = useSWR<Course[]>("/api/courses/all")
   const { data: subjects, mutate: mutateSubjects } = useSWR(selectedCourse ? `/api/courses/${selectedCourse.id}/subjects` : null)
   const { data: unclassifiedQuestions, mutate: mutatePool } = useSWR<KitchenQuestion[]>(
-    selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}&status=unclassified` : null
+    selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}&status=unclassified,flagged` : null
   )
   const { data: pendingApprovalQuestions, mutate: mutateApprovals } = useSWR<KitchenQuestion[]>(
     isAdmin ? `/api/admin/kitchen/all-pending` : null
@@ -162,25 +154,6 @@ export default function KitchenPage() {
                 </button>
                 <div className="flex items-center gap-4">
                   <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">{selectedCourse.name}</h2>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="rounded-lg h-8 text-xs font-bold border-slate-200 text-slate-500">
-                      Export All
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="rounded-lg h-8 text-xs font-bold border-orange-200 text-orange-600 bg-orange-50 hover:bg-orange-100 flex items-center gap-2"
-                      onClick={() => {
-                        const allQs = [...(unclassifiedQuestions || []), ...(subjects?.flatMap((s: any) => s.questions) || [])]
-                        const txt = formatToQOCE(allQs)
-                        navigator.clipboard.writeText(txt)
-                        toast.success("All MCQs copied in Q/O/C/E format!")
-                      }}
-                    >
-                      <Copy className="h-3 w-3" />
-                      Copy Q/O/C/E (All)
-                    </Button>
-                  </div>
                 </div>
               </div>
 
@@ -203,7 +176,7 @@ export default function KitchenPage() {
                 active={activeSection === "pool"} 
                 onClick={() => setActiveSection("pool")}
                 icon={null}
-                label={`Unclassified (${unclassifiedCount})`} 
+                label={`Pool (${unclassifiedQuestions?.length || 0})`} 
               />
               <TabButton 
                 active={activeSection === "lectures"} 
@@ -221,7 +194,7 @@ export default function KitchenPage() {
                 active={activeSection === "flagged"} 
                 onClick={() => setActiveSection("flagged")}
                 icon={null}
-                label="Flagged (2)" 
+                label={`Flagged (${unclassifiedQuestions?.filter(q => q.status === 'flagged').length || 0})`} 
               />
             </div>
 
@@ -719,12 +692,19 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
   const handleUpdate = async (id: number, data: any) => {
     setIsClassifying(id)
     try {
-      await fetch(`/api/admin/kitchen/${id}`, {
+      const res = await fetch(`/api/admin/kitchen/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
       })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.details || err.error || "Update failed")
+      }
       mutate()
+      toast.success(data.status === 'flagged' ? "Question flagged" : "Question updated")
+    } catch (e: any) {
+      toast.error(e.message)
     } finally {
       setIsClassifying(null)
     }
@@ -762,15 +742,39 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
           </div>
         ) : (
           questions.map((q: any, idx: number) => (
-            <div key={q.id} className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:border-orange-200 transition-all space-y-6 group">
+            <div key={q.id} className={`bg-white p-8 rounded-[32px] border ${q.status === 'flagged' ? 'border-red-300 bg-red-50/5' : 'border-slate-200'} shadow-sm hover:border-orange-200 transition-all space-y-6 group`}>
               <div className="flex justify-between items-start">
-                <div className="flex-1 space-y-2">
+                <div className="flex-1 space-y-4">
                   <div className="flex items-center gap-2">
-                    <span className="bg-orange-50 text-orange-600 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-orange-100 italic">
-                      Unclassified
+                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border italic ${
+                      q.status === 'flagged' 
+                        ? 'bg-red-50 text-red-600 border-red-100' 
+                        : 'bg-orange-50 text-orange-600 border-orange-100'
+                    }`}>
+                      {q.status === 'flagged' ? 'Flagged' : 'Unclassified'}
                     </span>
                   </div>
-                  <p className="text-slate-800 font-bold text-lg leading-relaxed">{idx + 1}. {q.question}</p>
+                  <p className={`${q.status === 'flagged' ? 'text-red-600' : 'text-slate-800'} font-bold text-lg leading-relaxed`}>{idx + 1}. {q.question}</p>
+                  
+                  {/* Question Options */}
+                  <div className="space-y-3 pl-2">
+                     {(q.options || []).map((opt: any, i: number) => {
+                       const optText = typeof opt === 'string' ? opt : (opt.option || opt.text || "")
+                       const isCorrect = i === q.correct_index
+                       return (
+                         <div key={i} className="flex items-center gap-4 transition-all">
+                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                             isCorrect ? 'border-green-500 bg-green-50 text-green-600' : 'border-slate-200 bg-white'
+                           }`}>
+                             {isCorrect && <div className="w-2 h-2 rounded-full bg-green-500" />}
+                           </div>
+                           <span className={`text-[15px] font-medium leading-relaxed ${isCorrect ? 'text-green-600' : 'text-slate-600'}`}>
+                             {optText}
+                           </span>
+                         </div>
+                       )
+                     })}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl" onClick={() => handleDelete(q.id)}>
@@ -782,53 +786,23 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4 pt-6 border-t border-slate-50">
-                <div className="relative">
-                   <select 
-                    className="appearance-none bg-slate-50 border border-slate-100 text-slate-700 font-bold text-xs rounded-xl pl-4 pr-10 py-3 outline-none focus:ring-2 focus:ring-orange-500/20 focus:bg-white transition-all cursor-pointer min-w-[200px]"
-                    onChange={(e) => handleUpdate(q.id, { subject_id: e.target.value, status: 'draft' })}
-                    value={q.subject_id || ""}
-                  >
-                    <option value="">Select Subject...</option>
-                    {subjects.map((s: any) => (
-                      <option key={s.id} value={s.id}>{s.subject}</option>
-                    ))}
-                  </select>
-                  <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 rotate-90 text-slate-300 pointer-events-none" />
-                </div>
-
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="rounded-xl h-11 border-slate-200 text-slate-400 hover:text-violet-600 hover:bg-violet-50 hover:border-violet-100 font-black text-[10px] uppercase tracking-widest transition-all"
-                  onClick={async () => {
-                    const res = await fetch("/api/admin/kitchen/classify-ai", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ question: q.question, subjects })
-                    })
-                    const data = await res.json()
-                    if (data.suggested_subject_id) {
-                      handleUpdate(q.id, { subject_id: data.suggested_subject_id, status: 'draft' })
-                    }
-                  }}
-                >
-                  ✨ AI Suggest
-                </Button>
-
-                <div className="flex-1" />
-
+              <div className="flex items-center justify-end pt-6 border-t border-slate-50">
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="h-11 px-4 text-slate-300 hover:text-red-500 font-black text-[10px] uppercase tracking-widest rounded-xl transition-all"
-                  onClick={() => handleUpdate(q.id, { status: 'flagged' })}
+                  className={`h-11 px-6 font-black text-[10px] uppercase tracking-widest rounded-xl transition-all border ${
+                    q.status === 'flagged' 
+                      ? 'text-red-600 bg-red-50 border-red-200 shadow-sm' 
+                      : 'text-slate-300 hover:text-red-500 border-transparent hover:border-red-100 hover:bg-red-50/30'
+                  }`}
+                  onClick={() => handleUpdate(q.id, { status: q.status === 'flagged' ? 'unclassified' : 'flagged' })}
                 >
-                  <Flag className="h-3.5 w-3.5 mr-2" />
-                  Flag for later
+                  <Flag className={`h-3.5 w-3.5 mr-2 ${q.status === 'flagged' ? 'fill-red-600' : ''}`} />
+                  {q.status === 'flagged' ? 'Unflag' : 'Flag for later'}
                 </Button>
               </div>
             </div>
+
           ))
         )}
       </div>
@@ -1050,21 +1024,6 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                   </p>
                 </div>
 
-                <div className="pt-4 space-y-4">
-                  <Button 
-                    onClick={() => {
-                      const qs = subjectsWithDrafts.find((s: any) => s.id == selectedSubjectId)?.questions || []
-                      const txt = formatToQOCE(qs)
-                      navigator.clipboard.writeText(txt)
-                      toast.success("All questions copied in Q/O/C/E format!")
-                    }}
-                    className="bg-[#6366F1] hover:bg-[#4F46E5] text-white font-black h-16 px-12 rounded-[20px] shadow-xl shadow-indigo-100 flex items-center gap-3 mx-auto transition-all hover:-translate-y-1 active:scale-95"
-                  >
-                    <ClipboardList className="h-6 w-6" />
-                    <span className="text-lg">Copy All</span>
-                  </Button>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Formats as Q/I/O/C/E for easy export</p>
-                </div>
              </div>
 
              <div className="space-y-6">
@@ -1113,20 +1072,6 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{sub.questions.length || 0} Questions</p>
                   </div>
                   <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-50">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-10 px-4 text-orange-600 hover:bg-orange-50 border border-transparent hover:border-orange-100 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        const txt = formatToQOCE(sub.questions)
-                        navigator.clipboard.writeText(txt)
-                        toast.success(`${sub.subject} copied!`)
-                      }}
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      Copy QOCE
-                    </Button>
                     <div className="p-2.5 rounded-xl bg-slate-50 group-hover:bg-orange-500 transition-all group-hover:translate-x-1">
                         <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-white" />
                     </div>
@@ -1385,11 +1330,48 @@ function FlaggedView({ courseId }: any) {
           </div>
         ) : (
           questions?.map((q: any, idx: number) => (
-            <div key={q.id} className="bg-white p-6 rounded-[24px] border border-red-50 flex items-center justify-between shadow-sm">
-              <p className="text-sm font-bold text-slate-700 truncate mr-4">{idx + 1}. {q.question}</p>
-              <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase tracking-widest text-orange-500 hover:text-orange-600 hover:bg-orange-50 rounded-xl px-4 h-10" onClick={() => handleRestore(q.id)}>
-                Restore to Pool
-              </Button>
+            <div key={q.id} className="bg-white p-8 rounded-[32px] border border-red-200 shadow-sm space-y-6">
+              <div className="flex justify-between items-start">
+                <div className="flex-1 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-red-50 text-red-600 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-red-100 italic">
+                      Flagged for later
+                    </span>
+                  </div>
+                  <p className="text-red-700 font-bold text-lg leading-relaxed">{idx + 1}. {q.question}</p>
+                  
+                  {/* Options Preview */}
+                  <div className="space-y-3 pl-2">
+                     {(q.options || []).map((opt: any, i: number) => {
+                       const optText = typeof opt === 'string' ? opt : (opt.option || opt.text || "")
+                       const isCorrect = i === q.correct_index
+                       return (
+                         <div key={i} className="flex items-center gap-4">
+                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                             isCorrect ? 'border-green-500 bg-green-50 text-green-600' : 'border-slate-200 bg-white'
+                           }`}>
+                             {isCorrect && <div className="w-2 h-2 rounded-full bg-green-500" />}
+                           </div>
+                           <span className={`text-[15px] font-medium leading-relaxed ${isCorrect ? 'text-green-600' : 'text-slate-600'}`}>
+                             {optText}
+                           </span>
+                         </div>
+                       )
+                     })}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                   <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-10 px-4 text-orange-500 hover:bg-orange-50 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2" 
+                    onClick={() => handleRestore(q.id)}
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Restore to Pool
+                  </Button>
+                </div>
+              </div>
             </div>
           ))
         )}
@@ -1423,7 +1405,7 @@ function AllQuestionsView({ courseId }: any) {
             {questions?.map((q: any, idx: number) => (
               <tr key={q.id} className="hover:bg-slate-50 transition-colors group">
                 <td className="px-8 py-5 font-black text-slate-300 text-[10px]">{idx + 1}</td>
-                <td className="px-8 py-5 text-slate-700 font-bold max-w-xs">{q.question.substring(0, 100)}...</td>
+                <td className={`px-8 py-5 font-bold max-w-xs ${q.status === 'flagged' ? 'text-red-600' : 'text-slate-700'}`}>{q.question.substring(0, 100)}...</td>
                 <td className="px-8 py-5 text-slate-500 font-medium">{q.subject_name || "-"}</td>
                 <td className="px-8 py-5">
                   <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
@@ -1460,26 +1442,29 @@ function WorkflowView({
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [isSaving, setIsSaving] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const [lastAction, setLastAction] = useState<any>(null)
   const [showPreview, setShowPreview] = useState(true)
   const [showQuestionPreview, setShowQuestionPreview] = useState(true)
+  const [processedIds, setProcessedIds] = useState<Set<number>>(new Set())
+  const [searchTerm, setSearchTerm] = useState("")
 
   const LastActionNotification = ({ action, onUndo }: any) => {
     if (!action) return null;
     return (
       <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-6 duration-500">
-        <div className="bg-[#0F172A] rounded-[24px] flex items-center justify-between gap-10 px-8 py-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[380px]">
+        <div className="bg-[#0F172A] rounded-[24px] flex items-center justify-between gap-10 px-6 py-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-800">
           <div className="space-y-1">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.1em] leading-none">Last Action</p>
-            <p className="text-white text-[15px] font-bold leading-none">
-              Moved to <span className="text-[#D99450]">{action.subjectName}</span>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.1em] leading-none">Last Action</p>
+            <p className="text-white text-sm font-bold leading-none">
+              Moved to <span className="text-orange-400">{action.subjectName}</span>
             </p>
           </div>
           <button 
             onClick={onUndo}
-            className="bg-white hover:bg-slate-50 text-[#0F172A] font-black rounded-[18px] h-[48px] px-6 flex items-center gap-2.5 text-sm transition-all shadow-xl active:scale-95"
+            className="bg-white/10 hover:bg-white/20 text-white font-black rounded-xl h-10 px-4 flex items-center gap-2 text-[10px] uppercase transition-all active:scale-95"
           >
-            <RotateCcw className="h-4 w-4 text-[#D99450]" />
+            <RotateCcw className="h-3 w-3 text-orange-400" />
             Undo
           </button>
         </div>
@@ -1492,7 +1477,7 @@ function WorkflowView({
   const [editData, setEditData] = useState<any>(null)
 
   useEffect(() => {
-    if (q) {
+    if (q && !processedIds.has(q.id)) {
       setEditData({
         question: q.question,
         options: q.options || ["", "", "", ""],
@@ -1500,8 +1485,12 @@ function WorkflowView({
         explanation: q.explanation || "",
         subject_id: q.subject_id
       })
+    } else if (q && processedIds.has(q.id)) {
+      // This question is already processed but still in the list (awaiting SWR)
+      // We clear editData to show a loading state and prevent re-classification
+      setEditData(null)
     }
-  }, [q])
+  }, [q, processedIds])
 
   if (!q || !editData) {
     return (
@@ -1522,7 +1511,13 @@ function WorkflowView({
     const prevSubjectId = q.subject_id;
     const effectiveSubjectId = data.subject_id || editData.subject_id;
     setIsSaving(true);
+    setIsTransitioning(true); // Block all UI interactions
+    
     try {
+      // Optimistically mark as processed
+      setProcessedIds(prev => new Set(prev).add(q.id))
+      setEditData(null) 
+
       const res = await fetch(`/api/admin/kitchen/${q.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -1548,11 +1543,15 @@ function WorkflowView({
 
       if (next) {
         // Refresh all potentially affected lists to keep counters accurate
-        mutate?.()
-        mutateDrafts?.()
-        mutateSubjects?.()
-        mutateCourses?.()
+        await Promise.all([
+          mutate?.(),
+          mutateDrafts?.(),
+          mutateSubjects?.(),
+          mutateCourses?.()
+        ])
         
+        // Since questions stay in the pool (status=unclassified,flagged)
+        // we always advance the index unless we are at the end.
         if (currentIndex < questions.length - 1) {
           setCurrentIndex(currentIndex + 1)
         } else {
@@ -1564,8 +1563,13 @@ function WorkflowView({
         mutateSubjects?.()
         mutateCourses?.()
       }
+    } catch (error) {
+       console.error("Update failed:", error)
+       toast.error("Failed to move question")
     } finally {
       setIsSaving(false)
+      // Small delay to allow SWR to settle and avoid the index flicker
+      setTimeout(() => setIsTransitioning(false), 300)
     }
   }
 
@@ -1590,6 +1594,26 @@ function WorkflowView({
 
   return (
     <>
+      {/* Interaction Overlay - Prevents clicks during transitions and AI analysis */}
+      {(isTransitioning || isSaving || isAnalyzing) && (
+        <div className="fixed inset-0 z-[100] bg-white/10 backdrop-blur-[2px] cursor-wait flex items-center justify-center animate-in fade-in duration-200">
+            <div className="bg-[#1e293b] text-white px-8 py-5 rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-slate-700 flex flex-col items-center gap-4 animate-in zoom-in-95 duration-300">
+               <div className="relative">
+                 <div className="h-10 w-10 rounded-full border-4 border-slate-800 border-t-orange-500 animate-spin" />
+                 <BrainCircuit className="h-4 w-4 text-orange-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+               </div>
+               <div className="text-center">
+                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500/80 mb-1">
+                   {isAnalyzing ? "AI is Thinking" : "Syncing Session"}
+                 </p>
+                 <p className="text-sm font-bold text-slate-300">
+                   {isAnalyzing ? "Analyzing medical context..." : "Updating question bank..."}
+                 </p>
+               </div>
+            </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Left Column: Edit Content */}
       <div className="lg:col-span-3 space-y-6">
@@ -1601,9 +1625,18 @@ function WorkflowView({
                 <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
                 Auto-Clean On
               </span>
-              <Button variant="ghost" size="sm" className="h-8 text-slate-400 font-bold text-[10px] uppercase tracking-widest" onClick={() => handleUpdate({ status: 'flagged' })}>
-                <Flag className="h-3 w-3 mr-1.5 text-slate-300" />
-                Flag
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`h-10 px-4 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all border ${
+                  q.status === 'flagged'
+                    ? 'text-red-600 bg-red-50 border-red-200'
+                    : 'text-slate-400 hover:text-red-500 hover:bg-red-50 border-transparent'
+                }`} 
+                onClick={() => handleUpdate({ status: q.status === 'flagged' ? 'unclassified' : 'flagged' })}
+              >
+                <Flag className={`h-3 w-3 mr-1.5 ${q.status === 'flagged' ? 'fill-red-600' : ''}`} />
+                {q.status === 'flagged' ? 'Flagged' : 'Flag'}
               </Button>
               <div className="text-[10px] font-black text-orange-500 uppercase tracking-widest italic pt-0.5">
                 {questions.length - currentIndex} Remaining
@@ -1734,7 +1767,7 @@ function WorkflowView({
             <Button 
               className="bg-orange-500 hover:bg-orange-600 text-white font-black h-12 px-10 rounded-xl shadow-lg shadow-orange-100 uppercase tracking-widest text-xs"
               onClick={() => handleUpdate({ status: editData.subject_id ? 'draft' : 'unclassified' })}
-              disabled={isSaving}
+              disabled={isSaving || isAnalyzing}
             >
               {isSaving ? "Saving..." : "Save & Next"}
             </Button>
@@ -1756,37 +1789,34 @@ function WorkflowView({
               disabled={isAnalyzing}
               onClick={async () => {
                 setIsAnalyzing(true)
+                setIsTransitioning(true)
                 const toastId = toast.loading("AI is analyzing the question...")
                 try {
-                  const res = await fetch("/api/admin/kitchen/classify-ai", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
-                      question: editData.question, 
-                      subjects,
-                      explanation: editData.explanation,
-                      courseName
-                    })
-                  })
-                  
-                  const data = await res.json()
-                  if (!res.ok) throw new Error(data.error || "AI classification failed")
+                  // Using the Server Action as requested by the architectural blueprint
+                  const data = await suggestCategoryAction(
+                    editData.question,
+                    editData.explanation,
+                    editData.options,
+                    subjects,
+                    courseName
+                  )
 
-                  if (data.suggested_subject_id) {
-                    setEditData({ ...editData, subject_id: data.suggested_subject_id })
-                    toast.success(`Suggested: ${data.reasoning || "Matched subject!"}`, { id: toastId })
-                    // If high/medium confidence, auto-save and move next
-                    if (data.confidence === 'high' || data.confidence === 'medium') {
-                      handleUpdate({ subject_id: data.suggested_subject_id, status: 'draft' })
-                    }
+                  if (data.success && data.lectureId > 0) {
+                    toast.success(`AI Matched: ${data.reasoning}`, { id: toastId })
+                    // Auto-Save, State Update, and Auto-Advance (per User Spec)
+                    await handleUpdate({ 
+                      subject_id: data.lectureId, 
+                      status: 'draft' 
+                    })
                   } else {
-                    toast.error("AI couldn't find a matching lecture. Try manual classification.", { id: toastId })
+                    toast.error(`AI Decision: ${data.reasoning}`, { id: toastId })
                   }
                 } catch (e: any) {
                   console.error("AI Auto-Classify Error:", e)
-                  toast.error(`AI Error: ${e.message || "Unauthorized"}`, { id: toastId })
+                  toast.error(`AI Error: ${e.message}`, { id: toastId })
                 } finally {
                   setIsAnalyzing(false)
+                  if (!isSaving) setIsTransitioning(false)
                 }
               }}
             >
@@ -1806,12 +1836,24 @@ function WorkflowView({
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
               <input 
                 placeholder="Search lectures..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full h-12 pl-12 pr-4 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-medium"
               />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-              {subjects.map((s: any) => (
+              {subjects
+                .filter((s: any) => s.subject.toLowerCase().includes(searchTerm.toLowerCase()))
+                .map((s: any) => (
                 <button 
                   key={s.id}
                   onClick={() => {

@@ -46,8 +46,9 @@ export async function GET(request: NextRequest) {
     const params: any[] = [courseId]
 
     if (status) {
-      sql += ` AND q.status = $2`
-      params.push(status)
+      const statusArr = status.split(',')
+      sql += ` AND q.status = ANY($2)`
+      params.push(statusArr)
     } else {
       sql += ` AND q.status != 'active'`
     }

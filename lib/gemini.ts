@@ -10,7 +10,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 export async function suggestCategoryWithGemini(
   question: string,
   explanation: string,
-  lectures: { id: number; name: string }[],
+  options: string[],
+  lectures: { id: number; name: string; description?: string }[],
   courseName: string
 ) {
   if (!process.env.GEMINI_API_KEY) {
@@ -18,57 +19,86 @@ export async function suggestCategoryWithGemini(
     return null;
   }
 
+  // 1. Data Preparation (As per user specification)
+  // Strip HTML tags and truncate to 1000 characters
+  const cleanExplanation = explanation.replace(/<[^>]*>?/gm, '').substring(0, 1000);
+  
+  // Format options into a single string
+  const formattedOptions = options.map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join(", ");
+
+  // Format lectures into lightweight structured list with RICH context
+  const structuredLectures = lectures.map(l => 
+    `ID: ${l.id} | Topic: ${l.name} ${l.description ? `(Clinical Context: ${l.description.substring(0, 1000)})` : ""}`
+  ).join("\n");
+
   const model = genAI.getGenerativeModel({
     model: "gemini-2.0-flash",
-    generationConfig: {
-      temperature: 0.1, // Slight temperature for better reasoning fluidity
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: SchemaType.OBJECT,
-        properties: {
-          reasoning: {
-            type: SchemaType.STRING,
-            description: "Extremely concise medical reasoning (max 10 words)."
-          },
-          lectureId: {
-            type: SchemaType.NUMBER,
-            description: "Matching lecture ID."
-          }
-        },
-        required: ["reasoning", "lectureId"]
+    systemInstruction: `
+      You are a Senior Medical Classifier specializing in pediatric and general medicine.
+      
+      CORE CLASSIFICATION LOGIC:
+      1. Map the MCQ to the SINGLE most relevant Lecture Topic ID from the provided list.
+      2. If a specific disease (e.g., "Meningitis", "Lumbar Puncture findings") doesn't have an exact topic, search for:
+         - The Organ System: e.g., CNS/Brain/Nerves -> Neurology.
+         - The Speciality: e.g., Pneumonia -> Respiratory.
+         - The Parent Group: e.g., Polio -> Immunization.
+      3. CRITICAL: If you see signs of bacterial infection in CSF (Low glucose, high protein, high neutrophils), this is Meningitis. Map this to "Neurology" or "Pediatric Infections".
+      4. If multiple topics are relevant, choose the one where the question would most likely be lectured.
+      
+      5. DO NOT return 0 unless there are no subjects provided. Use your best clinical judgment to map to the most appropriate category, even if it's a broad parent discipline (e.g., Surgery, Medicine, Pediatrics).
+      
+      OUTPUT FORMAT:
+      Return ONLY a JSON object:
+      {
+        "reasoning": "Brief medical link (e.g. CSF/Meningitis maps to Neurology)",
+        "lectureId": [ID number]
       }
+    `,
+    generationConfig: {
+      temperature: 0, 
+      responseMimeType: "application/json"
     }
   });
 
   const prompt = `
-    Context: Medical Education Platform (${courseName})
-    Task: Classify the following MCQ into the single most relevant lecture ID.
+    Available Lectures:
+    ${structuredLectures}
     
-    Lectures:
-    ${lectures.map(l => `${l.id}: ${l.name}`).join("\n")}
-    
-    Question: "${question}"
-    Explanation: "${explanation}"
-    
-    Rules:
-    1. Focus on core medical topics. 
-    2. Ignore generic headers, emojis, or placeholder subjects.
-    3. Return 0 for 'lectureId' if no specific match exists.
-    4. Provide the result in the specified JSON format.
+    MCQ for Classification:
+    - Question: "${question}"
+    - Options: ${formattedOptions}
+    - Explanation (Clinical Pearls): "${cleanExplanation}"
   `;
+
+  // Debug Logging for Clinical Mapping
+  console.log("--- AI CLASSIFICATION PROMPT ---");
+  console.log(prompt);
 
   try {
     const result = await model.generateContent(prompt);
-    const response = JSON.parse(result.response.text());
+    let text = result.response.text();
+    console.log("--- AI RAW RESPONSE ---");
+    console.log(text);
     
-    // Validate that the returned ID actually exists in the provided list
-    const validId = lectures.some(l => l.id === response.lectureId);
+    // Cleanup if model returns markdown JSON
+    if (text.includes("```json")) {
+      text = text.split("```json")[1].split("```")[0].trim();
+    } else if (text.includes("```")) {
+      text = text.split("```")[1].split("```")[0].trim();
+    }
+
+    const response = JSON.parse(text);
+    
+    // Validation (Anti-Hallucination Check)
+    const validId = lectures.find(l => Number(l.id) === Number(response.lectureId));
     
     if (validId) {
       return response;
     } else {
-      console.warn(`AI suggested invalid lectureId: ${response.lectureId}`);
-      return { reasoning: "AI suggested an invalid ID.", lectureId: 0 };
+      return { 
+        reasoning: response.reasoning || "No clear medical match found.", 
+        lectureId: 0 
+      };
     }
   } catch (error) {
     console.error("Gemini classification failed:", error);

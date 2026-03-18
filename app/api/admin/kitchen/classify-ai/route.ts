@@ -15,20 +15,18 @@ export async function POST(request: NextRequest) {
   try {
     const key = process.env.GEMINI_API_KEY;
     console.log(`AI Classification Attempt. Key starts with: ${key ? key.substring(0, 4) + "****" : "MISSING"}`);
-    const { question, subjects, explanation, courseName } = await request.json()
+    const { question, subjects, explanation, courseName, options } = await request.json()
 
     if (!question || !subjects || !Array.isArray(subjects)) {
       return NextResponse.json({ error: "question and subjects array are required" }, { status: 400 })
     }
 
-    // 1. Filter out known "header" subjects (e.g. ⬇️⬇️ Obstetrics ⬇️⬇️)
     const filteredSubjects = subjects
       .filter((s: any) => {
         const name = s.subject || s.name || ""
-        // Ignore if contains emoji arrows or multiple dashes
-        if (/[⬇️⬆️➡️⬅️]/.test(name)) return false
-        if (name.includes("---")) return false
+        // Keep arrows/headers for context, but exclude unclassified pool or empty ones
         if (name.toLowerCase().includes("unclassified pool")) return false
+        if (name.trim() === "---") return false
         return true
       })
       .map((s: any) => ({ id: s.id, name: s.subject || s.name }))
@@ -37,6 +35,7 @@ export async function POST(request: NextRequest) {
     const aiResult = await suggestCategoryWithGemini(
       question,
       explanation || "",
+      options || [],
       filteredSubjects,
       courseName || "Medical Course"
     )
@@ -50,43 +49,20 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 3. Fallback to Keyword based matching if AI fails or returns 0
-    const qText = (question + " " + (explanation || "")).toLowerCase()
-    let bestSubject = null
-    let maxMatches = 0
-    let bestMatchReason = ""
-
-    // Try multi-word matching first
-    for (const sub of subjects) {
-      const subName = (sub.subject || sub.name || "").toLowerCase().trim()
-      if (!subName || subName.includes("---") || subName.includes("pool")) continue
-      
-      // Exact full name match
-      if (qText.includes(subName)) {
-        bestSubject = sub
-        maxMatches = 100 // High priority for exact name match
-        bestMatchReason = `Matched full lecture title: "${subName}"`
-        break
-      }
-
-      const keywords = subName.split(/\s+/).filter((k: string) => k.length >= 3)
-      let matches = 0
-      for (const k of keywords) {
-        if (qText.includes(k)) matches++
-      }
-
-      if (matches > maxMatches) {
-        maxMatches = matches
-        bestSubject = sub
-        bestMatchReason = `Matched ${matches} keywords from "${subName}"`
-      }
+    if (aiResult && aiResult.lectureId > 0) {
+      return NextResponse.json({
+        suggested_subject_id: aiResult.lectureId,
+        reasoning: aiResult.reasoning,
+        confidence: "high",
+        method: "gemini"
+      })
     }
 
     return NextResponse.json({ 
-      suggested_subject_id: bestSubject?.id || null,
-      reasoning: bestMatchReason || "No clear match found",
-      confidence: maxMatches === 100 ? "high" : (maxMatches > 1 ? "medium" : (maxMatches > 0 ? "low" : "none")),
-      method: "keyword"
+      suggested_subject_id: null,
+      reasoning: aiResult?.reasoning || "No clear medical match found by AI.",
+      confidence: "none",
+      method: "gemini"
     })
   } catch (error: any) {
     console.error("AI Classification failed:", error)

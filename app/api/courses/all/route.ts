@@ -10,7 +10,7 @@ export async function GET() {
         c.active,
         c.background AS hero_image,
         COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status != 'active'), 0) AS kitchen_total,
-        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status = 'unclassified'), 0) AS kitchen_unclassified,
+        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status IN ('unclassified', 'flagged')), 0) AS kitchen_unclassified,
         COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status = 'draft'), 0) AS kitchen_classified,
         CASE 
           WHEN (SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status != 'active') > 0 
