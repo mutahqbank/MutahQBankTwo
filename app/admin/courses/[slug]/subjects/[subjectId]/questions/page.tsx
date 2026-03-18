@@ -45,6 +45,7 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
   
   const { data: questions, isLoading } = useSWR<AdminQuestion[]>(`/api/admin/subjects/${subjectId}/questions`)
   const { data: course, isLoading: courseLoading } = useSWR(`/api/courses/${slug}`)
+  const { data: info } = useSWR<{ subject_name: string, course_name: string }>(`/api/admin/subject-info/${subjectId}`)
   
   const [editingId, setEditingId] = useState<number | "new" | null>(null)
   const [form, setForm] = useState({
@@ -419,7 +420,7 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
           </Link>
           <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
           <Link href={`/course/${slug}`} className="text-muted-foreground hover:text-foreground italic">
-            Course
+            {info?.course_name || "Course"}
           </Link>
           <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
           <span className="font-semibold text-foreground">Questions Management</span>
@@ -436,7 +437,7 @@ export default function AdminSubjectQuestionsPage({ params }: { params: Promise<
                 </Button>
               </Link>
               <h1 className="text-3xl font-black text-foreground tracking-tight flex items-center gap-3">
-                {isLoading ? "Loading..." : `${subjectName}`}
+                {isLoading ? "Loading..." : `${info?.subject_name || subjectName}`}
                 <span className="text-slate-300 font-light mx-2">|</span>
                 <span className="text-xl font-bold text-muted-foreground">Questions</span>
               </h1>
