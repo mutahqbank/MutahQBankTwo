@@ -15,65 +15,63 @@ export async function suggestCategoryAction(
   courseId: number,
   courseName: string
 ) {
-  // 1. Security Check (Runs on server)
-  const user = await getServerUser();
-  if (!user || (user.role !== "admin" && user.role !== "instructor")) {
-    throw new Error("Unauthorized: AI classification requires admin or instructor role.");
-  }
+  try {
+    // 1. Security Check (Runs on server)
+    const user = await getServerUser();
+    if (!user || (user.role !== "admin" && user.role !== "instructor")) {
+      return { success: false, reasoning: "Unauthorized: AI classification requires admin or instructor role." };
+    }
 
-  // 2. Data Preparation
-  // Fetch subjects directly from DB since the client-side list might be too large (payload limits)
-  const subjectsRes = await query(`
-    SELECT id, subject as name, description 
-    FROM subjects 
-    WHERE course_id = $1 AND active = true
-  `, [courseId]);
+    // 2. Data Preparation
+    const subjectsRes = await query(`
+      SELECT id, subject as name, description 
+      FROM subjects 
+      WHERE course_id = $1 AND active = true
+    `, [courseId]);
 
-  const subjects = subjectsRes.rows;
-  console.log(`AI Classification Request - User: ${user.username}, Course: ${courseName}, Subjects Found: ${subjects?.length}`);
-  
-  const filteredSubjects = (subjects || [])
-    .filter(s => {
-      const name = (s.name || "").toLowerCase();
-      if (!name) return false;
-      return !name.includes("unclassified pool") && !name.includes("---");
-    })
-    .map(s => ({
-      id: s.id,
-      name: s.name || "Unknown",
-      description: s.description
-    }));
+    const subjects = subjectsRes.rows || [];
+    const filteredSubjects = subjects
+      .filter(s => {
+        const name = (s.name || "").toLowerCase();
+        return name && !name.includes("unclassified pool") && !name.includes("---");
+      })
+      .map(s => ({
+        id: s.id,
+        name: s.name || "Unknown",
+        description: s.description
+      }));
 
-  console.log(`Filtered Subjects Count: ${filteredSubjects.length}. Subjects provided to AI:`, 
-    filteredSubjects.map(s => s.name).join(", ")
-  );
+    console.log(`AI Classification for ${courseName} - Subjects: ${filteredSubjects.length}`);
 
-  console.log(`Filtered Subjects Count: ${filteredSubjects.length}`);
+    // 3. Call OpenAI Service
+    const aiResult = await suggestCategoryWithOpenAI(
+      question,
+      explanation || "",
+      options || [],
+      filteredSubjects,
+      courseName
+    );
 
-  // 3. Call OpenAI Service (Deterministic + Clinical Inference)
-  const aiResult = await suggestCategoryWithOpenAI(
-    question,
-    explanation || "",
-    options || [],
-    filteredSubjects,
-    courseName
-  );
+    if (aiResult && aiResult.lectureId > 0) {
+      return {
+        lectureId: aiResult.lectureId,
+        reasoning: aiResult.reasoning,
+        success: true
+      };
+    }
 
-  console.log(`AI Result - success: ${aiResult?.lectureId > 0}, lectureId: ${aiResult?.lectureId}, reasoning: ${aiResult?.reasoning}`);
-
-  // 4. Return the result directly to the Client Component
-  if (aiResult && aiResult.lectureId > 0) {
     return {
-      lectureId: aiResult.lectureId,
-      reasoning: aiResult.reasoning,
-      success: true
+      lectureId: 0,
+      reasoning: aiResult?.reasoning || "Could not find a specific clinical match.",
+      success: false
+    };
+  } catch (error: any) {
+    console.error("Critical AI Action Error:", error);
+    return {
+      lectureId: 0,
+      reasoning: `Server Error: ${error.message || "Failed to process AI classification."}`,
+      success: false
     };
   }
-
-  return {
-    lectureId: 0,
-    reasoning: aiResult?.reasoning || "Could not find a specific clinical match.",
-    success: false
-  };
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { 
   CookingPot, 
@@ -1994,24 +1994,28 @@ function WorkflowView({
   const [showQuestionPreview, setShowQuestionPreview] = useState(true)
   const [processedIds, setProcessedIds] = useState<Set<number>>(new Set())
   const [searchTerm, setSearchTerm] = useState("")
+  const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const LastActionNotification = ({ action, onUndo }: any) => {
     if (!action) return null;
     return (
-      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-6 duration-500">
-        <div className="bg-[#0F172A] rounded-[24px] flex items-center justify-between gap-10 px-6 py-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-800">
+      <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[60] animate-in fade-in slide-in-from-bottom-6 duration-500">
+        <div className="bg-[#0F172A] rounded-[24px] flex items-center justify-between gap-10 px-8 py-5 shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-slate-700/50 backdrop-blur-xl">
           <div className="space-y-1">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.1em] leading-none">Last Action</p>
-            <p className="text-white text-sm font-bold leading-none">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] leading-none mb-1">Undo Action Available</p>
+            <p className="text-white text-[15px] font-bold leading-none">
               Moved to <span className="text-orange-400">{action.subjectName}</span>
             </p>
           </div>
           <button 
-            onClick={onUndo}
-            className="bg-white/10 hover:bg-white/20 text-white font-black rounded-xl h-10 px-4 flex items-center gap-2 text-[10px] uppercase transition-all active:scale-95"
+            onClick={() => {
+              if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+              onUndo();
+            }}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl h-11 px-6 flex items-center gap-2 text-xs uppercase transition-all active:scale-95 shadow-lg shadow-orange-500/20"
           >
-            <RotateCcw className="h-3 w-3 text-orange-400" />
-            Undo
+            <RotateCcw className="h-4 w-4" />
+            Undo Now
           </button>
         </div>
       </div>
@@ -2105,12 +2109,21 @@ function WorkflowView({
 
       if (effectiveSubjectId) {
         const subjectName = subjects.find((s: any) => s.id === Number(effectiveSubjectId))?.subject || "Unknown";
+        
+        // Clear any existing timer to prevent early vanishing
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+        
         setLastAction({
           questionId: processedId,
           prevSubjectId: prevSubjectId,
           subjectName: subjectName
         });
-        setTimeout(() => setLastAction(null), 15000);
+
+        // Set new timer for 15s
+        undoTimerRef.current = setTimeout(() => {
+          setLastAction(null);
+          undoTimerRef.current = null;
+        }, 15000);
       }
 
       // If we are at the last question of the remaining pool (excluding what we just moved)
@@ -2160,7 +2173,9 @@ function WorkflowView({
       const newIdx = newRemaining.findIndex((q: any) => q.id === restoredId);
       if (newIdx !== -1) setCurrentIndex(newIdx);
 
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
       setLastAction(null);
+      undoTimerRef.current = null;
       mutate();
       toast.success("Action undone successfully");
     } catch (error) {
@@ -2416,21 +2431,28 @@ function WorkflowView({
                   )
 
                   if (data.success && data.lectureId > 0) {
-                    toast.success(`AI Matched: ${data.reasoning}`, { id: toastId, duration: 5000 })
-                    // Auto-Save, State Update, and Auto-Advance (per User Spec)
+                    // Success matched - show message and move it
+                    toast.success(`AI Matched: ${data.reasoning}`, { id: toastId, duration: 8000 })
+                    
+                    // The move operation itself might fail, so we don't catch handleUpdate errors here 
+                    // to prevent double-toast (handleUpdate has its own toast)
                     await handleUpdate({ 
                       subject_id: data.lectureId, 
                       status: 'draft' 
+                    }).catch(() => {
+                      // handleUpdate already showed its toast, just finish here
                     })
                   } else {
-                    toast.error(`AI Decision: ${data.reasoning}`, { id: toastId, duration: 5000 })
+                    toast.error(`AI Decision: ${data.reasoning || "Could not classify accurately"}`, { id: toastId, duration: 10000 })
                   }
                 } catch (e: any) {
+                  // This catches suggestCategoryAction crashes or network failures
                   console.error("AI Auto-Classify Error:", e)
-                  toast.error(`AI Error: ${e.message}`, { id: toastId, duration: 5000 })
+                  const msg = e.message || "An unexpected response was received from the server."
+                  toast.error(`AI Error: ${msg}`, { id: toastId, duration: 10000 })
                 } finally {
                   setIsAnalyzing(false)
-                  if (!isSaving) setIsTransitioning(false)
+                  setTimeout(() => setIsTransitioning(false), 300)
                 }
               }}
             >
@@ -2470,14 +2492,15 @@ function WorkflowView({
                   const name = (s.subject || "").toLowerCase();
                   return name.includes(searchTerm.toLowerCase());
                 })
-                .map((s: any) => (
+                .map((s: any, entryIdx: number) => (
                 <button 
                   key={s.id}
                   onClick={() => {
                     setEditData({ ...editData, subject_id: s.id })
                     handleUpdate({ subject_id: s.id, status: 'draft' })
                   }}
-                  className={`w-full text-left p-4 rounded-xl border transition-all group flex items-center justify-between ${editData.subject_id === s.id ? 'border-orange-200 bg-orange-50' : 'border-slate-50 hover:border-orange-100 hover:bg-slate-50'}`}
+                  style={{ animationDelay: `${entryIdx * 30}ms` }}
+                  className={`w-full text-left p-4 rounded-xl border transition-all group flex items-center justify-between animate-in fade-in slide-in-from-right-4 fill-mode-both ${editData.subject_id === s.id ? 'border-orange-200 bg-orange-50' : 'border-slate-50 hover:border-orange-100 hover:bg-slate-50'}`}
                 >
                   <span className={`text-sm font-bold ${editData.subject_id === s.id ? 'text-orange-600' : 'text-slate-600'}`}>{s.subject}</span>
                   <ArrowRight className={`h-4 w-4 ${editData.subject_id === s.id ? 'text-orange-500' : 'text-slate-200 group-hover:text-orange-400'}`} />
