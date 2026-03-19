@@ -9,9 +9,9 @@ declare global {
 const pool = globalThis.db_pool || new Pool({
   connectionString: RAILWAY_PUBLIC_URL,
   ssl: { rejectUnauthorized: false },
-  max: 20, // Increased from 10
+  max: 100, // Increased further for rapid classification concurrency
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 20000, // Longer timeout for busy spikes
 })
 
 if (process.env.NODE_ENV !== "production") {

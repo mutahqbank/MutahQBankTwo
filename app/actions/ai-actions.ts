@@ -16,10 +16,26 @@ export async function suggestCategoryAction(
   courseName: string
 ) {
   try {
-    // 1. Security Check (Runs on server)
-    const user = await getServerUser();
-    if (!user || (user.role !== "admin" && user.role !== "instructor")) {
-      return { success: false, reasoning: "Unauthorized: AI classification requires admin or instructor role." };
+    // 1. Security Check (Runs on server) with Retry
+    let user = await getServerUser();
+    
+    // Tiny retry to handle transient DB connection spikes
+    if (!user) {
+      console.log("AI Action: First auth attempt failed, retrying in 500ms...");
+      await new Promise(r => setTimeout(r, 500));
+      user = await getServerUser();
+    }
+
+    if (!user) {
+      console.error("AI Action: Authentication failed after retry.");
+      return { 
+        success: false, 
+        reasoning: "Session Error: Could not verify your instructor permissions. Please refresh the page if this persists." 
+      };
+    }
+
+    if (user.role !== "admin" && user.role !== "instructor") {
+      return { success: false, reasoning: "Access Denied: AI classification is restricted to admin/instructor roles." };
     }
 
     // 2. Data Preparation

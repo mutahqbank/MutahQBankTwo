@@ -2148,7 +2148,9 @@ function WorkflowView({
        toast.error(error.message || "Failed to move question")
     } finally {
       setIsSaving(false)
-      setTimeout(() => setIsTransitioning(false), 200)
+      // Longer buffer to ensure SWR has time to trigger re-render 
+      // and UI is blocked while the next question loads
+      setTimeout(() => setIsTransitioning(false), 1000)
     }
   }
 
@@ -2189,19 +2191,20 @@ function WorkflowView({
     <>
       {/* Interaction Overlay - Prevents clicks during transitions and AI analysis */}
       {(isTransitioning || isSaving || isAnalyzing) && (
-        <div className="fixed inset-0 z-[100] bg-white/10 backdrop-blur-[2px] cursor-wait flex items-center justify-center animate-in fade-in duration-200">
-            <div className="bg-[#1e293b] text-white px-8 py-5 rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.5)] border border-slate-700 flex flex-col items-center gap-4 animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm cursor-wait flex items-center justify-center animate-in fade-in duration-300">
+            <div className="bg-[#1e293b] text-white px-10 py-8 rounded-[40px] shadow-[0_40px_80px_rgba(0,0,0,0.6)] border border-slate-700/50 flex flex-col items-center gap-6 animate-in zoom-in-95 duration-300">
                <div className="relative">
-                 <div className="h-10 w-10 rounded-full border-4 border-slate-800 border-t-orange-500 animate-spin" />
-                 <BrainCircuit className="h-4 w-4 text-orange-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                 <div className="h-14 w-14 rounded-full border-4 border-slate-800 border-t-orange-500 animate-spin" />
+                 <BrainCircuit className="h-6 w-6 text-orange-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                </div>
-               <div className="text-center">
-                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500/80 mb-1">
-                   {isAnalyzing ? "AI is Thinking" : "Syncing Session"}
+               <div className="text-center space-y-2">
+                 <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-500 mb-1">
+                   {isAnalyzing ? "AI Reasoning" : "Finalizing Move"}
                  </p>
-                 <p className="text-sm font-bold text-slate-300">
-                   {isAnalyzing ? "Analyzing medical context..." : "Updating question bank..."}
+                 <p className="text-base font-bold text-slate-200">
+                   {isAnalyzing ? "Identifying clinical patterns..." : "Updating your question bank..."}
                  </p>
+                 <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">Please hold on a moment</p>
                </div>
             </div>
         </div>
@@ -2415,8 +2418,9 @@ function WorkflowView({
                   ? "bg-[#9333EA] text-white shadow-indigo-200" 
                   : "bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white shadow-indigo-100"
               }`}
-              disabled={isAnalyzing}
+              disabled={isAnalyzing || isSaving || isTransitioning}
               onClick={async () => {
+                if (isAnalyzing || isSaving || isTransitioning) return;
                 setIsAnalyzing(true)
                 setIsTransitioning(true)
                 const toastId = toast.loading("AI is analyzing the question...")
