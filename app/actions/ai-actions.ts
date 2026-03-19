@@ -12,7 +12,7 @@ export async function suggestCategoryAction(
   question: string,
   explanation: string,
   options: string[],
-  subjects: any[],
+  courseId: number,
   courseName: string
 ) {
   // 1. Security Check (Runs on server)
@@ -22,12 +22,19 @@ export async function suggestCategoryAction(
   }
 
   // 2. Data Preparation
-  // Ensure we only pass the necessary lightweight lecture data to the AI service
-  console.log(`AI Classification Request - User: ${user.username}, Course: ${courseName}, Subjects Count: ${subjects?.length}`);
+  // Fetch subjects directly from DB since the client-side list might be too large (payload limits)
+  const subjectsRes = await query(`
+    SELECT id, subject as name, description 
+    FROM subjects 
+    WHERE course_id = $1 AND active = true
+  `, [courseId]);
+
+  const subjects = subjectsRes.rows;
+  console.log(`AI Classification Request - User: ${user.username}, Course: ${courseName}, Subjects Found: ${subjects?.length}`);
   
   const filteredSubjects = (subjects || [])
     .filter(s => {
-      const name = (s.name || s.subject || "").toLowerCase();
+      const name = (s.name || "").toLowerCase();
       if (!name) return false;
       
       const hasEmoji = /\p{Emoji}/u.test(name) && !/^\d+$/.test(name);
@@ -35,7 +42,7 @@ export async function suggestCategoryAction(
     })
     .map(s => ({
       id: s.id,
-      name: s.name || s.subject || "Unknown",
+      name: s.name || "Unknown",
       description: s.description
     }));
 
@@ -65,3 +72,4 @@ export async function suggestCategoryAction(
     success: false
   };
 }
+

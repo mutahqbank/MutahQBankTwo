@@ -248,6 +248,7 @@ export default function KitchenPage() {
               )}
               {activeSection === "workflow" && (
                  <WorkflowView 
+                  courseId={selectedCourse.id}
                   questions={unclassifiedQuestions || []}
                   subjects={subjects || []}
                   mutate={mutatePool}
@@ -1973,6 +1974,7 @@ function AllQuestionsView({ courseId }: any) {
 
 
 function WorkflowView({ 
+  courseId,
   questions, 
   subjects, 
   mutate,         // mutatePool (unclassified)
@@ -2407,7 +2409,7 @@ function WorkflowView({
                     editData.question,
                     editData.explanation,
                     editData.options,
-                    subjects,
+                    courseId,
                     courseName
                   )
 
