@@ -28,6 +28,7 @@ export async function GET(
         s.subject AS name,
         s.course_id,
         s.active,
+        s.is_restricted,
         (SELECT COUNT(*) FROM questions q WHERE q.subject_id = s.id AND q.active = true) AS question_count,
         (SELECT COUNT(*) FROM questions q LEFT JOIN questions_periods qp ON q.period_id = qp.id WHERE q.subject_id = s.id AND q.active = true AND qp.period ILIKE '%Mid%') AS mid_question_count,
         (SELECT COUNT(*) FROM questions q LEFT JOIN questions_periods qp ON q.period_id = qp.id WHERE q.subject_id = s.id AND q.active = true AND qp.period ILIKE '%Final%') AS final_question_count
@@ -112,7 +113,7 @@ export async function PUT(
     }
 
     const courseId = course.id
-    const { id, name, active } = await request.json()
+    const { id, name, active, is_restricted } = await request.json()
     if (!id) return NextResponse.json({ error: "Subject id is required" }, { status: 400 })
 
     const fields: string[] = []
@@ -121,6 +122,7 @@ export async function PUT(
 
     if (name !== undefined) { fields.push(`subject = $${idx++}`); values.push(name.trim()) }
     if (active !== undefined) { fields.push(`active = $${idx++}`); values.push(active) }
+    if (is_restricted !== undefined) { fields.push(`is_restricted = $${idx++}`); values.push(is_restricted) }
 
     if (fields.length === 0) return NextResponse.json({ error: "No fields to update" }, { status: 400 })
 
