@@ -944,6 +944,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
   const [isEditingName, setIsEditingName] = useState(false)
   const [editNameValue, setEditNameValue] = useState("")
   const [isSavingName, setIsSavingName] = useState(false)
+  const [showWipeDialog, setShowWipeDialog] = useState(false)
   
   // Group questions by subject
   const subjectsWithDrafts = (subjects || []).map((sub: any) => ({
@@ -1205,6 +1206,14 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
               >
                 <CheckCircle className="h-4 w-4" />
                 {isActivating ? "Activating..." : `Activate All Drafts (${totalDrafts})`}
+              </Button>
+              <Button 
+                variant="ghost"
+                onClick={() => setShowWipeDialog(true)}
+                className="text-red-400 hover:text-red-600 hover:bg-red-50 font-black h-12 px-6 rounded-xl flex items-center gap-2 uppercase tracking-widest text-[10px] transition-all"
+              >
+                <Trash2 className="h-4 w-4" />
+                Cleanup Course
               </Button>
             </div>
           )}
@@ -1494,6 +1503,97 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
           }}
         />
       )}
+
+      {showWipeDialog && (
+        <WipeCourseDialog 
+          onClose={() => setShowWipeDialog(false)}
+          onConfirm={async (password: string) => {
+             const loadingId = toast.loading("Wiping course data...")
+             try {
+               const res = await fetch("/api/admin/kitchen", {
+                 method: "DELETE",
+                 headers: { "Content-Type": "application/json" },
+                 body: JSON.stringify({ course_id: courseId, password })
+               })
+               
+               if (res.ok) {
+                 toast.success("Course data wiped successfully", { id: loadingId })
+                 setShowWipeDialog(false)
+                 mutateDrafts()
+                 mutateSubjects()
+                 mutateCourses()
+                 // Redirect to dashboard or refresh pool
+                 window.location.reload() 
+               } else {
+                 const err = await res.json()
+                 toast.error(err.error || "Failed to wipe data", { id: loadingId })
+               }
+             } catch (e) {
+               toast.error("An error occurred", { id: loadingId })
+             }
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function WipeCourseDialog({ onClose, onConfirm }: { onClose: () => void, onConfirm: (pass: string) => void }) {
+  const [password, setPassword] = useState("")
+  const [isWiping, setIsWiping] = useState(false)
+
+  const handleConfirm = async () => {
+    if (!password) return
+    setIsWiping(true)
+    try {
+      await onConfirm(password)
+    } finally {
+      setIsWiping(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300 p-10 space-y-8">
+        <div className="text-center space-y-2">
+          <div className="bg-red-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="h-10 w-10 text-red-500" />
+          </div>
+          <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Danger Zone</h3>
+          <p className="text-slate-500 font-medium">
+            This will permanently delete all lectures and questions for this course. This action cannot be undone.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Enter your password to confirm</p>
+           <input 
+            type="password"
+            className="w-full h-14 px-6 bg-slate-50 border border-red-100 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:bg-white focus:border-red-500 outline-none transition-all font-bold text-slate-700"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoFocus
+          />
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <Button 
+            onClick={handleConfirm}
+            disabled={!password || isWiping}
+            className="w-full h-14 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-xl shadow-red-100 disabled:opacity-50"
+          >
+            {isWiping ? "Wiping..." : "Confirm Delete Everything"}
+          </Button>
+          <Button 
+            variant="ghost" 
+            onClick={onClose}
+            className="w-full h-12 text-slate-400 font-black uppercase tracking-widest text-[10px]"
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
