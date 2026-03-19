@@ -35,7 +35,7 @@ import {
 import { Button } from "@/components/ui/button"
 import useSWR, { mutate as globalMutate } from "swr"
 import { toast } from "sonner"
-import { suggestCategoryAction, batchSuggestCategoryAction } from "@/app/actions/ai-actions"
+import { suggestCategoryAction } from "@/app/actions/ai-actions"
 
 /* --- Types --- */
 type QuestionStatus = "unclassified" | "draft" | "flagged" | "pending_approval" | "approved"
@@ -47,7 +47,6 @@ interface KitchenQuestion {
   subject_id: number | null
   status: QuestionStatus
   creator_id: number
-  options?: any[]
 }
 
 interface Course {
@@ -270,6 +269,7 @@ export default function KitchenPage() {
                   mutateSubjects={mutateSubjects}
                   isAdmin={isAdmin}
                   mutateCourses={mutateCourses}
+                  setActiveSection={setActiveSection}
                 />
               )}
               {activeSection === "flagged" && (
@@ -282,7 +282,15 @@ export default function KitchenPage() {
                   }}
                 />
               )}
-              {activeSection === "all" && <AllQuestionsView courseId={selectedCourse.id} />}
+              {activeSection === "all" && (
+                <AllQuestionsView 
+                  courseId={selectedCourse.id} 
+                  setActiveSection={setActiveSection}
+                  subjects={subjects || []}
+                  mutatePool={mutatePool}
+                  mutateDrafts={mutateDrafts}
+                />
+              )}
             </div>
           </div>
         )}
@@ -840,91 +848,20 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
     mutate()
   }
 
-  const handleBatchClassify = async () => {
-    if (questions.length === 0) return
-    const confirmMsg = `Do you want to use AI to automatically classify all ${questions.length} questions in this pool? This might take a minute.`
-    if (!confirm(confirmMsg)) return
-
-    setIsClassifying(0) // 0 as a special ID for batch
-    const toastId = toast.loading(`Starting AI batch classification for ${questions.length} questions...`)
-    
-    try {
-      const batchSize = 10
-      let processedCount = 0
-      let successCount = 0
-
-      // Process in chunks of 10 to avoid timeouts and manage rate limits
-      for (let i = 0; i < questions.length; i += batchSize) {
-        const chunk = questions.slice(i, i + batchSize)
-        toast.loading(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(questions.length/batchSize)}...`, { id: toastId })
-        
-        const res = await batchSuggestCategoryAction(
-          chunk.map((q: KitchenQuestion) => ({
-            id: q.id,
-            question: q.question,
-            explanation: q.explanation,
-            options: q.options || []
-          })),
-          courseId,
-          "Course" // courseName is not directly available here, but we can pass a generic one or propagate it
-        )
-
-        if (res.success && res.results) {
-          // Update DB for each successful match
-          for (const result of res.results) {
-            processedCount++
-            if (result.success && result.lectureId > 0) {
-              await fetch(`/api/admin/kitchen/${result.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ subject_id: result.lectureId, status: 'draft' })
-              })
-              successCount++
-            }
-          }
-          // Refresh UI after each batch
-          mutate()
-        } else {
-          console.error("Batch classification error:", res.error)
-          toast.error(`Batch error: ${res.error}. Continuing...`, { id: toastId })
-        }
-      }
-
-      toast.success(`Batch complete! Categorized ${successCount}/${questions.length} questions.`, { id: toastId, duration: 5000 })
-    } catch (e: any) {
-      console.error("Batch classification failed:", e)
-      toast.error(`Batch failed: ${e.message}`, { id: toastId })
-    } finally {
-      setIsClassifying(null)
-      mutate()
-    }
-  }
-
   return (
     <div className="space-y-6">
-      <div className="bg-orange-50 border border-orange-100 p-6 rounded-[24px] flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex-1 min-w-[200px]">
+      <div className="bg-orange-50 border border-orange-100 p-6 rounded-[24px] flex items-center justify-between">
+        <div>
           <h3 className="text-lg font-black text-orange-900 uppercase tracking-tight">You have {questions.length} unclassified questions.</h3>
-          <p className="text-orange-700/70 text-sm font-medium">Use the workflow or AI to quickly categorize them.</p>
+          <p className="text-orange-700/70 text-sm font-medium">Use the workflow to quickly categorize them.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button 
-            onClick={handleBatchClassify}
-            disabled={isClassifying !== null || questions.length === 0}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-indigo-100 flex items-center gap-2 uppercase tracking-widest text-xs"
-          >
-            {isClassifying === 0 ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
-            AI Classify All
-          </Button>
-          <Button 
-            onClick={onStartWorkflow}
-            disabled={isClassifying !== null || questions.length === 0}
-            className="bg-orange-500 hover:bg-orange-600 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-orange-200 flex items-center gap-2 uppercase tracking-widest text-xs"
-          >
-            Start Workflow
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button 
+          onClick={onStartWorkflow}
+          className="bg-orange-500 hover:bg-orange-600 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-orange-200 flex items-center gap-2 uppercase tracking-widest text-xs"
+        >
+          Start Classification Workflow
+          <ArrowRight className="h-4 w-4" />
+        </Button>
       </div>
 
       <div className="grid gap-4">
@@ -949,7 +886,7 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
                       {q.status === 'flagged' ? 'Flagged' : 'Unclassified'}
                     </span>
                   </div>
-                  <p className={`${q.status === 'flagged' ? 'text-red-600' : 'text-slate-800'} font-bold text-lg leading-relaxed`}>{idx + 1}. {q.question}</p>
+                  <p className={`${q.status === 'flagged' ? 'text-red-600' : 'text-slate-800'} font-bold text-lg leading-relaxed`}>#{idx + 1} {q.question}</p>
                   
                   {/* Question Options */}
                   <div className="space-y-3 pl-2">
@@ -1005,7 +942,7 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
   )
 }
 
-function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, courseName, mutateCourses, selectedPeriod }: any) {
+function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, courseName, mutateCourses, selectedPeriod, setActiveSection }: any) {
   const [newLectureName, setNewLectureName] = useState("")
   const [newLectureDesc, setNewLectureDesc] = useState("")
   const [bulkText, setBulkText] = useState("")
@@ -1569,6 +1506,11 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
               toast.success("Question updated successfully!")
               mutateDrafts()
               setEditingQuestion(null)
+
+              // Redirect to pool if unclassified
+              if (!updatedData.subject_id || updatedData.status === 'unclassified') {
+                setActiveSection("pool")
+              }
             } else {
               const err = await res.json()
               toast.error(err.details || err.error || "Failed to update")
@@ -1678,7 +1620,7 @@ function KitchenQuestionCard({ question, index, onEdit, onDelete, onActivate, is
       {/* Top Header */}
       <div className="px-10 py-5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
          <span className="text-slate-400 font-bold text-sm tracking-tight flex items-center gap-3">
-           Case {index + 1}
+           Case #{index + 1}
            {question.active === false && (
              <span className="bg-amber-50 text-amber-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-100">
                Deactivated
@@ -1787,7 +1729,7 @@ function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
         {/* Relocation & Period Section */}
         <div className="px-10 py-4 border-b border-slate-100 bg-orange-50/30 flex items-center justify-between gap-6 shrink-0">
           <div className="flex items-center gap-4 flex-1">
-             <span className="text-[10px] font-black uppercase text-orange-600 tracking-widest whitespace-nowrap">Relocate to Lecture</span>
+             <span className="text-[10px] font-black uppercase text-orange-600 tracking-widest whitespace-nowrap">Relocate to</span>
              <select 
                className="flex-1 max-w-sm h-10 px-4 bg-white border border-orange-100 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500/20 transition-all cursor-pointer"
                value={editData.subject_id || ""}
@@ -1798,8 +1740,15 @@ function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
                  <option key={s.id} value={s.id}>{s.subject}</option>
                ))}
              </select>
-          </div>
-          
+             <Button 
+               variant="ghost" 
+               size="sm" 
+               onClick={() => setEditData({ ...editData, subject_id: null, status: 'unclassified' })}
+               className="h-10 px-4 text-orange-600 hover:bg-orange-100 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-orange-100 border-dashed"
+             >
+               Move to Pool
+             </Button>
+          </div>          
           <div className="flex items-center gap-3 bg-white p-1 rounded-xl border border-orange-100 shadow-sm">
             <button 
               onClick={() => setEditData({ ...editData, period_id: 1 })}
@@ -1997,10 +1946,31 @@ function FlaggedView({ courseId, onEdit }: { courseId: number, onEdit: (id: numb
   )
 }
 
-function AllQuestionsView({ courseId }: any) {
-  const { data: questions } = useSWR<KitchenQuestion[]>(
+function AllQuestionsView({ courseId, setActiveSection, subjects, mutatePool, mutateDrafts }: any) {
+  const { data: questions, mutate } = useSWR<KitchenQuestion[]>(
     courseId ? `/api/admin/kitchen?course_id=${courseId}` : null
   )
+  const [editingQuestion, setEditingQuestion] = useState<any>(null)
+
+  const handleUpdate = async (id: number, data: any) => {
+    try {
+      const res = await fetch(`/api/admin/kitchen/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.details || err.error || "Update failed")
+      }
+      mutate()
+      mutatePool?.()
+      mutateDrafts?.()
+      toast.success(data.status === 'flagged' ? "Question flagged" : "Question updated")
+    } catch (e: any) {
+      toast.error(e.message)
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2016,13 +1986,14 @@ function AllQuestionsView({ courseId }: any) {
               <th className="px-8 py-5 font-black text-slate-500 uppercase tracking-widest text-[10px]">Question</th>
               <th className="px-8 py-5 font-black text-slate-500 uppercase tracking-widest text-[10px]">Subject</th>
               <th className="px-8 py-5 font-black text-slate-500 uppercase tracking-widest text-[10px]">Status</th>
+              <th className="px-8 py-5 font-black text-slate-500 uppercase tracking-widest text-[10px] text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {questions?.map((q: any, idx: number) => (
               <tr key={q.id} className="hover:bg-slate-50 transition-colors group">
-                <td className="px-8 py-5 font-black text-slate-300 text-[10px]">{idx + 1}</td>
-                <td className={`px-8 py-5 font-bold max-w-xs ${q.status === 'flagged' ? 'text-red-600' : 'text-slate-700'}`}>{q.question.substring(0, 100)}...</td>
+                <td className="px-8 py-5 font-black text-slate-300 text-[10px]">#{idx + 1}</td>
+                <td className={`px-8 py-5 font-bold max-w-xs ${q.status === 'flagged' ? 'text-red-600' : 'text-slate-700'}`}>{q.question.replace(/<[^>]*>/g, '').substring(0, 100)}...</td>
                 <td className="px-8 py-5 text-slate-500 font-medium">{q.subject_name || "-"}</td>
                 <td className="px-8 py-5">
                   <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
@@ -2035,11 +2006,61 @@ function AllQuestionsView({ courseId }: any) {
                     {q.status}
                   </span>
                 </td>
+                <td className="px-8 py-5 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className={`h-8 w-8 p-0 rounded-lg transition-all ${q.status === 'flagged' ? 'text-red-500 bg-red-50' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}
+                      onClick={() => handleUpdate(q.id, { status: q.status === 'flagged' ? (q.subject_id ? 'draft' : 'unclassified') : 'flagged' })}
+                    >
+                      <Flag className={`h-3.5 w-3.5 ${q.status === 'flagged' ? 'fill-red-500' : ''}`} />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 px-3 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg font-bold text-[10px] uppercase tracking-widest"
+                      onClick={() => setEditingQuestion(q)}
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {editingQuestion && (
+        <QuestionEditDialog 
+          question={editingQuestion} 
+          onClose={() => setEditingQuestion(null)}
+          subjects={subjects}
+          onSave={async (updatedData: any) => {
+            const res = await fetch(`/api/admin/kitchen/${editingQuestion.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updatedData)
+            })
+            if (res.ok) {
+              toast.success("Question updated successfully!")
+              mutate()
+              mutatePool?.()
+              mutateDrafts?.()
+              setEditingQuestion(null)
+              
+              // Handle redirect to pool if unclassified
+              if (!updatedData.subject_id || updatedData.status === 'unclassified') {
+                setActiveSection("pool")
+              }
+            } else {
+              const err = await res.json()
+              toast.error(err.details || err.error || "Failed to update")
+            }
+          }}
+        />
+      )}
     </div>
   )
 }
