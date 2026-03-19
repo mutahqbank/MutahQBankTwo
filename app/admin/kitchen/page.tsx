@@ -2150,7 +2150,7 @@ function WorkflowView({
       setIsSaving(false)
       // Longer buffer to ensure SWR has time to trigger re-render 
       // and UI is blocked while the next question loads
-      setTimeout(() => setIsTransitioning(false), 1000)
+      setTimeout(() => setIsTransitioning(false), 700)
     }
   }
 
@@ -2191,7 +2191,7 @@ function WorkflowView({
     <>
       {/* Interaction Overlay - Prevents clicks during transitions and AI analysis */}
       {(isTransitioning || isSaving || isAnalyzing) && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm cursor-wait flex items-center justify-center animate-in fade-in duration-300">
+        <div className="fixed inset-0 top-16 z-40 bg-slate-900/40 backdrop-blur-sm cursor-wait flex items-center justify-center animate-in fade-in duration-300">
             <div className="bg-[#1e293b] text-white px-10 py-8 rounded-[40px] shadow-[0_40px_80px_rgba(0,0,0,0.6)] border border-slate-700/50 flex flex-col items-center gap-6 animate-in zoom-in-95 duration-300">
                <div className="relative">
                  <div className="h-14 w-14 rounded-full border-4 border-slate-800 border-t-orange-500 animate-spin" />
