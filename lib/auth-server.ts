@@ -28,13 +28,16 @@ export async function getServerUser() {
         if (result.rows.length === 0) return null
 
         const user = result.rows[0]
-        if (user.role) user.role = user.role.toLowerCase()
+        if (user.role) {
+          user.role = user.role.toLowerCase().trim()
+        }
         
         // Ensure allowed_courses is an array
         if (typeof user.allowed_courses === 'string') {
           try {
             user.allowed_courses = JSON.parse(user.allowed_courses)
-          } catch {
+          } catch (e: any) {
+            console.error(`Auth Server: Failed to parse allowed_courses for ${user.username}:`, e.message)
             user.allowed_courses = []
           }
         } else if (!user.allowed_courses) {
@@ -43,7 +46,7 @@ export async function getServerUser() {
 
         return user
     } catch (error: any) {
-        console.error("SERVER AUTH ERROR:", error.message, error.stack);
+        console.error("SERVER AUTH CRITICAL ERROR:", error.message, error.stack);
         return null
     }
 }

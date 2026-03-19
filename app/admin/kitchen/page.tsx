@@ -35,7 +35,7 @@ import {
 import { Button } from "@/components/ui/button"
 import useSWR, { mutate as globalMutate } from "swr"
 import { toast } from "sonner"
-import { suggestCategoryAction } from "@/app/actions/ai-actions"
+import { suggestCategoryAction, batchSuggestCategoryAction } from "@/app/actions/ai-actions"
 
 /* --- Types --- */
 type QuestionStatus = "unclassified" | "draft" | "flagged" | "pending_approval" | "approved"
@@ -47,6 +47,7 @@ interface KitchenQuestion {
   subject_id: number | null
   status: QuestionStatus
   creator_id: number
+  options?: any[]
 }
 
 interface Course {
@@ -839,20 +840,91 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
     mutate()
   }
 
+  const handleBatchClassify = async () => {
+    if (questions.length === 0) return
+    const confirmMsg = `Do you want to use AI to automatically classify all ${questions.length} questions in this pool? This might take a minute.`
+    if (!confirm(confirmMsg)) return
+
+    setIsClassifying(0) // 0 as a special ID for batch
+    const toastId = toast.loading(`Starting AI batch classification for ${questions.length} questions...`)
+    
+    try {
+      const batchSize = 10
+      let processedCount = 0
+      let successCount = 0
+
+      // Process in chunks of 10 to avoid timeouts and manage rate limits
+      for (let i = 0; i < questions.length; i += batchSize) {
+        const chunk = questions.slice(i, i + batchSize)
+        toast.loading(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(questions.length/batchSize)}...`, { id: toastId })
+        
+        const res = await batchSuggestCategoryAction(
+          chunk.map((q: KitchenQuestion) => ({
+            id: q.id,
+            question: q.question,
+            explanation: q.explanation,
+            options: q.options || []
+          })),
+          courseId,
+          "Course" // courseName is not directly available here, but we can pass a generic one or propagate it
+        )
+
+        if (res.success && res.results) {
+          // Update DB for each successful match
+          for (const result of res.results) {
+            processedCount++
+            if (result.success && result.lectureId > 0) {
+              await fetch(`/api/admin/kitchen/${result.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ subject_id: result.lectureId, status: 'draft' })
+              })
+              successCount++
+            }
+          }
+          // Refresh UI after each batch
+          mutate()
+        } else {
+          console.error("Batch classification error:", res.error)
+          toast.error(`Batch error: ${res.error}. Continuing...`, { id: toastId })
+        }
+      }
+
+      toast.success(`Batch complete! Categorized ${successCount}/${questions.length} questions.`, { id: toastId, duration: 5000 })
+    } catch (e: any) {
+      console.error("Batch classification failed:", e)
+      toast.error(`Batch failed: ${e.message}`, { id: toastId })
+    } finally {
+      setIsClassifying(null)
+      mutate()
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="bg-orange-50 border border-orange-100 p-6 rounded-[24px] flex items-center justify-between">
-        <div>
+      <div className="bg-orange-50 border border-orange-100 p-6 rounded-[24px] flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex-1 min-w-[200px]">
           <h3 className="text-lg font-black text-orange-900 uppercase tracking-tight">You have {questions.length} unclassified questions.</h3>
-          <p className="text-orange-700/70 text-sm font-medium">Use the workflow to quickly categorize them.</p>
+          <p className="text-orange-700/70 text-sm font-medium">Use the workflow or AI to quickly categorize them.</p>
         </div>
-        <Button 
-          onClick={onStartWorkflow}
-          className="bg-orange-500 hover:bg-orange-600 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-orange-200 flex items-center gap-2 uppercase tracking-widest text-xs"
-        >
-          Start Classification Workflow
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button 
+            onClick={handleBatchClassify}
+            disabled={isClassifying !== null || questions.length === 0}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-indigo-100 flex items-center gap-2 uppercase tracking-widest text-xs"
+          >
+            {isClassifying === 0 ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
+            AI Classify All
+          </Button>
+          <Button 
+            onClick={onStartWorkflow}
+            disabled={isClassifying !== null || questions.length === 0}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-black h-12 px-8 rounded-xl shadow-lg shadow-orange-200 flex items-center gap-2 uppercase tracking-widest text-xs"
+          >
+            Start Workflow
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4">
