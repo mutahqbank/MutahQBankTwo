@@ -9,9 +9,22 @@ export async function GET() {
         c.course AS name,
         c.active,
         c.background AS hero_image,
-        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND (q.status != 'active' OR q.active = false)), 0) AS kitchen_total,
+        
+        -- Overall Kitchen
+        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND (q.active = false OR q.status != 'active')), 0) AS kitchen_total,
         COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.status IN ('unclassified', 'flagged')), 0) AS kitchen_unclassified,
-        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND (q.status = 'draft' OR (q.status = 'active' AND q.active = false))), 0) AS kitchen_classified,
+        
+        -- Mid (Period 1)
+        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.period_id = 1 AND (q.active = false OR q.status != 'active')), 0) AS mid_total,
+        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.period_id = 1 AND q.status IN ('unclassified', 'flagged')), 0) AS mid_unclassified,
+        
+        -- Final (Period 2)
+        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.period_id = 2 AND (q.active = false OR q.status != 'active')), 0) AS final_total,
+        COALESCE((SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND q.period_id = 2 AND q.status IN ('unclassified', 'flagged')), 0) AS final_unclassified,
+        
+        -- Lectures (Subjects)
+        COALESCE((SELECT COUNT(*) FROM subjects s WHERE s.course_id = c.id), 0) AS subjects_count,
+
         CASE 
           WHEN (SELECT COUNT(*) FROM questions q WHERE q.course_id = c.id AND (q.status != 'active' OR q.active = false)) > 0 
           THEN ROUND(

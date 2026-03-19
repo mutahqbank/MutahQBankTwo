@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const courseId = searchParams.get("course_id")
   const status = searchParams.get("status")
+  const periodId = searchParams.get("period_id")
 
   if (!courseId) {
     return NextResponse.json({ error: "course_id is required" }, { status: 400 })
@@ -51,6 +52,11 @@ export async function GET(request: NextRequest) {
       params.push(statusArr)
     } else {
       sql += ` AND (q.status != 'active' OR q.active = false)`
+    }
+
+    if (periodId) {
+      sql += ` AND q.period_id = $${params.length + 1}`
+      params.push(parseInt(periodId))
     }
 
     sql += ` ORDER BY q.id DESC`
@@ -140,7 +146,7 @@ export async function POST(request: NextRequest) {
         "unclassified", 
         false, // Not active until approved
         q.type_id || 1,
-        defaultPeriodId,
+        q.period_id || defaultPeriodId,
         defaultSubjectId
       ])
       

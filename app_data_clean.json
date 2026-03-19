@@ -1,0 +1,388 @@
+{
+  "courses": [
+    {
+      "id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "name": "mk"
+    }
+  ],
+  "lectures": [
+    {
+      "id": "48f0b78e-bc92-4b38-8275-b208ba387353",
+      "name": "Developmental assessment",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "cc4989b1-7f7e-4eef-8c30-c7dce5ec36ce",
+      "name": "Immunization",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "98cb4290-42a6-407d-b093-df0c7bff8b8b",
+      "name": "Epilepsy",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "59cd26bd-af16-43ca-a167-502be6e1c745",
+      "name": "Cerebral palsy",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "7b80a04f-e7a4-4b0d-9733-775b5ce7bcae",
+      "name": "ADHD",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "a80dfb65-9729-4807-8b80-dfe716c47746",
+      "name": "Muscular dystrophy",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "11ae60ee-2598-4c70-9365-598ef54c0160",
+      "name": "Meningitis",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "95d7bc98-1cf1-47a0-96eb-266e1c63159a",
+      "name": "Encephalitis (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "799e6110-75d5-4f05-b437-df0fc7d67574",
+      "name": "neural tube defect (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "f17c1c4c-fba1-4df3-a751-91b2102bd783",
+      "name": "Neonatal Jaundice",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "f9836f21-ede8-4537-8d3b-18dee6f7df2f",
+      "name": "RDS",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "016a906f-1239-443f-9632-7669958c5749",
+      "name": "Common problems in neonates",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "3b0a9a5e-3fd0-49e7-9376-d15481a37d52",
+      "name": "Infant of diabetic mother",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "fe1f6dcd-23aa-4dea-9aac-013e596defa1",
+      "name": "Viral Neonatal Sepsis (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "a2f9fcd3-169f-4651-ac9f-5bd13f3076bb",
+      "name": "neonatal resuscitation (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "a110684d-eca7-41d4-bd16-645f30c11c65",
+      "name": "⬇️⬇️Hematology & Oncology⬇️⬇️",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "9c22bbef-1b76-491e-ba34-8f3aa1e5e068",
+      "name": "Anemia",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "40770561-2f78-4090-8fd6-af0777037d6c",
+      "name": "Bleeding disorders",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "9a61353e-ac25-465f-a271-19598b2668bb",
+      "name": "Hematological malignancies",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "5bee4d61-fdcc-4cba-956f-c37736151e4a",
+      "name": "Pediatric malignancy",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "6f102dee-6636-4f43-bfe7-968b84272657",
+      "name": "congenital immunodeficiency (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "664de701-33c6-48d2-8390-de70a96539c5",
+      "name": "child abuse (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "414f62dd-841b-49b6-8500-fe37b82b8a08",
+      "name": "⬇️⬇️Gastroenterology & Nutrition⬇️⬇️",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "7639d662-ed9e-48be-9319-90dc83524abb",
+      "name": "Chronic diarrhea & malabsorption",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "ad1cff79-aca0-4e26-91fc-7c76b3d5483d",
+      "name": "Acute gastroenteritis",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "335b0d9c-a4f3-4f56-ba16-d350e4420dd9",
+      "name": "Infant feeding",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "d24a1faa-bbec-4f0e-b434-fa42e7add181",
+      "name": "GERD",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "4f1ef91c-1669-4e21-82a1-573cda448081",
+      "name": "GI bleeding",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "91c810ef-6a63-49a3-8f24-cbbd3374e6d7",
+      "name": "Hepatitis",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "239f0e6b-9f4a-4472-b8ce-7a5ca6c45a01",
+      "name": "constipation (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "74f2df08-2039-49ab-9014-aa1835f5d711",
+      "name": "poisoning and insect bites (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "dd1adecf-7c4a-45a1-9b7c-453198e82a01",
+      "name": "⬇️⬇️Cardiology⬇️⬇️",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "4fff99bc-aaa7-4426-a2d6-5c5bd7607227",
+      "name": "cyanotic & acyanotic heart disease",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "3c2bbfa4-963a-497a-81c8-4c7c4cd94ec1",
+      "name": "Kawasaki disease",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "4626eade-0ed2-4775-a9e3-e9bdcbff4606",
+      "name": "Rheumatic fever",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "38495562-c081-4021-a828-666b1fe681b2",
+      "name": "HSP",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "c34596e1-6db5-4715-ae38-608244b9a128",
+      "name": "HTN in children (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "90580db3-4f73-4cf1-97df-9bb988cc78ac",
+      "name": "⬇️⬇️Pulmonology⬇️⬇️",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "4b986297-fbb4-4afd-baac-c575aa15fb8b",
+      "name": "Asthma",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "8b0faa49-f9eb-42e0-aba4-5997716cefe2",
+      "name": "Bronchiolitis",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "84a9a8d9-2713-4d37-b4e0-dea106bf721b",
+      "name": "URTI",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "300192f1-6733-452e-af5f-58b410263920",
+      "name": "Pneumonia",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "9f37e768-4acd-4bb3-b564-74f455b86f8b",
+      "name": "Cystic Fibrosis",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "24e37c21-03b8-4f39-beab-76a72176c047",
+      "name": "TB",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "23685fcd-28c6-40a9-bbb5-488da0e62421",
+      "name": "respiratory failure (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "51904d41-4dff-4d13-ab1b-3ac5e05c11b5",
+      "name": "⬇️⬇️Endocrinology & Metabolism⬇️⬇️",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "79de19c6-f51c-41a0-b037-4eb0729599ee",
+      "name": "Growth in children & FTT",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "d8e3cbce-68ad-4031-9311-72458af7331b",
+      "name": "Thyroid disorders",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "85f59f93-4680-437c-b131-56515cef6565",
+      "name": "DKA (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "c95db69b-0a68-4e43-8a0e-6ec5378419b6",
+      "name": "Congenital adrenal hyperplasia",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "84b8b2ce-c6c6-41df-8f0b-e0c13fab24e0",
+      "name": "Rickets",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "9cb5eaab-4f6b-43cd-9568-ef9ea9f3ec8e",
+      "name": "Pediatric DM",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "983622e5-dee6-4a44-8c80-2ea9f1b81240",
+      "name": "⬇️⬇️Nephrology⬇️⬇️",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "51f5cb4f-1be8-445f-8eae-59ee4db4fbd4",
+      "name": "AKD & CKD",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "3a7298d3-2b0e-4a42-8c8a-b7d9cc7a9e70",
+      "name": "UTI",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "4c90e9dc-afa9-4de4-a87d-062b19b9bee6",
+      "name": "Nephrotic syndrome & proteinuria",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "ccaa779f-8292-401e-90f2-565edcbe7e76",
+      "name": "Hematuria & nephritis",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "1b655479-75b9-4bff-ada2-10479b9ecfc1",
+      "name": "Fluid therapy in children",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "4e66c548-ced6-4440-b7f0-248dce3570ac",
+      "name": "metabolic acidosis and RTA (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "f4a35282-124d-4cf3-9215-ee0d8b036156",
+      "name": "HUS (6th year)",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "e0a9893c-c07e-4986-a262-a4a874d65f33",
+      "name": "Common chromosomal anomalies",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "716be740-fe08-4623-8a57-45d604ba66f3",
+      "name": "Exanthematous",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    },
+    {
+      "id": "fd57ac6f-5bee-4dbb-a9c1-d52302e11ff6",
+      "name": "Endemic disease",
+      "course_id": "236045b7-2450-43d6-8e8f-fd12c2b60843",
+      "description": null
+    }
+  ]
+}

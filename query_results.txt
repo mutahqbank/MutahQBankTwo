@@ -1,0 +1,4 @@
+Searching for: Transverse Myelitis
+Match found: ID=12772, Snippet="Regarding transverse myelitis, which of the following statements is wrong?...", HasExplanation=
+Searching for: GBS
+Match found: ID=12773, Snippet="Which of the following statements is NOT true regarding Guillain-Barré Syndrome (GBS) in children?...", HasExplanation=

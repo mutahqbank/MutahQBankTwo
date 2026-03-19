@@ -18,14 +18,18 @@ import {
   Filter,
   Check,
   X,
+  Pencil,
   AlertCircle,
   Copy,
   Trash2,
   RefreshCw,
   RotateCcw,
+  ToggleLeft,
   UploadCloud,
   Code,
   BrainCircuit,
+  Lock as LockIcon,
+  Unlock as UnlockIcon,
   Image as ImageIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -63,21 +67,22 @@ export default function KitchenPage() {
   const { user, isAdmin, isInstructor } = useAuth()
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [activeSection, setActiveSection] = useState<string>(isAdmin ? "approvals" : "selection")
+  const [selectedPeriod, setSelectedPeriod] = useState<number>(2) // 1: Mid, 2: Final
   const [workflowIndex, setWorkflowIndex] = useState(0)
   const [unclassifiedCount, setUnclassifiedCount] = useState(0)
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
   
   // Data Fetching
   const { data: allCourses, mutate: mutateCourses } = useSWR<Course[]>("/api/courses/all")
-  const { data: subjects, mutate: mutateSubjects } = useSWR(selectedCourse ? `/api/courses/${selectedCourse.id}/subjects` : null)
+  const { data: subjects, mutate: mutateSubjects } = useSWR(selectedCourse ? `/api/courses/${selectedCourse.id}/subjects?all=true` : null)
   const { data: unclassifiedQuestions, mutate: mutatePool } = useSWR<KitchenQuestion[]>(
-    selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}&status=unclassified,flagged` : null
+    selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}&status=unclassified,flagged&period_id=${selectedPeriod}` : null
   )
   const { data: pendingApprovalQuestions, mutate: mutateApprovals } = useSWR<KitchenQuestion[]>(
     isAdmin ? `/api/admin/kitchen/all-pending` : null
   )
   const { data: draftQuestions, mutate: mutateDrafts } = useSWR<KitchenQuestion[]>(
-    selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}` : null
+    selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}${selectedPeriod ? `&period_id=${selectedPeriod}` : ''}` : null
   )
 
   useEffect(() => {
@@ -154,6 +159,20 @@ export default function KitchenPage() {
                 </button>
                 <div className="flex items-center gap-4">
                   <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">{selectedCourse.name}</h2>
+                  <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
+                    <button 
+                      onClick={() => setSelectedPeriod(1)}
+                      className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedPeriod === 1 ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      Mid
+                    </button>
+                    <button 
+                      onClick={() => setSelectedPeriod(2)}
+                      className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedPeriod === 2 ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      Final
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -207,9 +226,14 @@ export default function KitchenPage() {
                 />
               )}
               {activeSection === "import" && (
-                <ImportView 
+                <ImportMCQDialog 
                   courseId={selectedCourse.id} 
-                  onSuccess={() => { mutatePool() }} 
+                  onSuccess={() => {
+                    mutatePool()
+                    mutateDrafts()
+                    setActiveSection("pool")
+                  }}
+                  selectedPeriod={selectedPeriod}
                 />
               )}
               {activeSection === "pool" && (
@@ -246,7 +270,16 @@ export default function KitchenPage() {
                   mutateCourses={mutateCourses}
                 />
               )}
-              {activeSection === "flagged" && <FlaggedView courseId={selectedCourse.id} />}
+              {activeSection === "flagged" && (
+                <FlaggedView 
+                  courseId={selectedCourse.id} 
+                  onEdit={(qId: number) => {
+                    const idx = unclassifiedQuestions?.findIndex(qu => qu.id === qId) ?? 0;
+                    setWorkflowIndex(idx);
+                    setActiveSection("workflow");
+                  }}
+                />
+              )}
               {activeSection === "all" && <AllQuestionsView courseId={selectedCourse.id} />}
             </div>
           </div>
@@ -409,73 +442,109 @@ function SelectionView({ courses, onSelect, isAdmin, mutate }: { courses: Course
     }
   }
 
-  const renderCourseCard = (course: Course) => (
+  const renderCourseCard = (course: any) => (
     <div
       key={course.id}
       onClick={() => onSelect(course)}
-      className="group bg-white border border-slate-100 rounded-[32px] p-2 text-left transition-all hover:shadow-2xl hover:shadow-slate-200 flex flex-col gap-4 relative overflow-hidden h-[400px] cursor-pointer"
+      className="group bg-white border border-slate-100 rounded-[40px] p-2 text-left transition-all hover:shadow-2xl hover:shadow-slate-200 flex flex-col gap-4 relative overflow-hidden min-h-[520px] cursor-pointer"
     >
       {/* Header Image */}
-      <div className="h-48 bg-slate-100 rounded-[24px] overflow-hidden relative">
+      <div className="h-44 bg-slate-100 rounded-[32px] overflow-hidden relative shadow-inner">
         <img 
           src={course.hero_image || "/images/courses/default.jpg"} 
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
           alt={course.name} 
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="absolute bottom-4 left-6">
-          <h3 className="text-xl font-black text-white uppercase tracking-tight leading-tight">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        
+        {/* Lecture Count Badge */}
+        <div className="absolute top-4 left-6">
+           <div className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 flex items-center gap-2">
+              <BookOpen className="h-3 w-3 text-white/80" />
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">{course.subjects_count} Lectures</span>
+           </div>
+        </div>
+
+        <div className="absolute bottom-6 left-8 right-8">
+          <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-tight drop-shadow-lg">
             {course.name}
           </h3>
         </div>
         
         {isAdmin && (
-          <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+          <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100">
             <button 
               onClick={(e) => handleToggleStatus(e, course.id, Boolean(course.active))}
-              className={`p-2 rounded-xl backdrop-blur-md text-white transition-all ${
-                Boolean(course.active) ? "bg-blue-500/80 hover:bg-blue-600" : "bg-green-500/80 hover:bg-green-600"
+              className={`p-2.5 rounded-xl backdrop-blur-md text-white transition-all ${
+                Boolean(course.active) ? "bg-blue-500/80 hover:bg-blue-600" : "bg-teal-500/80 hover:bg-teal-600"
               }`}
               title={Boolean(course.active) ? "Bring back to staging" : "Activate course"}
             >
               {Boolean(course.active) ? <RotateCcw className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
             </button>
-            <button 
-              onClick={(e) => handleDelete(e, course.id)}
-              className="p-2 rounded-xl bg-red-500/80 backdrop-blur-md text-white hover:bg-red-600 transition-all"
-              title="Delete course"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
           </div>
         )}
       </div>
 
-      <div className="px-6 flex-1 flex flex-col justify-between pb-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">In Kitchen</p>
-            <p className="text-lg font-black text-slate-800">{course.kitchen_total}</p>
+      <div className="px-8 pb-8 flex-1 flex flex-col justify-between space-y-6">
+        {/* Main Stats Summary */}
+        <div className="flex items-center justify-between pb-6 border-b border-slate-50">
+           <div className="space-y-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">In Kitchen</p>
+              <p className="text-3xl font-black text-slate-900 tracking-tighter">{course.kitchen_total}</p>
+           </div>
+           <div className="text-right space-y-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unclassified</p>
+              <p className="text-3xl font-black text-[#D99450] tracking-tighter">{course.kitchen_unclassified}</p>
+           </div>
+        </div>
+
+        {/* Detailed Breakdown (Mid vs Final) */}
+        <div className="grid grid-cols-1 gap-3">
+          {/* Mid Breakdown */}
+          <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4 border border-slate-100 group-hover:scale-[1.02] transition-transform">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-sm" />
+              <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Mid</span>
+            </div>
+            <div className="flex items-center gap-4">
+               <div className="flex flex-col items-end">
+                  <span className="text-xs font-black text-slate-900">{course.mid_total} in kitchen</span>
+                  <span className="text-[9px] font-bold text-orange-500 uppercase tracking-tighter">({course.mid_unclassified} unclassified)</span>
+               </div>
+            </div>
           </div>
-          <div className="space-y-1 text-right">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unclassified</p>
-            <p className="text-lg font-black text-[#D99450]">{course.kitchen_unclassified}</p>
+
+          {/* Final Breakdown */}
+          <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-4 border border-slate-100 group-hover:scale-[1.02] transition-transform">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-sm" />
+              <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Final</span>
+            </div>
+            <div className="flex items-center gap-4">
+               <div className="flex flex-col items-end">
+                  <span className="text-xs font-black text-slate-900">{course.final_total} in kitchen</span>
+                  <span className="text-[9px] font-bold text-orange-500 uppercase tracking-tighter">({course.final_unclassified} unclassified)</span>
+               </div>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-3">
-          <div className="h-2 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+        {/* Progress Section */}
+        <div className="space-y-4 pt-2">
+          <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden p-0.5 shadow-inner">
             <div 
-              className="h-full bg-[#D99450] transition-all duration-1000"
+              className="h-full bg-[#D99450] rounded-full transition-all duration-1000 shadow-lg"
               style={{ width: `${course.kitchen_percentage}%` }}
             />
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic pt-0.5">
+          <div className="flex items-center justify-between pl-1">
+            <span className="text-[11px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#D99450] animate-pulse" />
               {course.kitchen_percentage}% Ready
             </span>
-            <div className="bg-slate-50 group-hover:bg-[#D99450]/10 p-2 rounded-xl transition-colors">
-              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-[#D99450]" />
+            <div className="bg-slate-50 group-hover:bg-[#D99450] p-2 rounded-xl transition-all group-hover:shadow-lg group-hover:shadow-orange-100">
+              <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-white transition-colors" />
             </div>
           </div>
         </div>
@@ -563,7 +632,7 @@ function SelectionView({ courses, onSelect, isAdmin, mutate }: { courses: Course
 }
 
 /* Placeholder Views - To be implemented next */
-function ImportView({ courseId, onSuccess }: any) {
+function ImportMCQDialog({ courseId, onSuccess, selectedPeriod }: any) {
   const [importText, setImportText] = useState("")
   const [isImporting, setIsImporting] = useState(false)
 
@@ -593,26 +662,33 @@ function ImportView({ courseId, onSuccess }: any) {
 
         const markers: { type: 'Q' | 'O' | 'C' | 'E', index: number, length: number }[] = []
 
-        // Find Q
-        const qMatch = qRegex.exec(workingText)
-        if (qMatch) markers.push({ type: 'Q', index: qMatch.index, length: qMatch[0].length })
+        // Find ALL Q, O, C, E markers
+        let qMatch, oMatch, cMatch, eMatch;
+        
+        // 1. Find the FIRST E marker to know where explanation starts
+        const firstEMatch = /(?:^|\s|>)(?:E\)|<b>E\)|<span>E\))/i.exec(workingText);
+        const eStartIndex = firstEMatch ? firstEMatch.index : Infinity;
 
-        // Find ALL Os
-        let oMatch;
+        // 2. Collect markers, but for O and C, only if they appear BEFORE the explanation
+        const firstQ = qRegex.exec(workingText);
+        if (firstQ) markers.push({ type: 'Q', index: firstQ.index, length: firstQ[0].length });
+
         while ((oMatch = oRegex.exec(workingText)) !== null) {
-          markers.push({ type: 'O', index: oMatch.index, length: oMatch[0].length })
+          if (oMatch.index < eStartIndex) {
+            markers.push({ type: 'O', index: oMatch.index, length: oMatch[0].length });
+          }
         }
 
-        // Find ALL Cs (Correct)
-        let cMatch;
         while ((cMatch = cRegex.exec(workingText)) !== null) {
-          markers.push({ type: 'C', index: cMatch.index, length: cMatch[0].length })
+          if (cMatch.index < eStartIndex) {
+            markers.push({ type: 'C', index: cMatch.index, length: cMatch[0].length });
+          }
         }
 
-        // Find ALL Es (Explanations)
-        let eMatch;
-        while ((eMatch = eRegex.exec(workingText)) !== null) {
-          markers.push({ type: 'E', index: eMatch.index, length: eMatch[0].length })
+        // We only need the first E, or all of them if they are duplicates at start, 
+        // but for safety let's just use the first match as the start of 'the' explanation.
+        if (firstEMatch) {
+          markers.push({ type: 'E', index: firstEMatch.index, length: firstEMatch[0].length });
         }
 
         // Sort markers by position
@@ -649,7 +725,8 @@ function ImportView({ courseId, onSuccess }: any) {
             option: opt,
             correct: (i + 1) === correctIdx
           })),
-          type_id: 1
+          type_id: 1,
+          period_id: selectedPeriod // Apply selected period!
         }
       }
 
@@ -855,7 +932,7 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
   )
 }
 
-function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, courseName, mutateCourses }: any) {
+function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, courseName, mutateCourses, selectedPeriod }: any) {
   const [newLectureName, setNewLectureName] = useState("")
   const [newLectureDesc, setNewLectureDesc] = useState("")
   const [bulkText, setBulkText] = useState("")
@@ -864,6 +941,9 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(null)
   const [editingQuestion, setEditingQuestion] = useState<any>(null)
   const [isActivating, setIsActivating] = useState(false)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editNameValue, setEditNameValue] = useState("")
+  const [isSavingName, setIsSavingName] = useState(false)
   
   // Group questions by subject
   const subjectsWithDrafts = (subjects || []).map((sub: any) => ({
@@ -902,7 +982,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
       const res = await fetch("/api/admin/kitchen/activate-all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ course_id: courseId })
+        body: JSON.stringify({ course_id: courseId, period_id: selectedPeriod })
       })
       
       const data = await res.json()
@@ -917,6 +997,33 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
       } else {
         throw new Error(data.error || "Failed to activate questions")
       }
+    } catch (e: any) {
+      toast.error(e.message, { id: tid })
+    } finally {
+      setIsActivating(false)
+    }
+  }
+
+  const handleDeactivateAll = async () => {
+    if (!confirm("Are you sure you want to move ALL live questions back to the kitchen?")) return
+    
+    setIsActivating(true)
+    const tid = toast.loading("Deactivating questions...")
+    try {
+      const res = await fetch("/api/admin/kitchen/deactivate-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ course_id: courseId, period_id: selectedPeriod })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(data.message || `Deactivated ${data.count} questions`, { id: tid, duration: 5000 })
+        await Promise.all([
+          mutateDrafts?.(),
+          mutateSubjects?.(),
+          mutateCourses?.()
+        ])
+      } else throw new Error(data.error || "Failed to deactivate questions")
     } catch (e: any) {
       toast.error(e.message, { id: tid })
     } finally {
@@ -948,19 +1055,64 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
     }
   }
 
+  const handleRenameSubject = async () => {
+    if (!editNameValue.trim() || !selectedSubjectId) return
+    setIsSavingName(true)
+    try {
+      const res = await fetch(`/api/courses/${courseId}/subjects`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectedSubjectId, name: editNameValue.trim() })
+      })
+      if (res.ok) {
+        toast.success("Lecture renamed successfully")
+        setIsEditingName(false)
+        mutateSubjects()
+      } else {
+        const err = await res.json()
+        toast.error(err.error || "Failed to rename lecture")
+      }
+    } catch (e) {
+      toast.error("An error occurred")
+    } finally {
+      setIsSavingName(false)
+    }
+  }
+
+  const handleDeleteSubject = async (id: number) => {
+    if (!confirm("Are you sure? This will permanently delete this lecture and remove all questions from it (unclassifying them).")) return
+    try {
+      const res = await fetch(`/api/courses/${courseId}/subjects`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      })
+      if (res.ok) {
+        toast.success("Lecture deleted")
+        setSelectedSubjectId(null)
+        mutateSubjects()
+      } else {
+        const err = await res.json()
+        toast.error(err.error || "Failed to delete lecture")
+      }
+    } catch (e) {
+      toast.error("An error occurred")
+    }
+  }
+
   const handleBulkImport = async () => {
     if (!bulkText.trim()) return
     setIsAdding(true)
     try {
       const lines = bulkText.split("\n")
       const cleanedLectures = lines
-        .map(l => l.trim())
+        .map(l => l.trim().replace(/[⬇️⬆️⬅️➡️]/g, '').trim())
         .filter(l => {
-          // Ignore purely numeric lines (e.g. "01", "1.")
-          if (/^\d+\.?$/.test(l)) return false
-          // Ignore lines containing "Details" (case-insensitive)
-          if (/Details/i.test(l)) return false
-          return l.length > 0
+          if (!l || l.length < 2) return false
+          if (/^\d+(\.\d+)*$/.test(l)) return false
+          if (l.toLowerCase().includes("details")) return false
+          if (l === "---") return false
+          return true
         })
 
       if (cleanedLectures.length === 0) {
@@ -1026,25 +1178,35 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header with Title and Bulk Activate */}
       {!selectedSubjectId && (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div className="space-y-1">
             <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Lectures (Classification)</h3>
             <p className="text-slate-500 font-medium text-sm">Review questions moved to specific lectures before they go live.</p>
           </div>
           
           {isAdmin && (
-            <Button 
-              onClick={handleBulkActivate}
-              disabled={isActivating || totalDrafts === 0}
-              className={`font-black h-12 px-6 rounded-xl shadow-lg flex items-center gap-2 uppercase tracking-widest text-xs transition-all active:scale-95 ${
-                totalDrafts > 0 
-                  ? 'bg-teal-500 hover:bg-teal-600 text-white shadow-teal-100' 
-                  : 'bg-slate-100 text-slate-400 shadow-none cursor-not-allowed'
-              }`}
-            >
-              <CheckCircle className="h-4 w-4" />
-              {isActivating ? "Activating..." : `Activate All Drafts (${totalDrafts})`}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button 
+                onClick={handleDeactivateAll} 
+                disabled={isActivating}
+                variant="outline"
+                className="h-12 px-6 rounded-xl border-red-200 text-red-600 hover:bg-red-50 font-black uppercase tracking-widest text-xs flex items-center gap-2"
+              >
+                <ToggleLeft className="h-4 w-4" /> Deactivate All Live
+              </Button>
+              <Button 
+                onClick={handleBulkActivate}
+                disabled={isActivating || totalDrafts === 0}
+                className={`font-black h-12 px-6 rounded-xl shadow-lg flex items-center gap-2 uppercase tracking-widest text-xs transition-all active:scale-95 ${
+                  totalDrafts > 0 
+                    ? 'bg-teal-500 hover:bg-teal-600 text-white shadow-teal-100' 
+                    : 'bg-slate-100 text-slate-400 shadow-none cursor-not-allowed'
+                }`}
+              >
+                <CheckCircle className="h-4 w-4" />
+                {isActivating ? "Activating..." : `Activate All Drafts (${totalDrafts})`}
+              </Button>
+            </div>
           )}
         </div>
       )}
@@ -1127,23 +1289,75 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 via-orange-500 to-teal-500" />
                 <div className="flex items-center justify-between mb-8">
                   <button 
-                    onClick={() => setSelectedSubjectId(null)}
+                    onClick={() => { setSelectedSubjectId(null); setIsEditingName(false); }}
                     className="flex items-center gap-2 text-xs font-black text-slate-400 hover:text-orange-500 uppercase tracking-widest transition-all group"
                   >
                     <ArrowRight className="h-4 w-4 rotate-180 group-hover:-translate-x-1 transition-transform" />
                     Back to Lectures
                   </button>
-                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    <span>Subjects</span>
-                    <ChevronRight className="h-3 w-3" />
-                    <span>{courseId === 1 ? 'Pediatric' : 'General'}</span>
-                    <ChevronRight className="h-3 w-3" />
-                    <span className="text-slate-900">{subjects.find((s: any) => s.id == selectedSubjectId)?.subject}</span>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mr-4">
+                      <span>Subjects</span>
+                      <ChevronRight className="h-3 w-3" />
+                      <span className="text-slate-900">{subjects.find((s: any) => s.id == selectedSubjectId)?.subject}</span>
+                    </div>
+                    {isAdmin && (
+                      <button 
+                        onClick={() => handleDeleteSubject(selectedSubjectId!)}
+                        className="text-red-300 hover:text-red-500 transition-colors p-2 hover:bg-red-50 rounded-xl"
+                        title="Delete Lecture"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <h2 className="text-5xl font-black text-slate-900 tracking-tight">{subjects.find((s: any) => s.id == selectedSubjectId)?.subject}</h2>
+                <div className="space-y-4">
+                  {isEditingName ? (
+                    <div className="flex flex-col items-center gap-4 max-w-2xl mx-auto">
+                       <input 
+                        className="w-full text-4xl font-black text-center text-slate-900 border-b-2 border-orange-500 bg-transparent outline-none py-2"
+                        value={editNameValue}
+                        onChange={(e) => setEditNameValue(e.target.value)}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRenameSubject()
+                          if (e.key === 'Escape') setIsEditingName(false)
+                        }}
+                      />
+                      <div className="flex items-center gap-3">
+                         <Button 
+                          onClick={handleRenameSubject} 
+                          disabled={isSavingName}
+                          className="bg-orange-600 hover:bg-orange-700 text-white font-black h-10 px-6 rounded-xl uppercase tracking-widest text-[10px]"
+                        >
+                          {isSavingName ? "Saving..." : "Save"}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          onClick={() => setIsEditingName(false)}
+                          className="text-slate-400 font-black h-10 px-6 rounded-xl uppercase tracking-widest text-[10px]"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-4 group">
+                      <h2 className="text-5xl font-black text-slate-900 tracking-tight">{subjects.find((s: any) => s.id == selectedSubjectId)?.subject}</h2>
+                      <button 
+                        onClick={() => {
+                          setIsEditingName(true);
+                          setEditNameValue(subjects.find((s: any) => s.id == selectedSubjectId)?.subject || "");
+                        }}
+                        className="p-2 text-slate-300 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                        title="Edit Name"
+                      >
+                        <Pencil className="h-6 w-6" />
+                      </button>
+                    </div>
+                  )}
                   <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-xs">
                     {subjectsWithDrafts.find((s: any) => s.id == selectedSubjectId)?.questions.length || 0} MCQs assigned
                   </p>
@@ -1192,15 +1406,62 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                 <div 
                   key={sub.id} 
                   onClick={() => setSelectedSubjectId(sub.id)}
-                  className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:border-orange-500/50 hover:shadow-xl hover:shadow-orange-500/5 transition-all group cursor-pointer relative overflow-hidden"
+                  className={`p-8 rounded-[32px] border transition-all group cursor-pointer relative overflow-hidden ${
+                    sub.is_restricted 
+                      ? 'bg-red-50/50 border-red-200 shadow-sm hover:border-red-400 hover:shadow-red-500/5' 
+                      : 'bg-white border-slate-200 shadow-sm hover:border-orange-500/50 hover:shadow-xl hover:shadow-orange-500/5'
+                  }`}
                 >
+                  {sub.is_restricted && (
+                    <div className="absolute top-0 right-0 px-4 py-1 bg-red-500 text-white text-[9px] font-black uppercase tracking-widest rounded-bl-xl shadow-lg">
+                      AI Restricted
+                    </div>
+                  )}
                   <div className="space-y-1">
-                    <h4 className="font-black text-slate-800 text-lg uppercase tracking-tight group-hover:text-orange-600 transition-colors leading-tight">{sub.subject}</h4>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{sub.questions.length || 0} Questions</p>
+                    <h4 className={`font-black text-lg uppercase tracking-tight transition-colors leading-tight ${
+                      sub.is_restricted ? 'text-red-700 group-hover:text-red-800' : 'text-slate-800 group-hover:text-orange-600'
+                    }`}>{sub.subject}</h4>
+                    <p className={`text-[10px] font-black uppercase tracking-widest ${
+                      sub.is_restricted ? 'text-red-400' : 'text-slate-400'
+                    }`}>{sub.questions.length || 0} Questions</p>
                   </div>
-                  <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-50">
-                    <div className="p-2.5 rounded-xl bg-slate-50 group-hover:bg-orange-500 transition-all group-hover:translate-x-1">
-                        <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-white" />
+                  <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-100/50">
+                    <button 
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const newStatus = !sub.is_restricted;
+                        const tid = toast.loading(newStatus ? "Restricting AI..." : "Removing restriction...");
+                        try {
+                          const res = await fetch(`/api/courses/${courseId}/subjects`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: sub.id, is_restricted: newStatus })
+                          });
+                          if (res.ok) {
+                            toast.success(newStatus ? "Subject restricted from AI" : "Restriction removed", { id: tid });
+                            mutateSubjects();
+                          } else {
+                            toast.error("Failed to update status", { id: tid });
+                          }
+                        } catch (err) {
+                          toast.error("Error updating status", { id: tid });
+                        }
+                      }}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all ${
+                        sub.is_restricted 
+                          ? 'bg-red-100 border-red-200 text-red-600 hover:bg-red-200' 
+                          : 'bg-slate-50 border-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500 hover:border-red-100'
+                      }`}
+                    >
+                      {sub.is_restricted ? <LockIcon className="h-3 w-3" /> : <UnlockIcon className="h-3 w-3" />}
+                      {sub.is_restricted ? "Unlock AI" : "Restrict AI"}
+                    </button>
+                    <div className={`p-2.5 rounded-xl transition-all group-hover:translate-x-1 ${
+                      sub.is_restricted ? 'bg-red-100 group-hover:bg-red-500' : 'bg-slate-50 group-hover:bg-orange-500'
+                    }`}>
+                        <ArrowRight className={`h-4 w-4 transition-colors ${
+                          sub.is_restricted ? 'text-red-400 group-hover:text-white' : 'text-slate-400 group-hover:text-white'
+                        }`} />
                     </div>
                   </div>
                 </div>
@@ -1321,7 +1582,8 @@ function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
     options: question.options || ["", "", "", ""],
     correct_index: question.correct_index || 0,
     explanation: question.explanation || "",
-    subject_id: question.subject_id
+    subject_id: question.subject_id,
+    period_id: question.period_id || 2
   })
   const [showQPreview, setShowQPreview] = useState(false)
   const [showEPreview, setShowEPreview] = useState(false)
@@ -1349,8 +1611,8 @@ function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
           </button>
         </div>
 
-        {/* Relocation Section */}
-        <div className="px-10 py-4 border-b border-slate-100 bg-orange-50/30 flex items-center justify-between shrink-0">
+        {/* Relocation & Period Section */}
+        <div className="px-10 py-4 border-b border-slate-100 bg-orange-50/30 flex items-center justify-between gap-6 shrink-0">
           <div className="flex items-center gap-4 flex-1">
              <span className="text-[10px] font-black uppercase text-orange-600 tracking-widest whitespace-nowrap">Relocate to Lecture</span>
              <select 
@@ -1364,7 +1626,23 @@ function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
                ))}
              </select>
           </div>
-          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white px-3 py-1.5 rounded-lg border border-slate-100 ml-4">
+          
+          <div className="flex items-center gap-3 bg-white p-1 rounded-xl border border-orange-100 shadow-sm">
+            <button 
+              onClick={() => setEditData({ ...editData, period_id: 1 })}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${editData.period_id === 1 ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Mid
+            </button>
+            <button 
+              onClick={() => setEditData({ ...editData, period_id: 2 })}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${editData.period_id === 2 ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Final
+            </button>
+          </div>
+
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white px-3 py-1.5 rounded-lg border border-slate-100">
              Current Status: Classified
           </div>
         </div>
@@ -1469,7 +1747,7 @@ function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
 }
 
 
-function FlaggedView({ courseId }: any) {
+function FlaggedView({ courseId, onEdit }: { courseId: number, onEdit: (id: number) => void }) {
   const { data: questions, mutate } = useSWR<KitchenQuestion[]>(
     courseId ? `/api/admin/kitchen?course_id=${courseId}&status=flagged` : null
   )
@@ -1531,10 +1809,10 @@ function FlaggedView({ courseId }: any) {
                     variant="ghost" 
                     size="sm" 
                     className="h-10 px-4 text-orange-500 hover:bg-orange-50 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center gap-2" 
-                    onClick={() => handleRestore(q.id)}
+                    onClick={() => onEdit(q.id)}
                   >
-                    <RotateCcw className="h-4 w-4" />
-                    Restore to Pool
+                    <Pencil className="h-4 w-4" />
+                    Edit
                   </Button>
                 </div>
               </div>
@@ -1662,7 +1940,8 @@ function WorkflowView({
         ),
         correct_index: q.correct_index || 0,
         explanation: clean(q.explanation || ""),
-        subject_id: q.subject_id
+        subject_id: q.subject_id,
+        period_id: q.period_id || 2
       })
     } else {
       setEditData(null)
@@ -1727,7 +2006,7 @@ function WorkflowView({
           prevSubjectId: prevSubjectId,
           subjectName: subjectName
         });
-        setTimeout(() => setLastAction(null), 5000);
+        setTimeout(() => setLastAction(null), 15000);
       }
 
       // If we are at the last question of the remaining pool (excluding what we just moved)
@@ -1765,6 +2044,18 @@ function WorkflowView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject_id: lastAction.prevSubjectId, status: 'unclassified' })
       });
+      setProcessedIds(prev => {
+        const next = new Set(prev);
+        next.delete(lastAction.questionId);
+        return next;
+      });
+      
+      // Calculate where it will be in the list
+      const restoredId = lastAction.questionId;
+      const newRemaining = (questions || []).filter((q: any) => q.id === restoredId || !processedIds.has(q.id));
+      const newIdx = newRemaining.findIndex((q: any) => q.id === restoredId);
+      if (newIdx !== -1) setCurrentIndex(newIdx);
+
       setLastAction(null);
       mutate();
       toast.success("Action undone successfully");
@@ -1816,7 +2107,25 @@ function WorkflowView({
                     ? 'text-red-600 bg-red-50 border-red-200'
                     : 'text-slate-400 hover:text-red-500 hover:bg-red-50 border-transparent'
                 }`} 
-                onClick={() => handleUpdate({ status: q.status === 'flagged' ? 'unclassified' : 'flagged' })}
+                onClick={async () => {
+                  const newStatus = q.status === 'flagged' ? 'unclassified' : 'flagged';
+                  setIsSaving(true);
+                  try {
+                    const res = await fetch(`/api/admin/kitchen/${q.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ status: newStatus })
+                    });
+                    if (res.ok) {
+                      mutate(); // Refresh the pool
+                      toast.success(newStatus === 'flagged' ? "Flagged for later" : "Unflagged");
+                    }
+                  } catch (e) {
+                    toast.error("Failed to update flag");
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }}
               >
                 <Flag className={`h-3 w-3 mr-1.5 ${q.status === 'flagged' ? 'fill-red-600' : ''}`} />
                 {q.status === 'flagged' ? 'Flagged' : 'Flag'}
@@ -1961,6 +2270,24 @@ function WorkflowView({
       {/* Right Column: Classification */}
       <div className="lg:col-span-1 space-y-4">
          <div className="bg-white rounded-[32px] border border-slate-200 p-6 space-y-6 sticky top-24">
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Session Type</p>
+              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
+                <button 
+                  onClick={() => setEditData({ ...editData, period_id: 1 })}
+                  className={`flex-1 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${editData.period_id === 1 ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Mid
+                </button>
+                <button 
+                  onClick={() => setEditData({ ...editData, period_id: 2 })}
+                  className={`flex-1 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${editData.period_id === 2 ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Final
+                </button>
+              </div>
+            </div>
+
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Classify to Lecture</p>
             
              <Button 
@@ -2035,7 +2362,10 @@ function WorkflowView({
 
             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {subjects
-                .filter((s: any) => s.subject.toLowerCase().includes(searchTerm.toLowerCase()))
+                .filter((s: any) => {
+                  const name = (s.subject || "").toLowerCase();
+                  return name.includes(searchTerm.toLowerCase());
+                })
                 .map((s: any) => (
                 <button 
                   key={s.id}

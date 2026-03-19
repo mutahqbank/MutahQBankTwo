@@ -32,7 +32,8 @@ export async function PATCH(
       question, 
       explanation,
       active,
-      type_id
+      type_id,
+      period_id
     } = body
 
     // 1. Fetch current question to check ownership/permissions
@@ -99,6 +100,11 @@ export async function PATCH(
       updates.push(`type_id = $${i++}`)
       values.push(type_id === null ? null : Number(type_id))
       console.log(`- Type ID: ${type_id}`);
+    }
+    if (period_id !== undefined) {
+      updates.push(`period_id = $${i++}`)
+      values.push(period_id === null ? null : Number(period_id))
+      console.log(`- Period ID: ${period_id}`);
     }
 
     if (updates.length === 0) {

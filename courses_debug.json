@@ -1,0 +1,128 @@
+[
+  {
+    "id": 20,
+    "course": "Family Medicine",
+    "slug": "family-medicine",
+    "active": true
+  },
+  {
+    "id": 10,
+    "course": "Neurosurgery",
+    "slug": "neurosurgery",
+    "active": true
+  },
+  {
+    "id": 14,
+    "course": "Orthopedic ",
+    "slug": "orthopedic-",
+    "active": true
+  },
+  {
+    "id": 2,
+    "course": "Psychiatry",
+    "slug": "psychiatry",
+    "active": true
+  },
+  {
+    "id": 12,
+    "course": "Ophthalmology",
+    "slug": "ophthalmology",
+    "active": true
+  },
+  {
+    "id": 16,
+    "course": "ENT",
+    "slug": "ent",
+    "active": true
+  },
+  {
+    "id": 21,
+    "course": "Urology",
+    "slug": "urology",
+    "active": true
+  },
+  {
+    "id": 22,
+    "course": "Dermatology",
+    "slug": "dermatology",
+    "active": true
+  },
+  {
+    "id": 31,
+    "course": "Radiology",
+    "slug": "radiology",
+    "active": true
+  },
+  {
+    "id": 15,
+    "course": "Neuromedicine",
+    "slug": "neuromedicine",
+    "active": true
+  },
+  {
+    "id": 25,
+    "course": "Anesthesia",
+    "slug": "anesthesia",
+    "active": true
+  },
+  {
+    "id": 28,
+    "course": "Pediatric(MiniOSCE)",
+    "slug": "pediatric(miniosce)",
+    "active": true
+  },
+  {
+    "id": 29,
+    "course": "OBS and GYN (MiniOSCE)",
+    "slug": "obs-and-gyn-(miniosce)",
+    "active": true
+  },
+  {
+    "id": 30,
+    "course": "Internal Medicine(MiniOSCE)",
+    "slug": "internal-medicine(miniosce)",
+    "active": true
+  },
+  {
+    "id": 24,
+    "course": "Forensic",
+    "slug": "forensic",
+    "active": true
+  },
+  {
+    "id": 27,
+    "course": "Surgery(MiniOSCE)",
+    "slug": "surgery(miniosce)",
+    "active": true
+  },
+  {
+    "id": 32,
+    "course": "Surgery(Final)",
+    "slug": "surgery(final)",
+    "active": true
+  },
+  {
+    "id": 40,
+    "course": "Internal Medicine(Final)",
+    "slug": "internal-medicine(final)",
+    "active": false
+  },
+  {
+    "id": 44,
+    "course": "Pediatric(Final)",
+    "slug": "pediatric(final)",
+    "active": false
+  },
+  {
+    "id": 42,
+    "course": "test",
+    "slug": "test",
+    "active": false
+  },
+  {
+    "id": 43,
+    "course": "OBS and GYN (Final)",
+    "slug": "obs-and-gyn-(final)",
+    "active": true
+  }
+]

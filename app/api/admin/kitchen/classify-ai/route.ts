@@ -24,12 +24,12 @@ export async function POST(request: NextRequest) {
     const filteredSubjects = subjects
       .filter((s: any) => {
         const name = s.subject || s.name || ""
-        // Keep arrows/headers for context, but exclude unclassified pool or empty ones
         if (name.toLowerCase().includes("unclassified pool")) return false
         if (name.trim() === "---") return false
-        return true
+        if (s.is_restricted) return false
+        return name.trim().length > 1
       })
-      .map((s: any) => ({ id: s.id, name: s.subject || s.name }))
+      .map((s: any) => ({ id: s.id, name: (s.subject || s.name).replace(/[⬇️⬆️⬅️➡️]/g, '').trim() }))
 
     // 2. Try OpenAI AI classification
     const aiResult = await suggestCategoryWithOpenAI(

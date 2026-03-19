@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { course_id } = await request.json()
+    const { course_id, period_id } = await request.json()
     if (!course_id) {
        return NextResponse.json({ error: "course_id is required" }, { status: 400 })
     }
@@ -31,7 +31,11 @@ export async function POST(request: NextRequest) {
       AND status != 'active' 
       AND status != 'flagged'
     `
-    const params = [course_id]
+    const params: any[] = [course_id]
+    if (period_id) {
+      sql += ` AND period_id = $${params.length + 1}`
+      params.push(period_id)
+    }
     if (poolId) {
       sql += ` AND subject_id != $2`
       params.push(poolId)
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Perform bulk update
+    // Rebuild the update query using the same criteria
     let updateSql = `
       UPDATE questions 
       SET status = 'active', active = true
@@ -55,11 +59,26 @@ export async function POST(request: NextRequest) {
       AND status != 'active' 
       AND status != 'flagged'
     `
-    if (poolId) {
-      updateSql += ` AND subject_id != $2`
+    if (period_id) {
+      updateSql += ` AND period_id = $${params.length === 2 && poolId ? 3 : 2}` 
     }
-
-    await query(updateSql, params)
+    if (poolId) {
+      updateSql += ` AND subject_id != $${params.includes(poolId) ? params.indexOf(poolId) + 1 : params.length}`
+    }
+    
+    // Actually, it's safer to just reuse the exact same criteria:
+    const finalUpdateSql = `
+      UPDATE questions 
+      SET status = 'active', active = true, updated_at = NOW()
+      WHERE id IN (${targetRes.rows.map(r => r.id).join(',')})
+    `
+    // Wait! I shouldn't use updated_at if it's missing.
+    const safeUpdateSql = `
+      UPDATE questions 
+      SET status = 'active', active = true
+      WHERE id IN (${targetRes.rows.map(r => r.id).join(',')})
+    `
+    await query(safeUpdateSql)
 
     return NextResponse.json({ 
       success: true, 
