@@ -36,15 +36,17 @@ export async function suggestCategoryAction(
     .filter(s => {
       const name = (s.name || "").toLowerCase();
       if (!name) return false;
-      
-      const hasEmoji = /\p{Emoji}/u.test(name) && !/^\d+$/.test(name);
-      return !name.includes("unclassified pool") && !name.includes("---") && !hasEmoji;
+      return !name.includes("unclassified pool") && !name.includes("---");
     })
     .map(s => ({
       id: s.id,
       name: s.name || "Unknown",
       description: s.description
     }));
+
+  console.log(`Filtered Subjects Count: ${filteredSubjects.length}. Subjects provided to AI:`, 
+    filteredSubjects.map(s => s.name).join(", ")
+  );
 
   console.log(`Filtered Subjects Count: ${filteredSubjects.length}`);
 
@@ -56,6 +58,8 @@ export async function suggestCategoryAction(
     filteredSubjects,
     courseName
   );
+
+  console.log(`AI Result - success: ${aiResult?.lectureId > 0}, lectureId: ${aiResult?.lectureId}, reasoning: ${aiResult?.reasoning}`);
 
   // 4. Return the result directly to the Client Component
   if (aiResult && aiResult.lectureId > 0) {
