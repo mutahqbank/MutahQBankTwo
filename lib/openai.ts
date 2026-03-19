@@ -70,13 +70,15 @@ export async function suggestCategoryWithOpenAI(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "o3-mini",
       messages: [
-        { role: "system", content: systemInstruction },
+        { 
+          role: "system", 
+          content: systemInstruction + "\n\nCRITICAL: Use your advanced medical reasoning to determine the differential diagnosis before picking the lecture ID."
+        },
         { role: "user", content: userPrompt },
       ],
       response_format: { type: "json_object" },
-      temperature: 0,
     });
 
     const text = response.choices[0].message.content || "{}";
