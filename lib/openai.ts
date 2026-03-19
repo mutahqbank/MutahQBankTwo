@@ -20,17 +20,42 @@ export async function suggestCategoryWithOpenAI(
     return null;
   }
 
-  // 1. Data Preparation
+  // 1. Clinical Data Enhancement (Helping the AI bridge terminology gaps)
+  const synonymMap: Record<string, string> = {
+    "urti": "Upper Respiratory Tract Infection, Pharyngitis, Tonsillitis, GAS, Common Cold",
+    "pneumonia": "LRTIs, Lower Respiratory Infections, Consolidation",
+    "meningitis": "CNS Infection, CSF analysis, Lumbar Puncture",
+    "asthma": "Reactive Airway Disease, Wheezing",
+    "nephrology": "Kidney, UTI, Glomerulonephritis",
+    "hematology": "Anemia, Bleeding, Blood disorders",
+    "neonatology": "Newborn, Prematurity, RDS",
+    "gastroenterology": "GI, Diarrhea, GERD, Abdominal Pain",
+    "endocrinology": "Diabetes, Thyroid, Puberty, Growth",
+    "cardiology": "Heart, Cyanosis, Murmurs",
+    "pulmonology": "Respiratory, Lungs, CF",
+  };
+
+  // 2. Data Preparation
   // Strip HTML tags and truncate to 1000 characters
   const cleanExplanation = explanation.replace(/<[^>]*>?/gm, '').substring(0, 1000);
   
   // Format options into a single string
   const formattedOptions = options.map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join(", ");
 
-  // Format lectures into lightweight structured list
-  const structuredLectures = lectures.map(l => 
-    `ID: ${l.id} | Topic: ${l.name} ${l.description ? `(Clinical Context: ${l.description.substring(0, 1000)})` : ""}`
-  ).join("\n");
+  // Format lectures into lightweight structured list with synonym assistance
+  const structuredLectures = lectures.map(l => {
+    const rawName = l.name.toLowerCase();
+    let enhancedName = l.name;
+    
+    // Check for partial or exact matches in synonym map
+    Object.keys(synonymMap).forEach(key => {
+      if (rawName.includes(key)) {
+        enhancedName += ` (${synonymMap[key]})`;
+      }
+    });
+
+    return `ID: ${l.id} | Topic: ${enhancedName} ${l.description ? `(Context: ${l.description.substring(0, 500)})` : ""}`;
+  }).join("\n");
 
   const systemInstruction = `
     You are a Senior Medical Classifier specializing in pediatric and general medicine.
@@ -70,13 +95,15 @@ export async function suggestCategoryWithOpenAI(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "o3-mini",
       messages: [
-        { role: "system", content: systemInstruction },
+        { 
+          role: "system", 
+          content: systemInstruction + "\n\nCRITICAL: Use your advanced medical reasoning to determine the differential diagnosis before picking the lecture ID."
+        },
         { role: "user", content: userPrompt },
       ],
       response_format: { type: "json_object" },
-      temperature: 0,
     });
 
     const text = response.choices[0].message.content || "{}";
