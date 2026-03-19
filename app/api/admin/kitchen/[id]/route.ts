@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 import { getServerUser } from "@/lib/auth-server"
 
+export const maxDuration = 60; // Increase timeout for database operations
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -11,16 +13,13 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  let { id } = await params
-  if (Array.isArray(id)) {
-    id = id[0]
-  }
+  const { id } = await params
   const numericId = Number(id)
   
   console.log(`PATCH Kitchen Question [${numericId}] - Start`);
 
   if (!numericId || isNaN(numericId)) {
-    return NextResponse.json({ error: "Invalid ID" }, { status: 400 })
+    return NextResponse.json({ error: "Invalid ID", details: `Received ID: ${id}` }, { status: 400 })
   }
 
   try {
@@ -121,26 +120,38 @@ export async function PATCH(
     console.log(`Executing SQL: ${updateSql}`);
     console.log(`SQL Values:`, JSON.stringify(values));
 
-    await query(updateSql, values)
+    try {
+      await query(updateSql, values)
+      console.log(`Question [${id}] basic fields updated.`);
+    } catch (sqlErr: any) {
+      console.error(`SQL UPDATE Error:`, sqlErr.message);
+      throw new Error(`Failed to update question: ${sqlErr.message}`);
+    }
 
     // 3. Update Options if provided
     if (body.options && Array.isArray(body.options)) {
       const { options, correct_index } = body
       console.log(`Updating options for question [${id}]. Count: ${options.length}, Correct Index: ${correct_index}`);
       
-      // Delete old options
-      await query("DELETE FROM options WHERE question_id = $1", [Number(id)])
-      
-      // Insert new options
-      for (let j = 0; j < options.length; j++) {
-        // Handle both string and object options just in case
-        const optionText = typeof options[j] === 'string' ? options[j] : (options[j].option || options[j].text || "");
-        const isCorrect = correct_index !== undefined ? (j === Number(correct_index)) : (options[j].correct || false);
+      try {
+        // Delete old options
+        await query("DELETE FROM options WHERE question_id = $1", [Number(id)])
+        console.log(`Old options deleted for question [${id}].`);
         
-        await query(`
-          INSERT INTO options (question_id, option, correct)
-          VALUES ($1, $2, $3)
-        `, [Number(id), optionText, isCorrect])
+        // Insert new options
+        for (let j = 0; j < options.length; j++) {
+          const optionText = typeof options[j] === 'string' ? options[j] : (options[j].option || options[j].text || "");
+          const isCorrect = correct_index !== undefined ? (j === Number(correct_index)) : (options[j].correct || false);
+          
+          await query(`
+            INSERT INTO options (question_id, option, correct)
+            VALUES ($1, $2, $3)
+          `, [Number(id), optionText, isCorrect])
+        }
+        console.log(`New options inserted for question [${id}].`);
+      } catch (optErr: any) {
+        console.error(`Options Update Error:`, optErr.message);
+        throw new Error(`Failed to update options: ${optErr.message}`);
       }
     }
 

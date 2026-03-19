@@ -2096,7 +2096,9 @@ function WorkflowView({
       });
 
       if (!res.ok) {
-        throw new Error(`Failed to move question`);
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Server Error Details:", errorData);
+        throw new Error(`Failed to move question: ${errorData.details || errorData.error || res.statusText}`);
       }
 
       setProcessedIds(prev => new Set(prev).add(processedId))
@@ -2128,9 +2130,9 @@ function WorkflowView({
       mutateSubjects?.();
       mutateCourses?.();
 
-    } catch (error) {
+    } catch (error: any) {
        console.error("Update failed:", error)
-       toast.error("Failed to move question")
+       toast.error(error.message || "Failed to move question")
     } finally {
       setIsSaving(false)
       setTimeout(() => setIsTransitioning(false), 200)
