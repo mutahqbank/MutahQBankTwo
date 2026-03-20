@@ -339,6 +339,7 @@ export default function KitchenPage() {
                   mutateSubjects={mutateSubjects}
                   isAdmin={isAdmin}
                   mutateCourses={mutateCourses}
+                  setActiveSection={setActiveSection}
                 />
               )}
               {activeSection === "flagged" && (
@@ -351,7 +352,15 @@ export default function KitchenPage() {
                   }}
                 />
               )}
-              {activeSection === "all" && <AllQuestionsView courseId={selectedCourse.id} />}
+              {activeSection === "all" && (
+                <AllQuestionsView 
+                  courseId={selectedCourse.id} 
+                  setActiveSection={setActiveSection}
+                  subjects={subjects || []}
+                  mutatePool={mutatePool}
+                  mutateDrafts={mutateDrafts}
+                />
+              )}
             </div>
           </div>
         )}
@@ -978,7 +987,7 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
                       {q.status === 'flagged' ? 'Flagged' : 'Unclassified'}
                     </span>
                   </div>
-                  <p className={`${q.status === 'flagged' ? 'text-red-600' : 'text-slate-800'} font-bold text-lg leading-relaxed`}>{idx + 1}. {q.question}</p>
+                  <p className={`${q.status === 'flagged' ? 'text-red-600' : 'text-slate-800'} font-bold text-lg leading-relaxed`}>#{idx + 1} {q.question}</p>
                   
                   {/* Question Options */}
                   <div className="space-y-3 pl-2">
@@ -1034,7 +1043,7 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
   )
 }
 
-function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, courseName, mutateCourses, selectedPeriod }: any) {
+function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, courseName, mutateCourses, selectedPeriod, setActiveSection }: any) {
   const [newLectureName, setNewLectureName] = useState("")
   const [newLectureDesc, setNewLectureDesc] = useState("")
   const [bulkText, setBulkText] = useState("")
@@ -1589,6 +1598,11 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
               toast.success("Question updated successfully!")
               mutateDrafts()
               setEditingQuestion(null)
+
+              // Redirect to pool if unclassified
+              if (!updatedData.subject_id || updatedData.status === 'unclassified') {
+                setActiveSection("pool")
+              }
             } else {
               const err = await res.json()
               toast.error(err.details || err.error || "Failed to update")
@@ -1607,7 +1621,7 @@ function KitchenQuestionCard({ question, index, onEdit, onDelete, onActivate, is
       {/* Top Header */}
       <div className="px-10 py-5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
          <span className="text-slate-400 font-bold text-sm tracking-tight flex items-center gap-3">
-           Case {index + 1}
+           Case #{index + 1}
            {question.active === false && (
              <span className="bg-amber-50 text-amber-600 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-100">
                Deactivated
@@ -1716,7 +1730,7 @@ function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
         {/* Relocation & Period Section */}
         <div className="px-10 py-4 border-b border-slate-100 bg-orange-50/30 flex items-center justify-between gap-6 shrink-0">
           <div className="flex items-center gap-4 flex-1">
-             <span className="text-[10px] font-black uppercase text-orange-600 tracking-widest whitespace-nowrap">Relocate to Lecture</span>
+             <span className="text-[10px] font-black uppercase text-orange-600 tracking-widest whitespace-nowrap">Relocate to</span>
              <select 
                className="flex-1 max-w-sm h-10 px-4 bg-white border border-orange-100 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-orange-500/20 transition-all cursor-pointer"
                value={editData.subject_id || ""}
@@ -1727,8 +1741,15 @@ function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
                  <option key={s.id} value={s.id}>{s.subject}</option>
                ))}
              </select>
-          </div>
-          
+             <Button 
+               variant="ghost" 
+               size="sm" 
+               onClick={() => setEditData({ ...editData, subject_id: null, status: 'unclassified' })}
+               className="h-10 px-4 text-orange-600 hover:bg-orange-100 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-orange-100 border-dashed"
+             >
+               Move to Pool
+             </Button>
+          </div>          
           <div className="flex items-center gap-3 bg-white p-1 rounded-xl border border-orange-100 shadow-sm">
             <button 
               onClick={() => setEditData({ ...editData, period_id: 1 })}
@@ -1926,10 +1947,31 @@ function FlaggedView({ courseId, onEdit }: { courseId: number, onEdit: (id: numb
   )
 }
 
-function AllQuestionsView({ courseId }: any) {
-  const { data: questions } = useSWR<KitchenQuestion[]>(
+function AllQuestionsView({ courseId, setActiveSection, subjects, mutatePool, mutateDrafts }: any) {
+  const { data: questions, mutate } = useSWR<KitchenQuestion[]>(
     courseId ? `/api/admin/kitchen?course_id=${courseId}` : null
   )
+  const [editingQuestion, setEditingQuestion] = useState<any>(null)
+
+  const handleUpdate = async (id: number, data: any) => {
+    try {
+      const res = await fetch(`/api/admin/kitchen/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.details || err.error || "Update failed")
+      }
+      mutate()
+      mutatePool?.()
+      mutateDrafts?.()
+      toast.success(data.status === 'flagged' ? "Question flagged" : "Question updated")
+    } catch (e: any) {
+      toast.error(e.message)
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1945,13 +1987,14 @@ function AllQuestionsView({ courseId }: any) {
               <th className="px-8 py-5 font-black text-slate-500 uppercase tracking-widest text-[10px]">Question</th>
               <th className="px-8 py-5 font-black text-slate-500 uppercase tracking-widest text-[10px]">Subject</th>
               <th className="px-8 py-5 font-black text-slate-500 uppercase tracking-widest text-[10px]">Status</th>
+              <th className="px-8 py-5 font-black text-slate-500 uppercase tracking-widest text-[10px] text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {questions?.map((q: any, idx: number) => (
               <tr key={q.id} className="hover:bg-slate-50 transition-colors group">
-                <td className="px-8 py-5 font-black text-slate-300 text-[10px]">{idx + 1}</td>
-                <td className={`px-8 py-5 font-bold max-w-xs ${q.status === 'flagged' ? 'text-red-600' : 'text-slate-700'}`}>{q.question.substring(0, 100)}...</td>
+                <td className="px-8 py-5 font-black text-slate-300 text-[10px]">#{idx + 1}</td>
+                <td className={`px-8 py-5 font-bold max-w-xs ${q.status === 'flagged' ? 'text-red-600' : 'text-slate-700'}`}>{q.question.replace(/<[^>]*>/g, '').substring(0, 100)}...</td>
                 <td className="px-8 py-5 text-slate-500 font-medium">{q.subject_name || "-"}</td>
                 <td className="px-8 py-5">
                   <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
@@ -1964,11 +2007,61 @@ function AllQuestionsView({ courseId }: any) {
                     {q.status}
                   </span>
                 </td>
+                <td className="px-8 py-5 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className={`h-8 w-8 p-0 rounded-lg transition-all ${q.status === 'flagged' ? 'text-red-500 bg-red-50' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}
+                      onClick={() => handleUpdate(q.id, { status: q.status === 'flagged' ? (q.subject_id ? 'draft' : 'unclassified') : 'flagged' })}
+                    >
+                      <Flag className={`h-3.5 w-3.5 ${q.status === 'flagged' ? 'fill-red-500' : ''}`} />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 px-3 text-slate-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg font-bold text-[10px] uppercase tracking-widest"
+                      onClick={() => setEditingQuestion(q)}
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {editingQuestion && (
+        <QuestionEditDialog 
+          question={editingQuestion} 
+          onClose={() => setEditingQuestion(null)}
+          subjects={subjects}
+          onSave={async (updatedData: any) => {
+            const res = await fetch(`/api/admin/kitchen/${editingQuestion.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updatedData)
+            })
+            if (res.ok) {
+              toast.success("Question updated successfully!")
+              mutate()
+              mutatePool?.()
+              mutateDrafts?.()
+              setEditingQuestion(null)
+              
+              // Handle redirect to pool if unclassified
+              if (!updatedData.subject_id || updatedData.status === 'unclassified') {
+                setActiveSection("pool")
+              }
+            } else {
+              const err = await res.json()
+              toast.error(err.details || err.error || "Failed to update")
+            }
+          }}
+        />
+      )}
     </div>
   )
 }
