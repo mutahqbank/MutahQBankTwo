@@ -1699,7 +1699,8 @@ function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
     correct_index: question.correct_index || 0,
     explanation: question.explanation || "",
     subject_id: question.subject_id,
-    period_id: question.period_id || 2
+    period_id: question.period_id || 2,
+    status: question.status || 'unclassified'
   })
   const [showQPreview, setShowQPreview] = useState(false)
   const [showEPreview, setShowEPreview] = useState(false)
