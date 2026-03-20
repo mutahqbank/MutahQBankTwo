@@ -4,14 +4,28 @@ import { getServerUser } from "@/lib/auth-server"
 
 export async function POST(request: NextRequest) {
   const user = await getServerUser()
-  if (!user || user.role !== "admin") {
-    return NextResponse.json({ error: "Unauthorized: Admins only" }, { status: 401 })
+  const isAdmin = user?.role === "admin"
+  const isInstructor = user?.role === "instructor"
+  
+  if (!user || (!isAdmin && !isInstructor)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
     const { course_id, period_id } = await request.json()
     if (!course_id) {
        return NextResponse.json({ error: "course_id is required" }, { status: 400 })
+    }
+
+    // Security check for instructors
+    if (isInstructor && !isAdmin) {
+      const courseRes = await query("SELECT course FROM courses WHERE id = $1", [course_id])
+      if (courseRes.rows.length === 0) return NextResponse.json({ error: "Course not found" }, { status: 404 })
+      const courseName = courseRes.rows[0].course
+      const allowed = (user.allowed_courses || []).map((c: string) => c.toLowerCase())
+      if (!allowed.includes(courseName.toLowerCase())) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
     }
 
     let sql = `

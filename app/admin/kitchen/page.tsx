@@ -338,6 +338,7 @@ export default function KitchenPage() {
                   mutateDrafts={mutateDrafts}
                   mutateSubjects={mutateSubjects}
                   isAdmin={isAdmin}
+                  isInstructor={isInstructor}
                   mutateCourses={mutateCourses}
                   setActiveSection={setActiveSection}
                 />
@@ -1043,7 +1044,7 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
   )
 }
 
-function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, courseName, mutateCourses, selectedPeriod, setActiveSection }: any) {
+function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, isInstructor, courseName, mutateCourses, selectedPeriod, setActiveSection }: any) {
   const [newLectureName, setNewLectureName] = useState("")
   const [newLectureDesc, setNewLectureDesc] = useState("")
   const [bulkText, setBulkText] = useState("")
@@ -1295,7 +1296,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
             <p className="text-slate-500 font-medium text-sm">Review questions moved to specific lectures before they go live.</p>
           </div>
           
-          {isAdmin && (
+          {(isAdmin || isInstructor) && (
             <div className="flex items-center gap-3">
               <Button 
                 onClick={handleDeactivateAll} 
@@ -1412,7 +1413,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                       <ChevronRight className="h-3 w-3" />
                       <span className="text-slate-900">{subjects.find((s: any) => s.id == selectedSubjectId)?.subject}</span>
                     </div>
-                    {isAdmin && (
+                    {(isAdmin || isInstructor) && (
                       <button 
                         onClick={() => handleDeleteSubject(selectedSubjectId!)}
                         className="text-red-300 hover:text-red-500 transition-colors p-2 hover:bg-red-50 rounded-xl"
@@ -1490,6 +1491,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                         question={q} 
                         index={idx} 
                         isAdmin={isAdmin}
+                        isInstructor={isInstructor}
                         onEdit={() => setEditingQuestion(q)}
                         onActivate={() => handleActivateQuestion(q.id)}
                         onDelete={async () => {
@@ -1615,7 +1617,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
 }
 
 /* --- Premium Question Card Component --- */
-function KitchenQuestionCard({ question, index, onEdit, onDelete, onActivate, isAdmin }: any) {
+function KitchenQuestionCard({ question, index, onEdit, onDelete, onActivate, isAdmin, isInstructor }: any) {
   return (
     <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow">
       {/* Top Header */}
@@ -1629,7 +1631,7 @@ function KitchenQuestionCard({ question, index, onEdit, onDelete, onActivate, is
            )}
          </span>
          <div className="flex items-center gap-6">
-           {isAdmin && (
+           {(isAdmin || isInstructor) && (
              <button 
                onClick={onActivate} 
                title="Activate Question"

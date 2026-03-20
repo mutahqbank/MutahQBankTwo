@@ -13,9 +13,6 @@ const MAJOR_SLUGS = [
 ];
 const MINOR_4TH_SLUGS = ["anesthesia", "forensic", "radiology"]
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 async function getStats() {
   try {
     const [coursesRes, subjectsRes, questionsRes] = await Promise.all([
@@ -52,12 +49,7 @@ async function getCourses() {
       FROM courses c
       ORDER BY c.id ASC
     `)
-    
-    return res.rows.map((r: any) => ({
-      ...r,
-      total_subjects: parseInt(r.total_subjects, 10),
-      total_questions: parseInt(r.total_questions, 10)
-    }))
+    return res.rows
   } catch (error) {
     console.error("Failed to fetch courses for home page:", error)
     return []
