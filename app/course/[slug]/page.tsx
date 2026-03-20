@@ -470,7 +470,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
           <div className="mx-auto flex max-w-xl flex-col gap-3 px-4">
             {isSubscribed ? (
               /* Subscribed user: direct access only */
-              <Link href={`/course/${slug}/session-dashboard`}>
+              <Link href={`/course/${slug}/session-dashboard${course.name.toLowerCase().includes("(final)") ? "?period=Final" : ""}`}>
                 <Button className="w-full bg-secondary py-6 text-base font-semibold text-secondary-foreground hover:bg-secondary/90">Go to Course</Button>
               </Link>
             ) : (
@@ -479,7 +479,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
                 <Link href={`/course/${slug}/payment`}>
                   <Button className="w-full bg-secondary py-6 text-base font-semibold text-secondary-foreground hover:bg-secondary/90">Subscribe Now</Button>
                 </Link>
-                <Link href={`/course/${slug}/session-dashboard`}>
+                <Link href={`/course/${slug}/session-dashboard${course.name.toLowerCase().includes("(final)") ? "?period=Final" : ""}`}>
                   <Button variant="outline" className="w-full py-6 text-base font-semibold">Go to Course</Button>
                 </Link>
                 <p className="text-center text-sm text-muted-foreground">

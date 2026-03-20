@@ -47,7 +47,6 @@ async function getCourses() {
         (SELECT count(*) FROM subjects s WHERE s.course_id = c.id AND s.active = true) as total_subjects,
         (SELECT count(*) FROM questions q JOIN subjects s ON q.subject_id = s.id WHERE s.course_id = c.id AND s.active = true AND q.active = true) as total_questions
       FROM courses c
-      WHERE c.active = true
       ORDER BY c.id ASC
     `)
     return res.rows
@@ -58,14 +57,15 @@ async function getCourses() {
 }
 
 export default async function HomePage() {
-  const [activeCourses, stats] = await Promise.all([
+  const [allCourses, stats] = await Promise.all([
     getCourses(),
     getStats(),
   ])
+  const courses = allCourses.filter((c: any) => c.slug !== 'test')
 
-  const majors = activeCourses.filter((c: any) => MAJOR_SLUGS.includes(c.slug))
-  const minors4th = activeCourses.filter((c: any) => MINOR_4TH_SLUGS.includes(c.slug))
-  const minors5th = activeCourses.filter((c: any) => !MAJOR_SLUGS.includes(c.slug) && !MINOR_4TH_SLUGS.includes(c.slug))
+  const majors = courses.filter((c: any) => MAJOR_SLUGS.includes(c.slug))
+  const minors4th = courses.filter((c: any) => MINOR_4TH_SLUGS.includes(c.slug))
+  const minors5th = courses.filter((c: any) => !MAJOR_SLUGS.includes(c.slug) && !MINOR_4TH_SLUGS.includes(c.slug))
 
   return (
     <HomeClient

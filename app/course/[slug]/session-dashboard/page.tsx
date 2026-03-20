@@ -10,6 +10,7 @@ import {
   CheckSquare, Square, ChevronDown, ChevronLeft, Flag,
   Eye, EyeOff, Send, AlertCircle, Lock, BookOpen, FileText, Timer
 } from "lucide-react"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 
 // Global SWRProvider handles fetching and caching rules.
 
@@ -271,9 +272,12 @@ function QuestionView({ q, selectedId, cbqAnswers, revealed, onSelect, onCbqAnsw
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function SessionDashboardPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params)
+  const { slug } = use(params) as { slug: string }
   const courseId = parseInt(slug) || 0
   const { user, isAdmin, isInstructor } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
 
   // Subscription check
   const canAccess = isAdmin || (isInstructor && user?.allowed_courses?.some(c => 
@@ -302,6 +306,25 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   const [timeLimit, setTimeLimit] = useState(30)
   const [progressFilter, setProgressFilter] = useState<"all" | "new" | "correct" | "incorrect">("all")
   const [examFilter, setExamFilter] = useState<"All" | "Mid" | "Final">("All")
+
+  // Sync examFilter with URL
+  useEffect(() => {
+    const period = searchParams.get("period")
+    if (period === "Mid" || period === "Final" || period === "All") {
+      setExamFilter(period as "All" | "Mid" | "Final")
+    }
+  }, [searchParams])
+
+  const handleExamFilterChange = (filter: "All" | "Mid" | "Final") => {
+    setExamFilter(filter)
+    const params = new URLSearchParams(searchParams.toString())
+    if (filter === "All") {
+      params.delete("period")
+    } else {
+      params.set("period", filter)
+    }
+    router.replace(`${pathname}?${params.toString()}`)
+  }
 
   const toggleSubject = useCallback((id: number) => {
     setSelectedSubjects(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
@@ -897,8 +920,8 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-foreground">Filter by Exam Type</label>
                     <div className="flex flex-wrap gap-2">
-                      {(["All", "Mid", "Final"] as const).map(f => (
-                        <button key={f} onClick={() => setExamFilter(f)}
+                       {(["All", "Mid", "Final"] as const).map(f => (
+                        <button key={f} onClick={() => handleExamFilterChange(f)}
                           className={`rounded-full px-4 py-1.5 text-xs font-medium capitalize transition-colors ${examFilter === f ? "bg-secondary text-secondary-foreground" : "border border-border bg-background text-foreground hover:bg-muted"}`}>
                           {f} Exams
                         </button>
@@ -1010,7 +1033,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                     {questionsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin outline-none" /> : <BookOpen className="mr-2 h-4 w-4" />} Session Mode
                   </Button>
                   <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                    onClick={() => { setSelectedSubjects(new Set()); setQuestionCount(20); setTimedMode(false); setProgressFilter("all"); setExamFilter("All"); }}>
+                    onClick={() => { setSelectedSubjects(new Set()); setQuestionCount(20); setTimedMode(false); setProgressFilter("all"); handleExamFilterChange("All"); }}>
                     <RotateCcw className="mr-2 h-4 w-4" /> Reset
                   </Button>
                 </div>

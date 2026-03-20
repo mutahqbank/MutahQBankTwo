@@ -19,9 +19,6 @@ import {
   Check,
   X,
   Pencil,
-  AlertCircle,
-  Copy,
-  Trash2,
   RefreshCw,
   RotateCcw,
   ToggleLeft,
@@ -30,8 +27,10 @@ import {
   BrainCircuit,
   Lock as LockIcon,
   Unlock as UnlockIcon,
-  Image as ImageIcon
+  ImageIcon,
+  Trash2
 } from "lucide-react"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import useSWR, { mutate as globalMutate } from "swr"
 import { toast } from "sonner"
@@ -61,10 +60,20 @@ interface Course {
   kitchen_percentage: number
   hero_image: string | null
 }
-
+interface DBSubject {
+  id: number
+  name: string
+  course_id: number
+  active: boolean
+  question_count: number | string
+}
 
 export default function KitchenPage() {
   const { user, isAdmin, isInstructor } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [activeSection, setActiveSection] = useState<string>(isAdmin ? "approvals" : "selection")
   const [selectedPeriod, setSelectedPeriod] = useState<number>(2) // 1: Mid, 2: Final
@@ -74,16 +83,77 @@ export default function KitchenPage() {
   
   // Data Fetching
   const { data: allCourses, mutate: mutateCourses } = useSWR<Course[]>("/api/courses/all")
-  const { data: subjects, mutate: mutateSubjects } = useSWR(selectedCourse ? `/api/courses/${selectedCourse.id}/subjects?all=true` : null)
-  const { data: unclassifiedQuestions, mutate: mutatePool } = useSWR<KitchenQuestion[]>(
+  const { data: activeCourseSWR } = useSWR<Course>(selectedCourse ? `/api/courses/${selectedCourse.id}` : null)
+  const { data: subjects, mutate: mutateSubjects } = useSWR<DBSubject[]>(selectedCourse ? `/api/courses/${selectedCourse.id}/subjects?all=true` : null)
+  const { data: unclassifiedQuestions, mutate: mutatePool } = useSWR<any[]>(
     selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}&status=unclassified,flagged&period_id=${selectedPeriod}` : null
   )
-  const { data: pendingApprovalQuestions, mutate: mutateApprovals } = useSWR<KitchenQuestion[]>(
+  const { data: pendingApprovalQuestions, mutate: mutateApprovals } = useSWR<any[]>(
     isAdmin ? `/api/admin/kitchen/all-pending` : null
   )
-  const { data: draftQuestions, mutate: mutateDrafts } = useSWR<KitchenQuestion[]>(
+  const { data: draftQuestions, mutate: mutateDrafts } = useSWR<any[]>(
     selectedCourse ? `/api/admin/kitchen?course_id=${selectedCourse.id}${selectedPeriod ? `&period_id=${selectedPeriod}` : ''}` : null
   )
+
+  // Sync state with URL on mount
+  useEffect(() => {
+    if (allCourses) {
+      const courseId = searchParams.get("course_id")
+      const periodId = searchParams.get("period_id")
+      const section = searchParams.get("section")
+
+      if (courseId) {
+        const course = allCourses.find(c => c.id === parseInt(courseId))
+        if (course) {
+          setSelectedCourse(course)
+          if (section) setActiveSection(section)
+          else setActiveSection("pool")
+        }
+      }
+
+      if (periodId) {
+        setSelectedPeriod(parseInt(periodId))
+      }
+    }
+  }, [allCourses, searchParams])
+
+  // Update URL when state changes
+  const updateUrl = (courseId: number | null, periodId: number, section: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (courseId) {
+      params.set("course_id", courseId.toString())
+      params.set("period_id", periodId.toString())
+      params.set("section", section)
+    } else {
+      params.delete("course_id")
+      params.delete("period_id")
+      params.delete("section")
+    }
+    router.replace(`${pathname}?${params.toString()}`)
+  }
+
+  const handleCourseSelect = (course: Course) => {
+    setSelectedCourse(course)
+    setActiveSection("pool")
+    updateUrl(course.id, selectedPeriod, "pool")
+  }
+
+  const handlePeriodChange = (period: number) => {
+    setSelectedPeriod(period)
+    if (selectedCourse) updateUrl(selectedCourse.id, period, activeSection)
+  }
+
+  const handleSectionChange = (section: string) => {
+    setActiveSection(section)
+    if (selectedCourse) updateUrl(selectedCourse.id, selectedPeriod, section)
+  }
+
+  const handleBackToDashboard = () => {
+    setSelectedCourse(null)
+    setActiveSection("selection")
+    updateUrl(null, selectedPeriod, "selection")
+  }
+  
 
   useEffect(() => {
     if (unclassifiedQuestions) setUnclassifiedCount(unclassifiedQuestions.length)
@@ -126,7 +196,7 @@ export default function KitchenPage() {
                   {selectedCourse.name}
                 </span>
                 <button 
-                  onClick={() => { setSelectedCourse(null); setActiveSection("selection") }}
+                  onClick={handleBackToDashboard}
                   className="ml-1 p-0.5 hover:bg-slate-200 rounded-full transition-colors"
                 >
                   <X className="h-3 w-3 text-slate-500" />
@@ -142,7 +212,7 @@ export default function KitchenPage() {
           <SelectionView 
             courses={availableCourses || []} 
             isAdmin={isAdmin}
-            onSelect={(c) => { setSelectedCourse(c); setActiveSection("pool") }} 
+            onSelect={handleCourseSelect} 
             mutate={mutateCourses}
           />
         ) : (
@@ -151,7 +221,7 @@ export default function KitchenPage() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2 border-b border-slate-200">
               <div className="space-y-4">
                 <button 
-                  onClick={() => { setSelectedCourse(null); setActiveSection("selection") }}
+                  onClick={handleBackToDashboard}
                   className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-orange-500 uppercase tracking-widest transition-colors group"
                 >
                   <ArrowRight className="h-3 w-3 rotate-180 group-hover:-translate-x-1 transition-transform" />
@@ -161,13 +231,13 @@ export default function KitchenPage() {
                   <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">{selectedCourse.name}</h2>
                   <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-sm">
                     <button 
-                      onClick={() => setSelectedPeriod(1)}
+                      onClick={() => handlePeriodChange(1)}
                       className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedPeriod === 1 ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                     >
                       Mid
                     </button>
                     <button 
-                      onClick={() => setSelectedPeriod(2)}
+                      onClick={() => handlePeriodChange(2)}
                       className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedPeriod === 2 ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                     >
                       Final
@@ -187,31 +257,31 @@ export default function KitchenPage() {
             <div className="bg-white p-1 rounded-2xl border border-slate-200 inline-flex items-center gap-1">
                <TabButton 
                 active={activeSection === "import"} 
-                onClick={() => setActiveSection("import")}
+                onClick={() => handleSectionChange("import")}
                 icon={Plus} 
                 label="Add Question" 
               />
               <TabButton 
                 active={activeSection === "pool"} 
-                onClick={() => setActiveSection("pool")}
+                onClick={() => handleSectionChange("pool")}
                 icon={null}
                 label={`Pool (${unclassifiedQuestions?.length || 0})`} 
               />
               <TabButton 
                 active={activeSection === "lectures"} 
-                onClick={() => setActiveSection("lectures")}
+                onClick={() => handleSectionChange("lectures")}
                 icon={null}
                 label="Lectures" 
               />
               <TabButton 
                 active={activeSection === "all"} 
-                onClick={() => setActiveSection("all")}
+                onClick={() => handleSectionChange("all")}
                 icon={null}
                 label="All" 
               />
               <TabButton 
                 active={activeSection === "flagged"} 
-                onClick={() => setActiveSection("flagged")}
+                onClick={() => handleSectionChange("flagged")}
                 icon={null}
                 label={`Flagged (${unclassifiedQuestions?.filter(q => q.status === 'flagged').length || 0})`} 
               />
@@ -231,7 +301,7 @@ export default function KitchenPage() {
                   onSuccess={() => {
                     mutatePool()
                     mutateDrafts()
-                    setActiveSection("pool")
+                    handleSectionChange("pool")
                   }}
                   selectedPeriod={selectedPeriod}
                 />
@@ -255,7 +325,7 @@ export default function KitchenPage() {
                   mutateDrafts={mutateDrafts}
                   mutateSubjects={mutateSubjects}
                   mutateCourses={mutateCourses}
-                  onClose={() => setActiveSection("pool")}
+                  onClose={() => handleSectionChange("pool")}
                   courseName={selectedCourse?.name}
                   initialIndex={workflowIndex}
                  />
@@ -443,34 +513,64 @@ function SelectionView({ courses, onSelect, isAdmin, mutate }: { courses: Course
     }
   }
 
-  const renderCourseCard = (course: any) => (
-    <div
-      key={course.id}
-      onClick={() => onSelect(course)}
-      className="group bg-white border border-slate-100 rounded-[40px] p-2 text-left transition-all hover:shadow-2xl hover:shadow-slate-200 flex flex-col gap-4 relative overflow-hidden min-h-[520px] cursor-pointer"
-    >
-      {/* Header Image */}
-      <div className="h-44 bg-slate-100 rounded-[32px] overflow-hidden relative shadow-inner">
-        <img 
-          src={course.hero_image || "/images/courses/default.jpg"} 
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-          alt={course.name} 
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-        
-        {/* Lecture Count Badge */}
-        <div className="absolute top-4 left-6">
-           <div className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 flex items-center gap-2">
-              <BookOpen className="h-3 w-3 text-white/80" />
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">{course.subjects_count} Lectures</span>
-           </div>
-        </div>
+  const renderCourseCard = (course: any) => {
+    const isMiniOSCE = course.name.toLowerCase().includes("(miniosce)")
+    const isFinal = course.name.toLowerCase().includes("(final)")
+    
+    let displayName = course.name
+    if (isMiniOSCE) displayName = displayName.replace(/\(miniosce\)/i, "").trim()
+    if (isFinal) displayName = displayName.replace(/\(final\)/i, "").trim()
 
-        <div className="absolute bottom-6 left-8 right-8">
-          <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-tight drop-shadow-lg">
-            {course.name}
-          </h3>
-        </div>
+    const isActive = Boolean(course.active)
+    const showFinalOutline = isFinal && isActive
+
+    return (
+      <div
+        key={course.id}
+        onClick={() => onSelect(course)}
+        className={`group bg-white border border-slate-100 rounded-[40px] p-2 text-left transition-all hover:shadow-2xl hover:shadow-slate-200 flex flex-col gap-4 relative overflow-hidden min-h-[520px] cursor-pointer ${
+          showFinalOutline ? "ring-4 ring-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : ""
+        }`}
+      >
+        {/* Header Image */}
+        <div className="h-44 bg-slate-100 rounded-[32px] overflow-hidden relative shadow-inner">
+          <img 
+            src={course.hero_image || "/images/courses/default.jpg"} 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+            alt={course.name} 
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          
+          {/* Indicators Layer */}
+          <div className="absolute inset-x-0 top-0 p-4 z-10 flex flex-col gap-2">
+            {isFinal && (
+               <div className="bg-red-600/90 backdrop-blur-md px-4 py-2 rounded-xl flex justify-center items-center shadow-2xl shadow-red-900/20 border border-red-400/20 animate-pulse mr-10 transition-all">
+                 <span className="text-[10px] font-black text-white uppercase tracking-[0.4em] ml-[0.4em]">FINAL</span>
+               </div>
+            )}
+            
+            <div className="flex justify-end pr-10">
+              {isMiniOSCE && (
+                 <span className="rounded-full bg-orange-500/90 backdrop-blur-md px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-white shadow-lg ring-1 ring-white/20">
+                   Mini-OSCE
+                 </span>
+              )}
+            </div>
+          </div>
+
+          {/* Lecture Count Badge */}
+          <div className="absolute top-4 left-6">
+             <div className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 flex items-center gap-2">
+                <BookOpen className="h-3 w-3 text-white/80" />
+                <span className="text-[10px] font-black text-white uppercase tracking-widest">{course.subjects_count} Lectures</span>
+             </div>
+          </div>
+
+          <div className="absolute bottom-6 left-8 right-8">
+            <h3 className="text-2xl font-black text-white uppercase tracking-tight leading-tight drop-shadow-lg">
+              {displayName}
+            </h3>
+          </div>
         
         {isAdmin && (
           <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100">
@@ -551,7 +651,8 @@ function SelectionView({ courses, onSelect, isAdmin, mutate }: { courses: Course
         </div>
       </div>
     </div>
-  )
+    )
+  }
 
   return (
     <div className="space-y-16">
@@ -945,7 +1046,6 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
   const [isEditingName, setIsEditingName] = useState(false)
   const [editNameValue, setEditNameValue] = useState("")
   const [isSavingName, setIsSavingName] = useState(false)
-  const [showWipeDialog, setShowWipeDialog] = useState(false)
   
   // Group questions by subject
   const subjectsWithDrafts = (subjects || []).map((sub: any) => ({
@@ -1207,14 +1307,6 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
               >
                 <CheckCircle className="h-4 w-4" />
                 {isActivating ? "Activating..." : `Activate All Drafts (${totalDrafts})`}
-              </Button>
-              <Button 
-                variant="ghost"
-                onClick={() => setShowWipeDialog(true)}
-                className="text-red-400 hover:text-red-600 hover:bg-red-50 font-black h-12 px-6 rounded-xl flex items-center gap-2 uppercase tracking-widest text-[10px] transition-all"
-              >
-                <Trash2 className="h-4 w-4" />
-                Cleanup Course
               </Button>
             </div>
           )}
@@ -1504,97 +1596,6 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
           }}
         />
       )}
-
-      {showWipeDialog && (
-        <WipeCourseDialog 
-          onClose={() => setShowWipeDialog(false)}
-          onConfirm={async (password: string) => {
-             const loadingId = toast.loading("Wiping course data...")
-             try {
-               const res = await fetch("/api/admin/kitchen", {
-                 method: "DELETE",
-                 headers: { "Content-Type": "application/json" },
-                 body: JSON.stringify({ course_id: courseId, password })
-               })
-               
-               if (res.ok) {
-                 toast.success("Course data wiped successfully", { id: loadingId })
-                 setShowWipeDialog(false)
-                 mutateDrafts()
-                 mutateSubjects()
-                 mutateCourses()
-                 // Redirect to dashboard or refresh pool
-                 window.location.reload() 
-               } else {
-                 const err = await res.json()
-                 toast.error(err.error || "Failed to wipe data", { id: loadingId })
-               }
-             } catch (e) {
-               toast.error("An error occurred", { id: loadingId })
-             }
-          }}
-        />
-      )}
-    </div>
-  )
-}
-
-function WipeCourseDialog({ onClose, onConfirm }: { onClose: () => void, onConfirm: (pass: string) => void }) {
-  const [password, setPassword] = useState("")
-  const [isWiping, setIsWiping] = useState(false)
-
-  const handleConfirm = async () => {
-    if (!password) return
-    setIsWiping(true)
-    try {
-      await onConfirm(password)
-    } finally {
-      setIsWiping(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300 p-10 space-y-8">
-        <div className="text-center space-y-2">
-          <div className="bg-red-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="h-10 w-10 text-red-500" />
-          </div>
-          <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Danger Zone</h3>
-          <p className="text-slate-500 font-medium">
-            This will permanently delete all lectures and questions for this course. This action cannot be undone.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Enter your password to confirm</p>
-           <input 
-            type="password"
-            className="w-full h-14 px-6 bg-slate-50 border border-red-100 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:bg-white focus:border-red-500 outline-none transition-all font-bold text-slate-700"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoFocus
-          />
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <Button 
-            onClick={handleConfirm}
-            disabled={!password || isWiping}
-            className="w-full h-14 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-xl shadow-red-100 disabled:opacity-50"
-          >
-            {isWiping ? "Wiping..." : "Confirm Delete Everything"}
-          </Button>
-          <Button 
-            variant="ghost" 
-            onClick={onClose}
-            className="w-full h-12 text-slate-400 font-black uppercase tracking-widest text-[10px]"
-          >
-            Cancel
-          </Button>
-        </div>
-      </div>
     </div>
   )
 }
