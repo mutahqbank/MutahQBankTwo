@@ -312,8 +312,8 @@ export default function KitchenPage() {
                   questions={unclassifiedQuestions || []} 
                   subjects={subjects || []}
                   mutate={mutatePool}
-                  onStartWorkflow={() => { setWorkflowIndex(0); setActiveSection("workflow") }}
-                  onEditQuestion={(idx: number) => { setWorkflowIndex(idx); setActiveSection("workflow") }}
+                  onStartWorkflow={() => { setWorkflowIndex(0); handleSectionChange("workflow") }}
+                  onEditQuestion={(idx: number) => { setWorkflowIndex(idx); handleSectionChange("workflow") }}
                 />
               )}
               {activeSection === "workflow" && (
@@ -348,7 +348,7 @@ export default function KitchenPage() {
                   onEdit={(qId: number) => {
                     const idx = unclassifiedQuestions?.findIndex(qu => qu.id === qId) ?? 0;
                     setWorkflowIndex(idx);
-                    setActiveSection("workflow");
+                    handleSectionChange("workflow");
                   }}
                 />
               )}
