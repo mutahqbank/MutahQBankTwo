@@ -95,7 +95,7 @@ export async function suggestCategoryWithOpenAI(
 
   try {
     const response = await openai.chat.completions.create({
-      model: "o3-mini",
+      model: "gpt-4o-mini",
       messages: [
         { 
           role: "system", 
@@ -125,6 +125,98 @@ export async function suggestCategoryWithOpenAI(
     }
   } catch (error) {
     console.error("OpenAI classification failed:", error);
+    return null;
+  }
+}
+
+/**
+ * AI Exam Repair Logic
+ * Evaluates CBQ answers and provides an estimated score.
+ */
+export async function repairExamWithOpenAI(
+  questions: { 
+    id: number; 
+    question_text: string; 
+    explanation_html?: string; 
+    sub_questions: { id: number; subquestion_text: string; answer_html: string }[];
+    options: { id: number; option: string; correct: boolean }[];
+  }[],
+  userAnswers: Record<number, number>, // questionId -> optionId
+  userCbqAnswers: Record<number, Record<number, string>>, // questionId -> subquestionId -> text
+  courseName: string
+) {
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn("OPENAI_API_KEY is missing. AI repair will not work.");
+    return null;
+  }
+
+  // Filter only relevant data for the prompt to save tokens
+  const relevantQuestions = questions.map(q => ({
+    id: q.id,
+    text: q.question_text.replace(/<[^>]*>?/gm, '').substring(0, 500),
+    isCBQ: q.sub_questions.length > 0,
+    subQuestions: q.sub_questions.map(sq => ({
+      id: sq.id,
+      text: sq.subquestion_text.replace(/<[^>]*>?/gm, ''),
+      correctAnswer: sq.answer_html.replace(/<[^>]*>?/gm, ''),
+      userAnswer: userCbqAnswers[q.id]?.[sq.id] || ""
+    })),
+    options: q.options.map(o => ({ id: o.id, text: o.option, correct: o.correct })),
+    userSelectedOptionId: userAnswers[q.id]
+  }));
+
+  const systemInstruction = `
+    You are a Senior Medical Examiner. Your task is to "Repair" an exam by evaluating the student's performance fairly.
+    
+    CRITICAL INSTRUCTIONS:
+    1. For Multiple Choice Questions (MCQs):
+       - If the user picked the correct option, they get 1 point.
+       - If the user picked the wrong option, they get 0 points.
+       - If the question itself seems flawed or ambiguous based on the medical context, you may "repair" it by giving credit if the user's choice is clinically defensible.
+    
+    2. For Case-Based Questions (CBQs) / Short Answer:
+       - Compare the student's text answer to the correct answer.
+       - Grade each sub-question on a scale of 0 to 1 (0.0, 0.25, 0.5, 0.75, 1.0).
+       - Be fair: if they identified the core clinical concept but missed a minor detail, give partial credit (e.g., 0.75).
+    
+    3. Final Output:
+       - Provide a brief "repair_note" for each question explaining your grading.
+       - Calculate a "repaired_score" which is the sum of points divided by the total possible points.
+    
+    RETURN ONLY JSON:
+    {
+      "questions": [
+        {
+          "id": [ID],
+          "points": [Number 0-1],
+          "feedback": "Brief explanation of grading"
+        }
+      ],
+      "estimated_score": [Percentage 0-100],
+      "summary": "Overall feedback on performance"
+    }
+  `;
+
+  const userPrompt = `
+    Course: ${courseName}
+    Questions and Student Answers:
+    ${JSON.stringify(relevantQuestions, null, 2)}
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const text = response.choices[0].message.content || "{}";
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("OpenAI exam repair failed:", error);
     return null;
   }
 }

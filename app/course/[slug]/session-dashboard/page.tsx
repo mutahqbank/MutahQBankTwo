@@ -11,6 +11,8 @@ import {
   Eye, EyeOff, Send, AlertCircle, Lock, BookOpen, FileText, Timer
 } from "lucide-react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
+import { repairExamAction } from "@/app/actions/ai-actions"
+import { Sparkles, BrainCircuit } from "lucide-react"
 
 // Global SWRProvider handles fetching and caching rules.
 
@@ -366,6 +368,14 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   const [flagged, setFlagged] = useState<Set<number>>(new Set())
   const [questionsLoading, setQuestionsLoading] = useState(true) // Start true to check for active
 
+  // ─── AI Repair state ─────────────────────────────────────────
+  const [repairing, setRepairing] = useState(false)
+  const [aiRepairedResults, setAiRepairedResults] = useState<{ 
+    estimated_score: number; 
+    summary: string; 
+    questions: { id: number; points: number; feedback: string }[] 
+  } | null>(null)
+
   // ─── Exam timer ────────────────────────────────────────────────
   const [secondsLeft, setSecondsLeft] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -685,6 +695,31 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
+  async function handleAiRepair() {
+    setRepairing(true)
+    try {
+      const result = await repairExamAction(
+        questions,
+        answers,
+        cbqTextAnswers,
+        courseName
+      )
+      if (result.success) {
+        setAiRepairedResults({
+          estimated_score: result.estimated_score,
+          summary: result.summary,
+          questions: result.questions
+        })
+      } else {
+        alert(result.reasoning || "Repair failed.")
+      }
+    } catch (e) {
+      console.error(e)
+      alert("An error occurred during AI repair.")
+    }
+    setRepairing(false)
+  }
+
   // ─── Guard: not logged in ──────────────────────────────────────
   if (!user) {
     return (
@@ -721,22 +756,74 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   // ════════════════════════════════════════════════════════════════
   if (mode === "results" && examResults) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <div className="mx-auto mb-6 flex h-32 w-32 items-center justify-center rounded-full border-4 border-secondary bg-secondary/10">
-          <span className="text-4xl font-bold text-secondary">{examResults.score}%</span>
-        </div>
-        <h2 className="text-2xl font-bold text-foreground">Exam Complete</h2>
-        <p className="mt-2 text-muted-foreground">
-          {examResults.correct} / {examResults.total} Correct
-          {questions.length > examResults.total && ` (+ ${questions.length - examResults.total} Case-Based Questions needing review)`}
-        </p>
-        <div className="mt-8 flex justify-center gap-4">
-          <Button onClick={() => { setMode("dashboard"); setQuestions([]) }} variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-            Back to Dashboard
-          </Button>
-          <Button onClick={() => { setMode("study"); setRevealed(new Set(questions.map(q => q.id))) }} className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
-            Review Answers
-          </Button>
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        <div className="text-center">
+          <div className="relative mx-auto mb-6 flex h-32 w-32 items-center justify-center rounded-full border-4 border-secondary bg-secondary/10">
+            <span className="text-4xl font-bold text-secondary">{examResults.score}%</span>
+            {aiRepairedResults && (
+              <div className="absolute -right-4 -top-4 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-primary text-white shadow-xl ring-2 ring-white animate-in zoom-in duration-500">
+                <span className="text-[10px] font-bold uppercase leading-tight">AI Score</span>
+                <span className="text-lg font-black leading-tight">{aiRepairedResults.estimated_score}%</span>
+              </div>
+            )}
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">Exam Complete</h2>
+          <p className="mt-2 text-muted-foreground">
+            {examResults.correct} / {examResults.total} Correct
+            {questions.length > examResults.total && ` (+ ${questions.length - examResults.total} Case-Based Questions needing review)`}
+          </p>
+
+          {!aiRepairedResults ? (
+            <div className="mt-8 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-6">
+              <Sparkles className="mx-auto mb-3 h-8 w-8 text-primary animate-pulse" />
+              <h3 className="text-lg font-bold text-primary">Need an estimated score?</h3>
+              <p className="mb-4 text-sm text-muted-foreground">AI can evaluate your case-based answers and "repair" the final score for a more accurate estimation.</p>
+              <Button onClick={handleAiRepair} disabled={repairing} className="bg-primary px-8 py-6 text-lg font-bold text-primary-foreground hover:bg-primary/90">
+                {repairing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <BrainCircuit className="mr-2 h-5 w-5" />}
+                Repair Exam with AI
+              </Button>
+            </div>
+          ) : (
+             <div className="mt-8 overflow-hidden rounded-xl border border-primary/20 bg-primary/5 text-left shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-700">
+               <div className="bg-primary px-4 py-3 flex items-center gap-2">
+                 <Sparkles className="h-5 w-5 text-white" />
+                 <h3 className="font-bold text-white">AI Repair Results</h3>
+               </div>
+               <div className="p-6">
+                 <p className="text-sm italic text-muted-foreground mb-6">"{aiRepairedResults.summary}"</p>
+                 
+                 <div className="space-y-4">
+                   {aiRepairedResults.questions.map((qResult, idx) => {
+                     const q = questions.find(question => question.id === qResult.id);
+                     if (!q) return null;
+                     return (
+                       <div key={qResult.id} className="border-l-4 border-primary bg-background p-4 rounded-r-lg shadow-sm">
+                         <div className="flex justify-between items-start mb-2">
+                           <span className="text-xs font-bold text-muted-foreground uppercase">Question {questions.indexOf(q) + 1}</span>
+                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${qResult.points >= 0.75 ? "bg-green-100 text-green-700" : qResult.points > 0 ? "bg-amber-100 text-amber-700" : "bg-destructive/10 text-destructive"}`}>
+                             {qResult.points * 100}% Credit
+                           </span>
+                         </div>
+                         <p className="text-sm text-foreground line-clamp-2 mb-2">{q.question_text?.replace(/<[^>]*>?/gm, '')}</p>
+                         <div className="bg-muted px-3 py-2 rounded text-xs text-muted-foreground italic border-t border-border/50">
+                           {qResult.feedback}
+                         </div>
+                       </div>
+                     );
+                   })}
+                 </div>
+               </div>
+             </div>
+          )}
+
+          <div className="mt-12 flex justify-center gap-4">
+            <Button onClick={() => { setMode("dashboard"); setQuestions([]); setAiRepairedResults(null); }} variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
+              Back to Dashboard
+            </Button>
+            <Button onClick={() => { setMode("study"); setRevealed(new Set(questions.map(q => q.id))) }} className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
+              Review Answers
+            </Button>
+          </div>
         </div>
       </div>
     )

@@ -1,6 +1,6 @@
 'use server'
 
-import { suggestCategoryWithOpenAI } from "@/lib/openai";
+import { suggestCategoryWithOpenAI, repairExamWithOpenAI } from "@/lib/openai";
 import { query } from "@/lib/database";
 import { getServerUser } from "@/lib/auth-server";
 
@@ -91,3 +91,33 @@ export async function suggestCategoryAction(
   }
 }
 
+
+/**
+ * Server Action for AI Exam Repair
+ */
+export async function repairExamAction(
+  questions: any[],
+  userAnswers: Record<number, number>,
+  userCbqAnswers: Record<number, Record<number, string>>,
+  courseName: string
+) {
+  try {
+    const user = await getServerUser();
+    if (!user) return { success: false, reasoning: "Authentication required." };
+
+    const result = await repairExamWithOpenAI(
+      questions,
+      userAnswers,
+      userCbqAnswers,
+      courseName
+    );
+
+    if (result) {
+      return { success: true, ...result };
+    }
+    return { success: false, reasoning: "Failed to process AI repair." };
+  } catch (error: any) {
+    console.error("AI Repair Action Error:", error);
+    return { success: false, reasoning: error.message };
+  }
+}
