@@ -551,69 +551,6 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
     setQuestionsLoading(false)
   }
 
-  async function viewPastResults(sessionId: number) {
-    setQuestionsLoading(true)
-    try {
-      // Re-use logic for fetching session questions/answers
-      // We'll use the 'active' endpoint but it works for any session ID if we modify slightly
-      // Actually, we'll fetch from a generic session details API if it exists or use active's logic
-      const res = await fetch(`/api/sessions/active?assessment_id=${sessionId}&user_id=${user?.id}&course_id=${courseId}`)
-      const data = await res.json()
-
-      if (data && data.questions) {
-        setQuestions(data.questions)
-        
-        const restoredAnswers: Record<number, number> = {}
-        const restoredCbqAnswers: Record<number, Record<number, string>> = {}
-        const restoredFlagged = new Set<number>()
-        
-        let correctCount = 0
-        let totalMCQs = 0
-
-        data.questions.forEach((q: any) => {
-          if (q._savedAnswerId) {
-            restoredAnswers[q.id] = q._savedAnswerId
-            const opt = q.options.find((o: any) => o.id === q._savedAnswerId)
-            if (opt?.correct) correctCount++
-          }
-          if (q.sub_questions.length === 0) totalMCQs++
-          
-          if (q._savedNotes) {
-            restoredCbqAnswers[q.id] = q._savedNotes
-            // Check if AI summary is hidden here
-            // (Wait, we will handle that in a separate step)
-          }
-          if (q._savedFlagged) restoredFlagged.add(q.id)
-        })
-
-        setAnswers(restoredAnswers)
-        setCbqTextAnswers(restoredCbqAnswers)
-        setFlagged(restoredFlagged)
-        setExamResults({ total: totalMCQs, correct: correctCount, score: totalMCQs > 0 ? Math.round((correctCount / totalMCQs) * 100) : 0 })
-        
-        setMode("results")
-        setDashTab("new")
-        
-        // Try to find saved AI summary
-        const firstQ = data.questions[0]
-        if (firstQ && firstQ._aiSummary) {
-           setAiRepairedResults({
-             estimated_score: data.estimated_score || 0,
-             summary: firstQ._aiSummary,
-             questions: data.ai_questions || [] // We need to store these too
-           })
-        } else {
-           // If not found, re-run AI (worst case)
-           handleAiRepair(data.questions, restoredAnswers, restoredCbqAnswers)
-        }
-      }
-    } catch (e) {
-      console.error(e)
-      alert("Failed to load results.")
-    }
-    setQuestionsLoading(false)
-  }
-
   function handleSelect(optionId: number) {
     if (!currentQ) return
     if ((mode === "study" || mode === "session") && revealed.has(currentQ.id)) return
@@ -759,13 +696,13 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
     handleAiRepair()
   }
 
-  async function handleAiRepair(qs?: DBQuestion[], ans?: Record<number, number>, cbqAns?: Record<number, Record<number, string>>) {
+  async function handleAiRepair() {
     setRepairing(true)
     try {
       const result = await repairExamAction(
-        qs || questions,
-        ans || answers,
-        cbqAns || cbqTextAnswers,
+        questions,
+        answers,
+        cbqTextAnswers,
         courseName
       )
       if (result.success) {
@@ -1297,13 +1234,21 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                       return (
                         <tr key={`${h.id}-${index}`} className="border-b border-border/50">
                           <td className="px-4 py-3 capitalize text-foreground">
-                            {isActive ? <span className="font-bold text-secondary">Session Mode (Active)</span> : h.assessment_type === "1" ? "Session" : h.assessment_type}
+                            {isActive ? (
+                              <span className="font-bold text-secondary">Session Mode (Active)</span>
+                            ) : (
+                              String(h.assessment_type).toLowerCase() === "1" || String(h.assessment_type).toLowerCase() === "session" ? "Session Mode" :
+                              String(h.assessment_type).toLowerCase() === "preview" || String(h.assessment_type).toLowerCase() === "exam" ? "Exam Mode" :
+                              h.assessment_type
+                            )}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{new Date(h.date).toLocaleDateString()}</td>
                           <td className="px-4 py-3 text-center text-foreground">{total}</td>
                           <td className="px-4 py-3 text-center">
                             {isActive ? (
                               <span className="text-muted-foreground italic">In Progress</span>
+                            ) : (String(h.assessment_type).toLowerCase() === "1" || String(h.assessment_type).toLowerCase() === "session" || String(h.assessment_type).toLowerCase() === "practice") ? (
+                              <span className="text-muted-foreground italic">Practice</span>
                             ) : (
                               <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${pct >= 70 ? "bg-green-500/20 text-green-700" : pct >= 50 ? "bg-amber-500/20 text-amber-700" : "bg-destructive/20 text-destructive"}`}>
                                 {correct}/{total} ({pct}%)
@@ -1313,8 +1258,6 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                           <td className="px-4 py-3 text-right">
                             {isActive ? (
                               <Button size="sm" onClick={() => resumeSession(h.id)} className="bg-secondary text-secondary-foreground hover:bg-secondary/90">Resume</Button>
-                            ) : h.assessment_type === "Exam" || h.assessment_type === "Session" ? (
-                              <Button size="sm" variant="outline" onClick={() => viewPastResults(h.id)} className="border-primary text-primary hover:bg-primary/10">View Results</Button>
                             ) : (
                               <span className="text-xs text-muted-foreground">Completed</span>
                             )}

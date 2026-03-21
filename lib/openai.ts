@@ -150,85 +150,72 @@ export async function repairExamWithOpenAI(
     return null;
   }
 
-  // Filter only relevant data for the prompt to save tokens
-  const relevantQuestions = questions.map(q => {
+  // Group MCQs by subject to save tokens (Gap Analysis only)
+  const mcqSummary: Record<string, { correct: number; total: number }> = {};
+  const relevantCbqs: any[] = [];
+
+  for (const q of questions) {
     const isCBQ = q.sub_questions.length > 0;
     const isCorrectMCQ = !isCBQ && userAnswers[q.id] && q.options.find(o => o.id === userAnswers[q.id])?.correct;
 
     if (!isCBQ) {
-      // For MCQs, we only send identity and scoring metadata (very low token cost)
-      return {
+      const subject = (q as any).subject_name || "General";
+      if (!mcqSummary[subject]) mcqSummary[subject] = { correct: 0, total: 0 };
+      mcqSummary[subject].total++;
+      if (isCorrectMCQ) mcqSummary[subject].correct++;
+    } else {
+      relevantCbqs.push({
         id: q.id,
-        isCBQ: false,
-        subject: (q as any).subject_name || "General",
-        status: isCorrectMCQ ? "CORRECT" : "INCORRECT",
-        studentChoice: userAnswers[q.id] ? q.options.find(o => o.id === userAnswers[q.id])?.option : "None"
-      };
+        text: q.question_text?.replace(/<[^>]*>?/gm, '').substring(0, 300),
+        subQuestions: q.sub_questions.map(sq => ({
+          id: sq.id,
+          text: sq.subquestion_text.replace(/<[^>]*>?/gm, ''),
+          correctAnswer: sq.answer_html.replace(/<[^>]*>?/gm, ''),
+          userAnswer: userCbqAnswers[q.id]?.[sq.id] || ""
+        }))
+      });
     }
-
-    // For CBQs, we still send full text for grading
-    return {
-      id: q.id,
-      isCBQ: true,
-      text: q.question_text.replace(/<[^>]*>?/gm, '').substring(0, 300),
-      subQuestions: q.sub_questions.map(sq => ({
-        id: sq.id,
-        text: sq.subquestion_text.replace(/<[^>]*>?/gm, ''),
-        correctAnswer: sq.answer_html.replace(/<[^>]*>?/gm, ''),
-        userAnswer: userCbqAnswers[q.id]?.[sq.id] || ""
-      }))
-    };
-  });
+  }
 
   const systemInstruction = `
-    You are a Senior Medical Academic Supervisor. Your goal is to provide a high-level "Gap Analysis" DIRECTLY to the student.
+    You are a Senior Medical Academic Supervisor. 
     
-    IMPORTANT:
-    Speak in the SECOND PERSON ("You", "Your"). For example, instead of saying "The student shows weakness," say "You show weakness."
+    TASK: Assess student performance from ${courseName}.
     
     GRADING RULES (CBQ ONLY):
-    - Students provide text. 
     - BE EXTREMELY TOLERABLE: 2-3 key words = FULL MARKS (1.0).
-    - Grade on scale 0, 0.25, 0.5, 0.75, 1.0.
-    
-    SCORING RULES (MCQ ONLY):
-    - MCQs are already pre-scored as CORRECT or INCORRECT. DO NOT re-grade them.
-    - Simply use their status to inform your general summary.
+    - Grade scale: 0 to 1.0.
     
     GAP ANALYSIS:
-    - Look at the INCORRECT MCQs and CBQ scores.
-    - Identify specific medical "angles" or "topics" the student is weak in based on the subjects listed.
-    - In your "summary", address the student directly as "You". Explain clearly what clinical gaps exist and where they should focus their study.
+    - Detail specific clinical topics to revise based on incorrect MCQs/CBQs.
+    - Summary must be brief (max 3 sentences).
     
-    OUTPUT FORMAT:
-    Return ONLY a JSON object:
+    OUTPUT JSON:
     {
-      "questions": [
-        {
-          "id": [ID],
-          "points": [Number 0-1], 
-          "feedback": "Only for CBQs: brief grading note. For MCQs: leave empty or null."
-        }
-      ],
-      "estimated_score": [Percentage 0-100],
-      "summary": "Detailed medical gap analysis addressed to 'You'"
+      "questions": [{ "id": [ID], "points": [0-1], "feedback": "Brief note for CBQ only." }],
+      "estimated_score": [0-100],
+      "summary": "Medical gap analysis"
     }
   `;
 
   const userPrompt = `
-    Course: ${courseName}
-    Questions and Student Answers:
-    ${JSON.stringify(relevantQuestions, null, 2)}
+    MCQ SUMMARY:
+    ${Object.entries(mcqSummary).map(([s, c]) => `${s}: ${c.correct}/${c.total}`).join('\n')}
+
+    CBQs FOR GRADING:
+    ${JSON.stringify(relevantCbqs, null, 1)}
   `;
 
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: systemInstruction },
+        { role: "system", content: systemInstruction + " Respond ONLY with valid JSON. BE EXTREMELY BRIEF." },
         { role: "user", content: userPrompt },
       ],
       response_format: { type: "json_object" },
+      max_tokens: 500,
+      temperature: 0.3,
     });
 
     const text = response.choices[0].message.content || "{}";
