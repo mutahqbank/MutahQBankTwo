@@ -151,51 +151,67 @@ export async function repairExamWithOpenAI(
   }
 
   // Filter only relevant data for the prompt to save tokens
-  const relevantQuestions = questions.map(q => ({
-    id: q.id,
-    text: q.question_text.replace(/<[^>]*>?/gm, '').substring(0, 500),
-    isCBQ: q.sub_questions.length > 0,
-    subQuestions: q.sub_questions.map(sq => ({
-      id: sq.id,
-      text: sq.subquestion_text.replace(/<[^>]*>?/gm, ''),
-      correctAnswer: sq.answer_html.replace(/<[^>]*>?/gm, ''),
-      userAnswer: userCbqAnswers[q.id]?.[sq.id] || ""
-    })),
-    options: q.options.map(o => ({ id: o.id, text: o.option, correct: o.correct })),
-    userSelectedOptionId: userAnswers[q.id]
-  }));
+  const relevantQuestions = questions.map(q => {
+    const isCBQ = q.sub_questions.length > 0;
+    const isCorrectMCQ = !isCBQ && userAnswers[q.id] && q.options.find(o => o.id === userAnswers[q.id])?.correct;
+
+    if (!isCBQ) {
+      // For MCQs, we only send identity and scoring metadata (very low token cost)
+      return {
+        id: q.id,
+        isCBQ: false,
+        subject: (q as any).subject_name || "General",
+        status: isCorrectMCQ ? "CORRECT" : "INCORRECT",
+        studentChoice: userAnswers[q.id] ? q.options.find(o => o.id === userAnswers[q.id])?.option : "None"
+      };
+    }
+
+    // For CBQs, we still send full text for grading
+    return {
+      id: q.id,
+      isCBQ: true,
+      text: q.question_text.replace(/<[^>]*>?/gm, '').substring(0, 300),
+      subQuestions: q.sub_questions.map(sq => ({
+        id: sq.id,
+        text: sq.subquestion_text.replace(/<[^>]*>?/gm, ''),
+        correctAnswer: sq.answer_html.replace(/<[^>]*>?/gm, ''),
+        userAnswer: userCbqAnswers[q.id]?.[sq.id] || ""
+      }))
+    };
+  });
 
   const systemInstruction = `
-    You are a Senior Medical Examiner. Your task is to "Repair" an exam by evaluating the student's performance fairly.
+    You are a Senior Medical Academic Supervisor.
     
-    CRITICAL INSTRUCTIONS:
-    1. For Multiple Choice Questions (MCQs):
-       - If the user picked the correct option, they get 1 point.
-       - If the user picked the wrong option, they get 0 points.
-       - If the question itself seems flawed or ambiguous based on the medical context, you may "repair" it by giving credit if the user's choice is clinically defensible.
+    TASK:
+    Assess the student's exam performance and provide a high-level "Gap Analysis".
     
-    2. For Case-Based Questions (CBQs) / Short Answer:
-       - Compare the student's text answer to the correct answer.
-       - Grade each sub-question on a scale of 0 to 1 (0.0, 0.25, 0.5, 0.75, 1.0).
-       - BE EXTREMELY TOLERABLE: The student's answers will be much shorter than the model answers. 
-       - If the student uses 2-3 key words that are similar to or found within the model answer, CONSIDER IT FULL MARKS (1.0).
-       - We prefer rewarding clinical understanding over verbatim matching.
+    GRADING RULES (CBQ ONLY):
+    - Students provide text. 
+    - BE EXTREMELY TOLERABLE: 2-3 key words = FULL MARKS (1.0).
+    - Grade on scale 0, 0.25, 0.5, 0.75, 1.0.
     
-    3. Final Output:
-       - Provide a brief "repair_note" for each question explaining your grading.
-       - Calculate a "repaired_score" which is the sum of points divided by the total possible points.
+    SCORING RULES (MCQ ONLY):
+    - MCQs are already pre-scored as CORRECT or INCORRECT. DO NOT re-grade them.
+    - Simply use their status to inform your general summary.
     
-    RETURN ONLY JSON:
+    GAP ANALYSIS:
+    - Look at the INCORRECT MCQs and CBQ scores.
+    - Identify specific medical "angles" or "topics" the student is weak in based on the subjects listed.
+    - In your "summary", explain clearly what clinical gaps exist and where they should focus their study.
+    
+    OUTPUT FORMAT:
+    Return ONLY a JSON object:
     {
       "questions": [
         {
           "id": [ID],
-          "points": [Number 0-1],
-          "feedback": "Brief explanation of grading"
+          "points": [Number 0-1], 
+          "feedback": "Only for CBQs: brief grading note. For MCQs: leave empty or null."
         }
       ],
       "estimated_score": [Percentage 0-100],
-      "summary": "Overall feedback on performance"
+      "summary": "Detailed medical gap analysis (topics to revise, clinical angles missed)"
     }
   `;
 

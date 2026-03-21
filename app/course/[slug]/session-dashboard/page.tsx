@@ -753,6 +753,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   const courseName = courseData?.name || `Course ${slug}`
 
   // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════
   // RESULTS MODE
   // ════════════════════════════════════════════════════════════════
   if (mode === "results" && examResults) {
@@ -763,13 +764,13 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
               <h2 className="text-2xl font-bold text-foreground">AI Review in Progress...</h2>
-              <p className="text-muted-foreground mt-2">Grading Case-Based Questions & finalizing score.</p>
+              <p className="text-muted-foreground mt-2">Grading Case-Based Questions & Gap Analysis.</p>
             </div>
           ) : (
             <div className="animate-in fade-in zoom-in duration-700">
                <div className="relative mx-auto mb-6 flex h-40 w-40 items-center justify-center rounded-full border-8 border-primary bg-primary/5 text-primary shadow-2xl">
                 <div className="text-center">
-                  <span className="block text-sm font-bold uppercase tracking-widest opacity-60">Repaired Score</span>
+                  <span className="block text-sm font-bold uppercase tracking-widest opacity-60">Exam Score</span>
                   <span className="text-5xl font-black leading-none">{aiRepairedResults.estimated_score}%</span>
                 </div>
                 <div className="absolute -right-2 -top-2 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-lg ring-4 ring-white">
@@ -777,127 +778,122 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                 </div>
               </div>
               <h2 className="text-3xl font-black text-foreground tracking-tight">Exam Complete</h2>
-              <p className="mt-3 text-lg font-medium text-muted-foreground max-w-md mx-auto italic">
-                "{aiRepairedResults.summary}"
-              </p>
             </div>
           )}
         </div>
 
         {aiRepairedResults && (
           <div className="space-y-12 animate-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both">
+            {/* High-Level Gap Analysis */}
+            <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-8 shadow-inner">
+              <div className="flex items-center gap-3 mb-4">
+                <BrainCircuit className="h-6 w-6 text-primary" />
+                <h3 className="text-xl font-bold text-primary">AI Gap Analysis & Recommendations</h3>
+              </div>
+              <p className="text-lg leading-relaxed text-foreground whitespace-pre-wrap">
+                {aiRepairedResults.summary}
+              </p>
+            </div>
+
             <div className="flex items-center gap-4">
               <div className="h-px flex-1 bg-border" />
-              <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Detailed Performance Review</h3>
+              <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Detailed Question Review</h3>
               <div className="h-px flex-1 bg-border" />
             </div>
 
             <div className="space-y-8">
               {questions.map((q, idx) => {
                 const qResult = aiRepairedResults.questions.find(qr => qr.id === q.id);
-                const scorePercentage = qResult ? qResult.points * 100 : 0;
+                const isCBQ = q.sub_questions.length > 0;
+                const isCorrectMCQ = !isCBQ && answers[q.id] && q.options.find(o => o.id === answers[q.id])?.correct;
+                const scorePercentage = isCBQ ? (qResult ? qResult.points * 100 : 0) : (isCorrectMCQ ? 100 : 0);
                 
                 return (
                   <div key={q.id} className="overflow-hidden rounded-2xl border border-border bg-background shadow-xl">
-                    {/* Header with status */}
+                    {/* Header */}
                     <div className={`flex items-center justify-between border-b px-6 py-4 ${scorePercentage >= 100 ? "bg-green-500/5" : scorePercentage > 0 ? "bg-amber-500/5" : "bg-destructive/5"}`}>
                       <div className="flex items-center gap-3">
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white shadow">
                           {idx + 1}
                         </span>
                         <span className="text-sm font-bold text-foreground">
-                          {q.sub_questions.length > 0 ? "Case-Based Question" : "Multiple Choice Question"}
+                          {isCBQ ? "Case-Based Question" : `MCQ - ${q.subject_name || "General"}`}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-tighter shadow-sm ${scorePercentage >= 100 ? "bg-green-500 text-white" : scorePercentage > 0 ? "bg-amber-500 text-white" : "bg-destructive text-white"}`}>
-                          {scorePercentage}% Credit
-                        </span>
+                      <div className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-tighter shadow-sm ${scorePercentage >= 100 ? "bg-green-500 text-white" : scorePercentage > 0 ? "bg-amber-500 text-white" : "bg-destructive text-white"}`}>
+                        {scorePercentage}% Credit
                       </div>
                     </div>
 
                     <div className="p-6">
-                      {/* Question Content */}
+                      {/* Full Question Content */}
                       <div className="prose prose-sm max-w-none text-foreground mb-6" dangerouslySetInnerHTML={{ __html: q.question_text || "" }} />
 
-                      {/* Student's Answer */}
-                      <div className="mb-6 space-y-2">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Your Answer</h4>
-                        <div className="rounded-xl border border-border bg-muted/30 p-4">
-                          {q.sub_questions.length > 0 ? (
-                            <div className="space-y-3">
-                              {q.sub_questions.map(sq => (
-                                <div key={sq.id} className="text-sm">
-                                  <span className="font-bold text-primary mr-2">{sq.subquestion_text.replace(/<[^>]*>?/gm, '')}:</span>
-                                  <span className="text-foreground">{cbqTextAnswers[q.id]?.[sq.id] || "No answer provided"}</span>
-                                </div>
-                              ))}
+                      {isCBQ ? (
+                        <>
+                          <div className="mb-6 space-y-4">
+                            <div className="space-y-2">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Your Answers</h4>
+                              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                                {q.sub_questions.map(sq => (
+                                  <div key={sq.id} className="text-sm">
+                                    <span className="font-bold text-primary mr-2">{sq.subquestion_text.replace(/<[^>]*>?/gm, '')}:</span>
+                                    <span>{cbqTextAnswers[q.id]?.[sq.id] || "No answer provided"}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          ) : (
-                            <div className="flex items-center gap-3 text-sm">
-                              {(() => {
-                                const selId = answers[q.id];
-                                const opt = q.options.find(o => o.id === selId);
-                                if (!opt) return <span className="text-muted-foreground italic">No option selected</span>;
-                                return (
-                                  <>
-                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
-                                      {String.fromCharCode(65 + q.options.indexOf(opt))}
-                                    </span>
-                                    <span className="font-medium">{opt.option}</span>
-                                  </>
-                                );
-                              })()}
+                            <div className="space-y-2">
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Model Answers</h4>
+                              <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 text-sm space-y-4">
+                                {q.sub_questions.map(sq => (
+                                  <div key={sq.id}>
+                                    <div className="font-bold text-green-700 mb-1">{sq.subquestion_text.replace(/<[^>]*>?/gm, '')}</div>
+                                    <div dangerouslySetInnerHTML={{ __html: sq.answer_html }} />
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
+                          </div>
+                          {/* AI Evaluation for CBQ */}
+                          <div className="space-y-2 rounded-xl bg-primary/5 p-4 border border-primary/10">
+                            <div className="flex items-center gap-2 mb-1">
+                               <BrainCircuit className="h-4 w-4 text-primary" />
+                               <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">AI Evaluation</h4>
+                            </div>
+                            <p className="text-sm text-foreground italic">"{qResult?.feedback || "Evaluation completed."}"</p>
+                          </div>
+                        </>
+                      ) : (
+                        // MCQ simplified "Full Question" Review
+                        <div className="grid gap-3">
+                          {q.options.map((opt, i) => {
+                            const isSelected = answers[q.id] === opt.id;
+                            const isCorrect = opt.correct;
+                            const LETTERS = ["A", "B", "C", "D", "E", "F"];
+                            
+                            let cls = "border-border bg-background"
+                            if (isCorrect) cls = "border-green-500 bg-green-500/10 ring-1 ring-green-500 shadow-sm"
+                            else if (isSelected) cls = "border-destructive bg-destructive/10 ring-1 ring-destructive shadow-sm"
 
-                      {/* Model Answer */}
-                      <div className="mb-6 space-y-2">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Model Correct Answer</h4>
-                        <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 text-sm text-foreground">
-                          {q.sub_questions.length > 0 ? (
-                            <div className="space-y-4">
-                              {q.sub_questions.map(sq => (
-                                <div key={sq.id}>
-                                  <div className="font-bold text-green-700 mb-1">{sq.subquestion_text.replace(/<[^>]*>?/gm, '')}:</div>
-                                  <div dangerouslySetInnerHTML={{ __html: sq.answer_html }} />
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-3">
-                              {(() => {
-                                const opt = q.options.find(o => o.correct);
-                                if (!opt) return null;
-                                return (
-                                  <>
-                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold text-white">
-                                      {String.fromCharCode(65 + q.options.indexOf(opt))}
-                                    </span>
-                                    <span className="font-bold text-green-700">{opt.option}</span>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          )}
-                        </div>
+                            return (
+                              <div key={opt.id} className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-sm transition-all ${cls}`}>
+                                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${isSelected ? (isCorrect ? "bg-green-500 text-white" : "bg-destructive text-white") : (isCorrect ? "bg-green-500 text-white" : "bg-muted text-muted-foreground")}`}>
+                                  {LETTERS[i]}
+                                </span>
+                                <span className="flex-1 text-foreground">{opt.option}</span>
+                                {isSelected && (isCorrect ? <span className="text-[10px] font-black text-green-600 uppercase">Correct</span> : <span className="text-[10px] font-black text-destructive uppercase">Incorrect</span>)}
+                                {!isSelected && isCorrect && <span className="text-[10px] font-black text-green-600 uppercase">Answer</span>}
+                              </div>
+                          );
+                        })}
                       </div>
-
-                      {/* AI Reasoning */}
-                      <div className="space-y-2 rounded-xl bg-primary/5 p-4 border border-primary/10">
-                        <div className="flex items-center gap-2 mb-1">
-                           <BrainCircuit className="h-4 w-4 text-primary" />
-                           <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">AI Evaluation</h4>
-                        </div>
-                        <p className="text-sm text-foreground leading-relaxed italic">"{qResult?.feedback || "Evaluation completed."}"</p>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )
-              })}
-            </div>
+                </div>
+              )
+            })}
+          </div>
 
             <div className="mt-12 flex justify-center gap-4 pb-16">
               <Button onClick={() => { setMode("dashboard"); setQuestions([]); setAiRepairedResults(null); }} variant="outline" className="border-primary px-8 py-6 text-lg font-bold text-primary hover:bg-primary/5">
