@@ -373,7 +373,8 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   const [aiRepairedResults, setAiRepairedResults] = useState<{ 
     estimated_score: number; 
     summary: string; 
-    questions: { id: number; points: number; feedback: string }[] 
+    questions: { id: number; points: number; feedback: string }[];
+    isExam?: boolean;
   } | null>(null)
 
   // ─── Exam timer ────────────────────────────────────────────────
@@ -701,7 +702,8 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
       setAiRepairedResults({
         estimated_score: totalMCQs > 0 ? Math.round((correct / totalMCQs) * 100) : 0,
         summary: "Practice Assessment Summary.\n(AI Gap Analysis is reserved for Exam Mode).",
-        questions: [] // Results UI will fall back to local scoring for MCQs
+        questions: [],
+        isExam: false
       })
     }
   }
@@ -719,7 +721,8 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         setAiRepairedResults({
           estimated_score: result.estimated_score,
           summary: result.summary,
-          questions: result.questions
+          questions: result.questions,
+          isExam: true
         })
       } else {
         alert(result.reasoning || "Repair failed.")
@@ -784,26 +787,28 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                   <span className="text-5xl font-black leading-none">{aiRepairedResults.estimated_score}%</span>
                 </div>
                 <div className="absolute -right-2 -top-2 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-lg ring-4 ring-white">
-                  <Sparkles className="h-6 w-6" />
+                  {aiRepairedResults.isExam ? <Sparkles className="h-6 w-6" /> : <BookOpen className="h-6 w-6" />}
                 </div>
               </div>
-              <h2 className="text-3xl font-black text-foreground tracking-tight">Exam Complete</h2>
+              <h2 className="text-3xl font-black text-foreground tracking-tight">{aiRepairedResults.isExam ? "Exam Complete" : "Session Complete"}</h2>
             </div>
           )}
         </div>
 
         {aiRepairedResults && (
           <div className="space-y-12 animate-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both">
-            {/* High-Level Gap Analysis */}
-            <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-8 shadow-inner">
-              <div className="flex items-center gap-3 mb-4">
-                <BrainCircuit className="h-6 w-6 text-primary" />
-                <h3 className="text-xl font-bold text-primary">AI Gap Analysis & Recommendations</h3>
+            {/* High-Level Gap Analysis (Only for Exam Mode) */}
+            {aiRepairedResults.isExam && (
+              <div className="rounded-2xl border-2 border-primary/20 bg-primary/5 p-8 shadow-inner">
+                <div className="flex items-center gap-3 mb-4">
+                  <BrainCircuit className="h-6 w-6 text-primary" />
+                  <h3 className="text-xl font-bold text-primary">AI Gap Analysis & Recommendations</h3>
+                </div>
+                <p className="text-lg leading-relaxed text-foreground whitespace-pre-wrap">
+                  {aiRepairedResults.summary}
+                </p>
               </div>
-              <p className="text-lg leading-relaxed text-foreground whitespace-pre-wrap">
-                {aiRepairedResults.summary}
-              </p>
-            </div>
+            )}
 
             <div className="flex items-center gap-4">
               <div className="h-px flex-1 bg-border" />
