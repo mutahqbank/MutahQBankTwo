@@ -181,10 +181,10 @@ export async function repairExamWithOpenAI(
   });
 
   const systemInstruction = `
-    You are a Senior Medical Academic Supervisor.
+    You are a Senior Medical Academic Supervisor. Your goal is to provide a high-level "Gap Analysis" DIRECTLY to the student.
     
-    TASK:
-    Assess the student's exam performance and provide a high-level "Gap Analysis".
+    IMPORTANT:
+    Speak in the SECOND PERSON ("You", "Your"). For example, instead of saying "The student shows weakness," say "You show weakness."
     
     GRADING RULES (CBQ ONLY):
     - Students provide text. 
@@ -198,7 +198,7 @@ export async function repairExamWithOpenAI(
     GAP ANALYSIS:
     - Look at the INCORRECT MCQs and CBQ scores.
     - Identify specific medical "angles" or "topics" the student is weak in based on the subjects listed.
-    - In your "summary", explain clearly what clinical gaps exist and where they should focus their study.
+    - In your "summary", address the student directly as "You". Explain clearly what clinical gaps exist and where they should focus their study.
     
     OUTPUT FORMAT:
     Return ONLY a JSON object:
@@ -211,7 +211,7 @@ export async function repairExamWithOpenAI(
         }
       ],
       "estimated_score": [Percentage 0-100],
-      "summary": "Detailed medical gap analysis (topics to revise, clinical angles missed)"
+      "summary": "Detailed medical gap analysis addressed to 'You'"
     }
   `;
 
