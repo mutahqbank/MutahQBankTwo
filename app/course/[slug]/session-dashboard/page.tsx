@@ -693,6 +693,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
     setMode("results")
     window.scrollTo({ top: 0, behavior: "smooth" })
+    handleAiRepair()
   }
 
   async function handleAiRepair() {
@@ -756,75 +757,158 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   // ════════════════════════════════════════════════════════════════
   if (mode === "results" && examResults) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-16">
-        <div className="text-center">
-          <div className="relative mx-auto mb-6 flex h-32 w-32 items-center justify-center rounded-full border-4 border-secondary bg-secondary/10">
-            <span className="text-4xl font-bold text-secondary">{examResults.score}%</span>
-            {aiRepairedResults && (
-              <div className="absolute -right-4 -top-4 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-primary text-white shadow-xl ring-2 ring-white animate-in zoom-in duration-500">
-                <span className="text-[10px] font-bold uppercase leading-tight">AI Score</span>
-                <span className="text-lg font-black leading-tight">{aiRepairedResults.estimated_score}%</span>
-              </div>
-            )}
-          </div>
-          <h2 className="text-2xl font-bold text-foreground">Exam Complete</h2>
-          <p className="mt-2 text-muted-foreground">
-            {examResults.correct} / {examResults.total} Correct
-            {questions.length > examResults.total && ` (+ ${questions.length - examResults.total} Case-Based Questions needing review)`}
-          </p>
-
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <div className="text-center mb-12">
           {!aiRepairedResults ? (
-            <div className="mt-8 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-6">
-              <Sparkles className="mx-auto mb-3 h-8 w-8 text-primary animate-pulse" />
-              <h3 className="text-lg font-bold text-primary">Need an estimated score?</h3>
-              <p className="mb-4 text-sm text-muted-foreground">AI can evaluate your case-based answers and "repair" the final score for a more accurate estimation.</p>
-              <Button onClick={handleAiRepair} disabled={repairing} className="bg-primary px-8 py-6 text-lg font-bold text-primary-foreground hover:bg-primary/90">
-                {repairing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <BrainCircuit className="mr-2 h-5 w-5" />}
-                Repair Exam with AI
-              </Button>
+            <div className="flex flex-col items-center justify-center py-16">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+              <h2 className="text-2xl font-bold text-foreground">AI Review in Progress...</h2>
+              <p className="text-muted-foreground mt-2">Grading Case-Based Questions & finalizing score.</p>
             </div>
           ) : (
-             <div className="mt-8 overflow-hidden rounded-xl border border-primary/20 bg-primary/5 text-left shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-700">
-               <div className="bg-primary px-4 py-3 flex items-center gap-2">
-                 <Sparkles className="h-5 w-5 text-white" />
-                 <h3 className="font-bold text-white">AI Repair Results</h3>
-               </div>
-               <div className="p-6">
-                 <p className="text-sm italic text-muted-foreground mb-6">"{aiRepairedResults.summary}"</p>
-                 
-                 <div className="space-y-4">
-                   {aiRepairedResults.questions.map((qResult, idx) => {
-                     const q = questions.find(question => question.id === qResult.id);
-                     if (!q) return null;
-                     return (
-                       <div key={qResult.id} className="border-l-4 border-primary bg-background p-4 rounded-r-lg shadow-sm">
-                         <div className="flex justify-between items-start mb-2">
-                           <span className="text-xs font-bold text-muted-foreground uppercase">Question {questions.indexOf(q) + 1}</span>
-                           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${qResult.points >= 0.75 ? "bg-green-100 text-green-700" : qResult.points > 0 ? "bg-amber-100 text-amber-700" : "bg-destructive/10 text-destructive"}`}>
-                             {qResult.points * 100}% Credit
-                           </span>
-                         </div>
-                         <p className="text-sm text-foreground line-clamp-2 mb-2">{q.question_text?.replace(/<[^>]*>?/gm, '')}</p>
-                         <div className="bg-muted px-3 py-2 rounded text-xs text-muted-foreground italic border-t border-border/50">
-                           {qResult.feedback}
-                         </div>
-                       </div>
-                     );
-                   })}
-                 </div>
-               </div>
-             </div>
+            <div className="animate-in fade-in zoom-in duration-700">
+               <div className="relative mx-auto mb-6 flex h-40 w-40 items-center justify-center rounded-full border-8 border-primary bg-primary/5 text-primary shadow-2xl">
+                <div className="text-center">
+                  <span className="block text-sm font-bold uppercase tracking-widest opacity-60">Repaired Score</span>
+                  <span className="text-5xl font-black leading-none">{aiRepairedResults.estimated_score}%</span>
+                </div>
+                <div className="absolute -right-2 -top-2 flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-lg ring-4 ring-white">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+              </div>
+              <h2 className="text-3xl font-black text-foreground tracking-tight">Exam Complete</h2>
+              <p className="mt-3 text-lg font-medium text-muted-foreground max-w-md mx-auto italic">
+                "{aiRepairedResults.summary}"
+              </p>
+            </div>
           )}
-
-          <div className="mt-12 flex justify-center gap-4">
-            <Button onClick={() => { setMode("dashboard"); setQuestions([]); setAiRepairedResults(null); }} variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-              Back to Dashboard
-            </Button>
-            <Button onClick={() => { setMode("study"); setRevealed(new Set(questions.map(q => q.id))) }} className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
-              Review Answers
-            </Button>
-          </div>
         </div>
+
+        {aiRepairedResults && (
+          <div className="space-y-12 animate-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both">
+            <div className="flex items-center gap-4">
+              <div className="h-px flex-1 bg-border" />
+              <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Detailed Performance Review</h3>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            <div className="space-y-8">
+              {questions.map((q, idx) => {
+                const qResult = aiRepairedResults.questions.find(qr => qr.id === q.id);
+                const scorePercentage = qResult ? qResult.points * 100 : 0;
+                
+                return (
+                  <div key={q.id} className="overflow-hidden rounded-2xl border border-border bg-background shadow-xl">
+                    {/* Header with status */}
+                    <div className={`flex items-center justify-between border-b px-6 py-4 ${scorePercentage >= 100 ? "bg-green-500/5" : scorePercentage > 0 ? "bg-amber-500/5" : "bg-destructive/5"}`}>
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white shadow">
+                          {idx + 1}
+                        </span>
+                        <span className="text-sm font-bold text-foreground">
+                          {q.sub_questions.length > 0 ? "Case-Based Question" : "Multiple Choice Question"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-tighter shadow-sm ${scorePercentage >= 100 ? "bg-green-500 text-white" : scorePercentage > 0 ? "bg-amber-500 text-white" : "bg-destructive text-white"}`}>
+                          {scorePercentage}% Credit
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-6">
+                      {/* Question Content */}
+                      <div className="prose prose-sm max-w-none text-foreground mb-6" dangerouslySetInnerHTML={{ __html: q.question_text || "" }} />
+
+                      {/* Student's Answer */}
+                      <div className="mb-6 space-y-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Your Answer</h4>
+                        <div className="rounded-xl border border-border bg-muted/30 p-4">
+                          {q.sub_questions.length > 0 ? (
+                            <div className="space-y-3">
+                              {q.sub_questions.map(sq => (
+                                <div key={sq.id} className="text-sm">
+                                  <span className="font-bold text-primary mr-2">{sq.subquestion_text.replace(/<[^>]*>?/gm, '')}:</span>
+                                  <span className="text-foreground">{cbqTextAnswers[q.id]?.[sq.id] || "No answer provided"}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3 text-sm">
+                              {(() => {
+                                const selId = answers[q.id];
+                                const opt = q.options.find(o => o.id === selId);
+                                if (!opt) return <span className="text-muted-foreground italic">No option selected</span>;
+                                return (
+                                  <>
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
+                                      {String.fromCharCode(65 + q.options.indexOf(opt))}
+                                    </span>
+                                    <span className="font-medium">{opt.option}</span>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Model Answer */}
+                      <div className="mb-6 space-y-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Model Correct Answer</h4>
+                        <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 text-sm text-foreground">
+                          {q.sub_questions.length > 0 ? (
+                            <div className="space-y-4">
+                              {q.sub_questions.map(sq => (
+                                <div key={sq.id}>
+                                  <div className="font-bold text-green-700 mb-1">{sq.subquestion_text.replace(/<[^>]*>?/gm, '')}:</div>
+                                  <div dangerouslySetInnerHTML={{ __html: sq.answer_html }} />
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              {(() => {
+                                const opt = q.options.find(o => o.correct);
+                                if (!opt) return null;
+                                return (
+                                  <>
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold text-white">
+                                      {String.fromCharCode(65 + q.options.indexOf(opt))}
+                                    </span>
+                                    <span className="font-bold text-green-700">{opt.option}</span>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* AI Reasoning */}
+                      <div className="space-y-2 rounded-xl bg-primary/5 p-4 border border-primary/10">
+                        <div className="flex items-center gap-2 mb-1">
+                           <BrainCircuit className="h-4 w-4 text-primary" />
+                           <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">AI Evaluation</h4>
+                        </div>
+                        <p className="text-sm text-foreground leading-relaxed italic">"{qResult?.feedback || "Evaluation completed."}"</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-12 flex justify-center gap-4 pb-16">
+              <Button onClick={() => { setMode("dashboard"); setQuestions([]); setAiRepairedResults(null); }} variant="outline" className="border-primary px-8 py-6 text-lg font-bold text-primary hover:bg-primary/5">
+                Back to Dashboard
+              </Button>
+              <Button onClick={() => { setMode("study"); setRevealed(new Set(questions.map(q => q.id))) }} className="bg-secondary px-8 py-6 text-lg font-bold text-secondary-foreground hover:bg-secondary/90 shadow-xl">
+                Review & Learn
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }

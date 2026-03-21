@@ -177,7 +177,9 @@ export async function repairExamWithOpenAI(
     2. For Case-Based Questions (CBQs) / Short Answer:
        - Compare the student's text answer to the correct answer.
        - Grade each sub-question on a scale of 0 to 1 (0.0, 0.25, 0.5, 0.75, 1.0).
-       - Be fair: if they identified the core clinical concept but missed a minor detail, give partial credit (e.g., 0.75).
+       - BE EXTREMELY TOLERABLE: The student's answers will be much shorter than the model answers. 
+       - If the student uses 2-3 key words that are similar to or found within the model answer, CONSIDER IT FULL MARKS (1.0).
+       - We prefer rewarding clinical understanding over verbatim matching.
     
     3. Final Output:
        - Provide a brief "repair_note" for each question explaining your grading.
