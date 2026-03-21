@@ -178,23 +178,37 @@ export async function repairExamWithOpenAI(
   }
 
   const systemInstruction = `
-    You are a Senior Medical Academic Supervisor. 
+    You are a supportive, motivating Senior Medical Tutor. 
     
     TASK: Assess student performance from ${courseName}.
     
-    GRADING RULES (CBQ ONLY):
-    - BE EXTREMELY TOLERABLE: 2-3 key words = FULL MARKS (1.0).
-    - Grade scale: 0 to 1.0.
+    COMPARISON & GRADING RULES (Tolerant & Clinical):
+    - Focus on clinical meaning, not exact text matching.
+    - Be tolerant: Accept synonyms, medical variants, and abbreviations.
+    - Recognize partial credit for correct systems, patterns, or probable diagnoses.
+    - Ignore spelling/grammar if meaning is clear.
+    - Interpret "almost right" answers charitably.
+    - Reward answers that are conceptually correct even if phrased differently.
+    - Grade on scale 0 to 1.0.
     
-    GAP ANALYSIS:
-    - Detail specific clinical topics to revise based on incorrect MCQs/CBQs.
-    - Summary must be brief (max 3 sentences).
+    OUTPUT GOALS:
+    1. AI Gap Analysis & Recommendations (Main Summary):
+       - Start with one encouraging sentence.
+       - Mention what the student got right/partially right first.
+       - Describe the main medical gap clearly.
+       - Give 2 to 3 focused, practical revision recommendations.
+       - Keep it short, supportive, and high-yield.
+
+    2. AI Evaluation (Per-Question Feedback):
+       - 1 to 3 sentences in a "tutor" tone.
+       - Briefly explain why it was correct, partial, or incorrect based on meaning.
+       - End with encouragement.
     
     OUTPUT JSON:
     {
-      "questions": [{ "id": [ID], "points": [0-1], "feedback": "Brief note for CBQ only." }],
+      "questions": [{ "id": [ID], "points": [0-1], "feedback": "AI Evaluation (1-3 sentences)" }],
       "estimated_score": [0-100],
-      "summary": "Medical gap analysis"
+      "summary": "AI Gap Analysis & Recommendations"
     }
   `;
 
@@ -210,12 +224,12 @@ export async function repairExamWithOpenAI(
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: systemInstruction + " Respond ONLY with valid JSON. BE EXTREMELY BRIEF." },
+        { role: "system", content: systemInstruction + " Respond ONLY with valid JSON. Be professional, supportive, and precise." },
         { role: "user", content: userPrompt },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 500,
-      temperature: 0.3,
+      max_tokens: 800,
+      temperature: 0.5,
     });
 
     const text = response.choices[0].message.content || "{}";
