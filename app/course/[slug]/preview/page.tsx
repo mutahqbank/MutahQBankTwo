@@ -271,7 +271,7 @@ export default function FreePreviewPage({ params }: { params: Promise<{ slug: st
 
       <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2 relative overflow-hidden rounded-xl pb-4">
+          <div className="lg:col-span-2 relative overflow-hidden rounded-xl pb-4 select-none">
             {/* Watermark Overlay */}
             <div className="pointer-events-none absolute inset-0 z-0 flex select-none flex-col items-center justify-center overflow-hidden opacity-[0.04] mix-blend-multiply dark:opacity-[0.02] dark:mix-blend-screen">
               <div className="flex -rotate-45 flex-col items-center justify-center gap-8 md:gap-16">
