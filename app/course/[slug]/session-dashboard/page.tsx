@@ -693,7 +693,17 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
     setMode("results")
     window.scrollTo({ top: 0, behavior: "smooth" })
-    handleAiRepair()
+
+    if (mode === "exam") {
+      handleAiRepair()
+    } else {
+      // Session mode: skip AI, show local results only
+      setAiRepairedResults({
+        estimated_score: totalMCQs > 0 ? Math.round((correct / totalMCQs) * 100) : 0,
+        summary: "Practice Assessment Summary.\n(AI Gap Analysis is reserved for Exam Mode).",
+        questions: [] // Results UI will fall back to local scoring for MCQs
+      })
+    }
   }
 
   async function handleAiRepair() {
