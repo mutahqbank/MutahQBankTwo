@@ -164,16 +164,24 @@ export async function repairExamWithOpenAI(
       mcqSummary[subject].total++;
       if (isCorrectMCQ) mcqSummary[subject].correct++;
     } else {
-      relevantCbqs.push({
-        id: q.id,
-        text: q.question_text?.replace(/<[^>]*>?/gm, '').substring(0, 300),
-        subQuestions: q.sub_questions.map(sq => ({
-          id: sq.id,
-          text: sq.subquestion_text.replace(/<[^>]*>?/gm, ''),
-          correctAnswer: sq.answer_html.replace(/<[^>]*>?/gm, ''),
-          userAnswer: userCbqAnswers[q.id]?.[sq.id] || ""
-        }))
+      // For CBQs, only send to AI if there is at least one answer (others are automatic zero)
+      const hasAnswers = q.sub_questions.some(sq => {
+        const ans = userCbqAnswers[q.id]?.[sq.id];
+        return ans && ans.trim().length > 0;
       });
+
+      if (hasAnswers) {
+        relevantCbqs.push({
+          id: q.id,
+          text: q.question_text?.replace(/<[^>]*>?/gm, '').substring(0, 300),
+          subQuestions: q.sub_questions.map(sq => ({
+            id: sq.id,
+            text: sq.subquestion_text.replace(/<[^>]*>?/gm, ''),
+            correctAnswer: sq.answer_html.replace(/<[^>]*>?/gm, ''),
+            userAnswer: userCbqAnswers[q.id]?.[sq.id] || ""
+          }))
+        });
+      }
     }
   }
 
