@@ -485,9 +485,16 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         if (examFilter !== "All") params.set("exam_period", examFilter)
 
         const res = await fetch(`/api/questions?${params}`)
-        const data = await res.json()
+        let data = await res.json()
 
         if (!data.length) { alert("No questions found for this selection."); setQuestionsLoading(false); return }
+
+        // Enforce Exam Mode Limits: Max 100 MCQs, Max 20 CBQs
+        if (sessionMode === "exam") {
+          const mcqs = data.filter((q: any) => q.sub_questions.length === 0).slice(0, 100)
+          const cbqs = data.filter((q: any) => q.sub_questions.length > 0).slice(0, 20)
+          data = [...mcqs, ...cbqs]
+        }
 
         setQuestions(data)
         setActiveSessionId(null) // Unbind from any dangling ID
@@ -818,7 +825,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
             <div className="space-y-8">
               {questions.map((q, idx) => {
-                const qResult = aiRepairedResults.questions.find(qr => qr.id === q.id);
+                const qResult = aiRepairedResults.questions.find(qr => Number(qr.id) === Number(q.id));
                 const isCBQ = q.sub_questions.length > 0;
                 const isCorrectMCQ = !isCBQ && answers[q.id] && q.options.find(o => o.id === answers[q.id])?.correct;
                 const scorePercentage = isCBQ ? (qResult ? qResult.points * 100 : 0) : (isCorrectMCQ ? 100 : 0);

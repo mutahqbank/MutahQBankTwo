@@ -205,18 +205,28 @@ export async function repairExamWithOpenAI(
        - End with encouragement.
     
     OUTPUT JSON:
+    Return EXACTLY this JSON structure. 
+    Ensure "id" is a NUMBER matching the input queston ID perfectly.
     {
-      "questions": [{ "id": [ID], "points": [0-1], "feedback": "AI Evaluation (1-3 sentences)" }],
+      "questions": [
+        { 
+          "id": [NUMBER ID], 
+          "points": [0-1], 
+          "feedback": "Supportive AI Evaluation (1-3 sentences) explaining the score based on meaning vs the model answer." 
+        }
+      ],
       "estimated_score": [0-100],
-      "summary": "AI Gap Analysis & Recommendations"
+      "summary": "AI Gap Analysis & Recommendations (Encouragement + Correct bits + Main Gap + 2-3 Revision points)"
     }
   `;
 
   const userPrompt = `
-    MCQ SUMMARY:
+    PLEASE GRADE THESE QUESTIONS CAREFULLY BUT TOLERANTLY.
+    
+    MCQ SUMMARY (For Gap Analysis context):
     ${Object.entries(mcqSummary).map(([s, c]) => `${s}: ${c.correct}/${c.total}`).join('\n')}
 
-    CBQs FOR GRADING:
+    CBQs FOR DETAILED GRADING (Compare Student Answer vs Model Answer):
     ${JSON.stringify(relevantCbqs, null, 1)}
   `;
 
@@ -224,12 +234,12 @@ export async function repairExamWithOpenAI(
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: systemInstruction + " Respond ONLY with valid JSON. Be professional, supportive, and precise." },
+        { role: "system", content: systemInstruction + " Respond ONLY with valid JSON. Be professional, supportive, and clinically precise." },
         { role: "user", content: userPrompt },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 800,
-      temperature: 0.5,
+      max_tokens: 1000,
+      temperature: 0.7,
     });
 
     const text = response.choices[0].message.content || "{}";
