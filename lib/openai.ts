@@ -38,7 +38,7 @@ export async function suggestCategoryWithOpenAI(
   // 2. Data Preparation
   // Strip HTML tags and truncate to 1000 characters
   const cleanExplanation = explanation.replace(/<[^>]*>?/gm, '').substring(0, 1000);
-  
+
   // Format options into a single string
   const formattedOptions = options.map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join(", ");
 
@@ -46,7 +46,7 @@ export async function suggestCategoryWithOpenAI(
   const structuredLectures = lectures.map(l => {
     const rawName = l.name.toLowerCase();
     let enhancedName = l.name;
-    
+
     // Check for partial or exact matches in synonym map
     Object.keys(synonymMap).forEach(key => {
       if (rawName.includes(key)) {
@@ -97,8 +97,8 @@ export async function suggestCategoryWithOpenAI(
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { 
-          role: "system", 
+        {
+          role: "system",
           content: systemInstruction + "\n\nCRITICAL: Use your advanced medical reasoning to determine the differential diagnosis before picking the lecture ID."
         },
         { role: "user", content: userPrompt },
@@ -111,16 +111,16 @@ export async function suggestCategoryWithOpenAI(
     console.log(text);
 
     const result = JSON.parse(text);
-    
+
     // Validation (Anti-Hallucination Check)
     const validId = lectures.find(l => Number(l.id) === Number(result.lectureId));
-    
+
     if (validId) {
       return result;
     } else {
-      return { 
-        reasoning: result.reasoning || "No clear medical match found.", 
-        lectureId: 0 
+      return {
+        reasoning: result.reasoning || "No clear medical match found.",
+        lectureId: 0
       };
     }
   } catch (error) {
@@ -134,10 +134,10 @@ export async function suggestCategoryWithOpenAI(
  * Evaluates CBQ answers and provides an estimated score.
  */
 export async function repairExamWithOpenAI(
-  questions: { 
-    id: number; 
-    question_text: string; 
-    explanation_html?: string; 
+  questions: {
+    id: number;
+    question_text: string;
+    explanation_html?: string;
     sub_questions: { id: number; subquestion_text: string; answer_html: string }[];
     options: { id: number; option: string; correct: boolean }[];
   }[],
@@ -186,45 +186,57 @@ export async function repairExamWithOpenAI(
   }
 
   const systemInstruction = `
-    You are a supportive, motivating Senior Medical Tutor. 
-    
-    TASK: Assess student performance from ${courseName}.
-    
-    COMPARISON & GRADING RULES (Tolerant & Clinical):
-    - Focus on clinical meaning, not exact text matching.
-    - Be tolerant: Accept synonyms, medical variants, and abbreviations.
-    - Recognize partial credit for correct systems, patterns, or probable diagnoses.
-    - Ignore spelling/grammar if meaning is clear.
-    - Interpret "almost right" answers charitably.
-    - Reward answers that are conceptually correct even if phrased differently.
-    - Grade on scale 0 to 1.0.
-    
-    OUTPUT GOALS:
-    1. AI Gap Analysis & Recommendations (Main Summary):
-       - Start with one encouraging sentence.
-       - Mention what the student got right/partially right first.
-       - Describe the main medical gap clearly.
-       - Give 2 to 3 focused, practical revision recommendations.
-       - Keep it short, supportive, and high-yield.
+    You are a medical exam evaluator. Assess student answers from ${courseName}.
 
-    2. AI Evaluation (Per-Question Feedback):
-       - 1 to 3 sentences in a "tutor" tone.
-       - Briefly explain why it was correct, partial, or incorrect based on meaning.
-       - End with encouragement.
-    
+    EXAM MODE COMPARISON POLICY:
+    - Accept obvious synonyms and equivalent medical terms.
+    - Accept spelling mistakes and small wording differences.
+    - Accept short phrasing if the meaning is clear.
+    - Allow partial credit when the student shows the correct system, concept, or one correct component.
+    - Do not aggressively infer intended meaning from vague or incomplete answers.
+    - Do not fill in missing logic for the student.
+    - If the answer is ambiguous, stay conservative.
+    - If the answer clearly conflicts with the model answer, note it gently.
+    - Grade on a scale of 0 to 1.0.
+
+    FEEDBACK STYLE:
+    - Brief, supportive, low-intensity, exam-focused.
+    - Not chatty. Not overly instructional.
+
+    OUTPUT RULES:
+
+    AI Gap Analysis & Recommendations (summary field):
+    - 1 to 2 short sentences only.
+    - Mention the main gap only.
+    - Include 1 to 2 focused revision points.
+    - Keep encouragement brief.
+
+    AI Evaluation (feedback field per question):
+    - 1 to 2 short sentences only.
+    - State whether the answer was close, partially correct, or missed the key point.
+    - Compare by clear meaning only.
+    - End with a short encouraging line.
+
+    GENERAL RULES:
+    - Minimize the AI role. Do not over-repair the student's answer.
+    - Do not generate long teaching content.
+    - Do not rewrite the model answer.
+    - Do not use harsh language.
+    - Plain text only. No markdown formatting in feedback.
+
     OUTPUT JSON:
-    Return EXACTLY this JSON structure. 
-    Ensure "id" is a NUMBER matching the input queston ID perfectly.
+    Return EXACTLY this JSON structure.
+    Ensure "id" is a NUMBER matching the input question ID perfectly.
     {
       "questions": [
-        { 
-          "id": [NUMBER ID], 
-          "points": [0-1], 
-          "feedback": "Supportive AI Evaluation (1-3 sentences) explaining the score based on meaning vs the model answer." 
+        {
+          "id": [NUMBER ID],
+          "points": [0-1],
+          "feedback": "AI Evaluation (1-2 sentences max)."
         }
       ],
       "estimated_score": [0-100],
-      "summary": "AI Gap Analysis & Recommendations (Encouragement + Correct bits + Main Gap + 2-3 Revision points)"
+      "summary": "AI Gap Analysis & Recommendations (1-2 sentences, main gap, 1-2 revision points)."
     }
   `;
 
