@@ -49,6 +49,7 @@ export async function suggestCategoryAction(
     const filteredSubjects = subjects
       .filter(s => {
         const name = (s.name || "").toLowerCase();
+        if (s.is_restricted) return false;
         return name && !name.includes("unclassified pool") && !name.includes("---");
       })
       .map(s => ({

@@ -26,6 +26,7 @@ export async function GET(
         s.id,
         s.subject,
         s.subject AS name,
+        s.description,
         s.course_id,
         s.active,
         s.is_restricted,
@@ -71,12 +72,12 @@ export async function POST(
     }
 
     const courseId = course.id
-    const { name } = await request.json()
+    const { name, description } = await request.json()
     if (!name?.trim()) return NextResponse.json({ error: "Subject name is required" }, { status: 400 })
 
     const result = await query(
-      `INSERT INTO subjects (subject, course_id, active) VALUES ($1, $2, true) RETURNING id, subject, subject AS name, course_id, active`,
-      [name.trim(), courseId]
+      `INSERT INTO subjects (subject, description, course_id, active) VALUES ($1, $2, $3, true) RETURNING id, subject, subject AS name, description, course_id, active`,
+      [name.trim(), description?.trim() || null, courseId]
     )
 
     return NextResponse.json(result.rows[0], { status: 201 })
@@ -113,7 +114,7 @@ export async function PUT(
     }
 
     const courseId = course.id
-    const { id, name, active, is_restricted } = await request.json()
+    const { id, name, active, is_restricted, description } = await request.json()
     if (!id) return NextResponse.json({ error: "Subject id is required" }, { status: 400 })
 
     const fields: string[] = []
@@ -123,6 +124,7 @@ export async function PUT(
     if (name !== undefined) { fields.push(`subject = $${idx++}`); values.push(name.trim()) }
     if (active !== undefined) { fields.push(`active = $${idx++}`); values.push(active) }
     if (is_restricted !== undefined) { fields.push(`is_restricted = $${idx++}`); values.push(is_restricted) }
+    if (description !== undefined) { fields.push(`description = $${idx++}`); values.push(description?.trim() || null) }
 
     if (fields.length === 0) return NextResponse.json({ error: "No fields to update" }, { status: 400 })
 

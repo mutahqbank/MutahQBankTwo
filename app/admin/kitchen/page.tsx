@@ -1056,6 +1056,9 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
   const [isEditingName, setIsEditingName] = useState(false)
   const [editNameValue, setEditNameValue] = useState("")
   const [isSavingName, setIsSavingName] = useState(false)
+  const [isEditingDesc, setIsEditingDesc] = useState(false)
+  const [editDescValue, setEditDescValue] = useState("")
+  const [isSavingDesc, setIsSavingDesc] = useState(false)
   
   // Group questions by subject
   const subjectsWithDrafts = (subjects || []).map((sub: any) => ({
@@ -1150,7 +1153,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
       const res = await fetch(`/api/courses/${courseId}/subjects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newLectureName })
+        body: JSON.stringify({ name: newLectureName, description: newLectureDesc })
       })
       if (res.ok) {
         toast.success("Lecture created successfully")
@@ -1477,6 +1480,81 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
 
              </div>
 
+             {/* AI Description Panel */}
+             <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-4">
+               <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-2">
+                   <BrainCircuit className="h-4 w-4 text-indigo-400" />
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">AI Classification Hint</p>
+                   <span className="text-[9px] bg-indigo-50 text-indigo-500 px-2 py-0.5 rounded-full border border-indigo-100 font-black uppercase tracking-widest">Boosts AI Accuracy</span>
+                 </div>
+                 {!isEditingDesc && (
+                   <button
+                     onClick={() => {
+                       setIsEditingDesc(true);
+                       setEditDescValue(subjects.find((s: any) => s.id == selectedSubjectId)?.description || "");
+                     }}
+                     className="text-xs font-black uppercase text-indigo-500 hover:text-indigo-700 flex items-center gap-1.5 transition-all"
+                   >
+                     <Pencil className="h-3 w-3" />
+                     {subjects.find((s: any) => s.id == selectedSubjectId)?.description ? "Edit" : "Add Description"}
+                   </button>
+                 )}
+               </div>
+               {isEditingDesc ? (
+                 <div className="space-y-3">
+                   <textarea
+                     className="w-full h-28 p-4 bg-slate-50 border border-indigo-100 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all text-slate-700 font-medium text-sm resize-none placeholder:text-slate-300"
+                     placeholder="Describe what topics this lecture covers. E.g. 'Hypertension diagnosis, JNC guidelines, antihypertensive drug classes and side effects.'"
+                     value={editDescValue}
+                     onChange={(e) => setEditDescValue(e.target.value)}
+                     autoFocus
+                   />
+                   <div className="flex items-center gap-2 justify-end">
+                     <Button
+                       variant="ghost"
+                       onClick={() => setIsEditingDesc(false)}
+                       className="text-slate-400 font-black h-9 px-4 rounded-xl uppercase tracking-widest text-[9px]"
+                     >
+                       Cancel
+                     </Button>
+                     <Button
+                       disabled={isSavingDesc}
+                       onClick={async () => {
+                         setIsSavingDesc(true);
+                         try {
+                           const res = await fetch(`/api/courses/${courseId}/subjects`, {
+                             method: "PUT",
+                             headers: { "Content-Type": "application/json" },
+                             body: JSON.stringify({ id: selectedSubjectId, description: editDescValue })
+                           });
+                           if (res.ok) {
+                             toast.success("AI description saved");
+                             setIsEditingDesc(false);
+                             mutateSubjects();
+                           } else {
+                             toast.error("Failed to save description");
+                           }
+                         } catch { toast.error("Error saving description"); }
+                         finally { setIsSavingDesc(false); }
+                       }}
+                       className="bg-indigo-600 hover:bg-indigo-700 text-white font-black h-9 px-5 rounded-xl uppercase tracking-widest text-[9px]"
+                     >
+                       {isSavingDesc ? "Saving..." : "Save Description"}
+                     </Button>
+                   </div>
+                 </div>
+               ) : (
+                 <p className={`text-sm font-medium leading-relaxed ${
+                   subjects.find((s: any) => s.id == selectedSubjectId)?.description
+                     ? 'text-slate-600'
+                     : 'text-slate-300 italic'
+                 }`}>
+                   {subjects.find((s: any) => s.id == selectedSubjectId)?.description || "No description yet. Click 'Add Description' above to help the AI classify questions more precisely."}
+                 </p>
+               )}
+             </div>
+
              <div className="space-y-6">
                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight ml-2">Preview</h3>
                 <div className="grid gap-8">
@@ -1530,13 +1608,18 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                       AI Restricted
                     </div>
                   )}
-                  <div className="space-y-1">
+                  <div className="space-y-1 flex-1 min-h-[40px]">
                     <h4 className={`font-black text-lg uppercase tracking-tight transition-colors leading-tight ${
                       sub.is_restricted ? 'text-red-700 group-hover:text-red-800' : 'text-slate-800 group-hover:text-orange-600'
                     }`}>{sub.subject}</h4>
                     <p className={`text-[10px] font-black uppercase tracking-widest ${
                       sub.is_restricted ? 'text-red-400' : 'text-slate-400'
                     }`}>{sub.questions.length || 0} Questions</p>
+                    {sub.description ? (
+                      <p className="text-xs text-slate-400 font-medium leading-snug pt-1 line-clamp-2">{sub.description}</p>
+                    ) : (
+                      <p className="text-[9px] text-slate-300 uppercase tracking-widest pt-1 italic">No AI description — click → to add</p>
+                    )}
                   </div>
                   <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-100/50">
                     <button 
@@ -1567,7 +1650,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                       }`}
                     >
                       {sub.is_restricted ? <LockIcon className="h-3 w-3" /> : <UnlockIcon className="h-3 w-3" />}
-                      {sub.is_restricted ? "Unlock AI" : "Restrict AI"}
+                      {sub.is_restricted ? "Unrestrict Classify" : "Restrict from Classify"}
                     </button>
                     <div className={`p-2.5 rounded-xl transition-all group-hover:translate-x-1 ${
                       sub.is_restricted ? 'bg-red-100 group-hover:bg-red-500' : 'bg-slate-50 group-hover:bg-orange-500'
@@ -1740,7 +1823,7 @@ function QuestionEditDialog({ question, onClose, onSave, subjects }: any) {
                onChange={(e) => setEditData({ ...editData, subject_id: Number(e.target.value) })}
              >
                <option value="" disabled>Select a lecture...</option>
-               {(subjects || []).map((s: any) => (
+               {(subjects || []).filter((s: any) => !s.is_restricted).map((s: any) => (
                  <option key={s.id} value={s.id}>{s.subject}</option>
                ))}
              </select>
@@ -2590,6 +2673,7 @@ function WorkflowView({
             <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {subjects
                 .filter((s: any) => {
+                  if (s.is_restricted) return false;
                   const name = (s.subject || "").toLowerCase();
                   return name.includes(searchTerm.toLowerCase());
                 })

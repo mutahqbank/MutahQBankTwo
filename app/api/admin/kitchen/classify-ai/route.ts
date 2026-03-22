@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         if (s.is_restricted) return false
         return name.trim().length > 1
       })
-      .map((s: any) => ({ id: s.id, name: (s.subject || s.name).replace(/[⬇️⬆️⬅️➡️]/g, '').trim() }))
+      .map((s: any) => ({ id: s.id, name: (s.subject || s.name).replace(/[⬇️⬆️⬅️➡️]/g, '').trim(), description: s.description || undefined }))
 
     // 2. Try OpenAI AI classification
     const aiResult = await suggestCategoryWithOpenAI(
