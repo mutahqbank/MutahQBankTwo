@@ -699,19 +699,28 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
       setActiveSessionId(null) // Clear active pointer so we don't automatically resume the completed exam
     }
 
-    setMode("results")
-    window.scrollTo({ top: 0, behavior: "smooth" })
+    const hasCBQs = questions.some(q => q.sub_questions.length > 0)
+    
+    if (mode === "exam" || !hasCBQs) {
+      setMode("results")
+      window.scrollTo({ top: 0, behavior: "smooth" })
 
-    if (mode === "exam") {
-      handleAiRepair()
+      if (mode === "exam") {
+        handleAiRepair()
+      } else {
+        // MCQ-only Session mode: skip AI, show local results only
+        setAiRepairedResults({
+          estimated_score: totalMCQs > 0 ? Math.round((correct / totalMCQs) * 100) : 0,
+          summary: "Practice Assessment Summary.\n(AI Gap Analysis is reserved for Exam Mode).",
+          questions: [],
+          isExam: false
+        })
+      }
     } else {
-      // Session mode: skip AI, show local results only
-      setAiRepairedResults({
-        estimated_score: totalMCQs > 0 ? Math.round((correct / totalMCQs) * 100) : 0,
-        summary: "Practice Assessment Summary.\n(AI Gap Analysis is reserved for Exam Mode).",
-        questions: [],
-        isExam: false
-      })
+      // Session mode with CBQs: skip results screen, return to dashboard
+      setMode("dashboard")
+      setQuestions([])
+      window.scrollTo({ top: 0, behavior: "smooth" })
     }
   }
 
