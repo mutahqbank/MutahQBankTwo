@@ -479,7 +479,8 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         setQuestions(data.questions)
       } else {
         // Study or Exam ( Stateless )
-        const params = new URLSearchParams({ course_id: String(courseId), limit: String(questionCount) })
+        const fetchLimit = (sessionMode === "exam") ? 200 : questionCount
+        const params = new URLSearchParams({ course_id: String(courseId), limit: String(fetchLimit) })
         if (selectedSubjects.size > 0) params.set("subject_ids", Array.from(selectedSubjects).join(","))
         // if (sessionMode === "exam") params.set("type_id", "1") // 1 = MCQ, 2 = CBQ
         if (examFilter !== "All") params.set("exam_period", examFilter)
@@ -491,6 +492,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
         // Enforce Exam Mode Limits: Max 100 MCQs, Max 20 CBQs
         if (sessionMode === "exam") {
+          // If we had more than our requested limit, we filter from the whole pool
           const mcqs = data.filter((q: any) => q.sub_questions.length === 0).slice(0, 100)
           const cbqs = data.filter((q: any) => q.sub_questions.length > 0).slice(0, 20)
           data = [...mcqs, ...cbqs]

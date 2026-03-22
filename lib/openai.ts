@@ -176,9 +176,9 @@ export async function repairExamWithOpenAI(
           text: q.question_text?.replace(/<[^>]*>?/gm, '').substring(0, 300),
           subQuestions: q.sub_questions.map(sq => ({
             id: sq.id,
-            text: sq.subquestion_text.replace(/<[^>]*>?/gm, ''),
-            correctAnswer: sq.answer_html.replace(/<[^>]*>?/gm, ''),
-            userAnswer: userCbqAnswers[q.id]?.[sq.id] || ""
+            text: sq.subquestion_text.replace(/<[^>]*>?/gm, '').substring(0, 150), // Truncate question stem
+            correctAnswer: sq.answer_html.replace(/<[^>]*>?/gm, '').substring(0, 200), // Truncate model answer
+            userAnswer: (userCbqAnswers[q.id]?.[sq.id] || "").substring(0, 200) // Truncate student answer
           }))
         });
       }
@@ -252,8 +252,8 @@ export async function repairExamWithOpenAI(
 
     const text = response.choices[0].message.content || "{}";
     return JSON.parse(text);
-  } catch (error) {
-    console.error("OpenAI exam repair failed:", error);
+  } catch (error: any) {
+    console.error("OpenAI exam repair failed:", error?.message || error);
     return null;
   }
 }
