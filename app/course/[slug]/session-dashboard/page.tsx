@@ -490,11 +490,10 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
         if (!data.length) { alert("No questions found for this selection."); setQuestionsLoading(false); return }
 
-        // Enforce Exam Mode Limits: Max 100 MCQs, Max 20 CBQs
+        // Enforce Exam Mode Limits: user-chosen count, capped at 100 MCQs and 20 CBQs
         if (sessionMode === "exam") {
-          // If we had more than our requested limit, we filter from the whole pool
-          const mcqs = data.filter((q: any) => q.sub_questions.length === 0).slice(0, 100)
-          const cbqs = data.filter((q: any) => q.sub_questions.length > 0).slice(0, 20)
+          const mcqs = data.filter((q: any) => q.sub_questions.length === 0).slice(0, Math.min(100, questionCount))
+          const cbqs = data.filter((q: any) => q.sub_questions.length > 0).slice(0, Math.min(20, questionCount))
           data = [...mcqs, ...cbqs]
         }
 
