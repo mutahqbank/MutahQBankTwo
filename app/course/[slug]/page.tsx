@@ -351,18 +351,18 @@ function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSele
     buttonClass = isSelected ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 shadow-md" : "bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:from-amber-500 hover:to-orange-600"
     if (isSelected) containerClass += " ring-2 ring-amber-500 border-transparent"
   } else if (designLevel === 'special-gradient') {
-    containerClass = "border-0 shadow-2xl relative transform transition-all duration-300 hover:-translate-y-2 hover:shadow-orange-500/20 bg-gradient-to-br from-slate-900 via-slate-800 to-amber-600/90 overflow-hidden"
+    containerClass = "border border-rose-400/30 shadow-[0_0_40px_-10px_rgba(225,29,72,0.4)] relative transform transition-all duration-500 hover:-translate-y-3 hover:shadow-[0_0_60px_-10px_rgba(225,29,72,0.6)] bg-gradient-to-br from-violet-700 via-rose-500 to-orange-500 overflow-hidden"
     headerClass = "bg-transparent pt-8 pb-4"
-    contentClass = "bg-transparent"
+    contentClass = "bg-white/10 backdrop-blur-md"
     footerClass = "bg-transparent pb-6 pt-2"
-    textClass = "text-white"
-    textSecondaryClass = "text-slate-300"
-    checkClass = "text-white"
+    textClass = "text-white drop-shadow-sm font-medium"
+    textSecondaryClass = "text-rose-100 font-medium"
+    checkClass = "text-yellow-300"
     dividerClass = "border-white/20"
-    iconContainer = "bg-white/10 text-white ring-1 ring-white/20 shadow-inner"
-    badgeClass = "absolute top-0 right-0 bg-white text-amber-600 text-[10px] font-extrabold px-4 py-1.5 rounded-bl-xl uppercase tracking-widest shadow-md z-10"
-    badgeText = "Special"
-    buttonClass = isSelected ? "bg-white text-slate-900 py-6 text-base hover:bg-white/90 shadow-lg font-bold" : "border border-white/60 bg-white/5 text-white py-6 text-base hover:bg-white hover:text-slate-900 transition-all font-semibold"
+    iconContainer = "bg-white/20 text-white ring-2 ring-white/40 shadow-xl backdrop-blur-sm"
+    badgeClass = "absolute top-0 right-0 bg-yellow-400 text-slate-900 text-[11px] font-black px-5 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-xl z-10"
+    badgeText = "Special Offer"
+    buttonClass = isSelected ? "bg-white text-violet-700 py-5 text-base hover:bg-zinc-100 shadow-xl font-bold rounded-xl" : "border-2 border-white/80 bg-white/10 backdrop-blur-sm text-white py-5 text-base hover:bg-white hover:text-violet-800 hover:shadow-lg transition-all font-extrabold rounded-xl"
   } else {
     // Normal level
     if (isSelected) {
