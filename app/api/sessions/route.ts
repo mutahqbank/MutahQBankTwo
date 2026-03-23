@@ -75,6 +75,27 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+// Update the AI blended score for a completed session
+export async function PATCH(request: NextRequest) {
+  try {
+    const { assessment_id, ai_score } = await request.json()
+    if (!assessment_id || ai_score === undefined) {
+      return NextResponse.json({ error: "assessment_id and ai_score are required" }, { status: 400 })
+    }
+
+    // Lazily ensure the column exists
+    await query(`ALTER TABLE assessments ADD COLUMN IF NOT EXISTS ai_score INTEGER`);
+    
+    // Update the session explicitly with the AI's final blended score
+    await query(`UPDATE assessments SET ai_score = $1 WHERE id = $2`, [ai_score, assessment_id]);
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Failed to save AI score:", error)
+    return NextResponse.json({ error: "Failed to save AI score" }, { status: 500 })
+  }
+}
+
 // Get user assessments for a course
 export async function GET(request: NextRequest) {
   try {
@@ -87,7 +108,7 @@ export async function GET(request: NextRequest) {
     }
 
     let sql = `
-      SELECT a.id, a.course_id, a.type_id, a.date, a.status,
+      SELECT a.id, a.course_id, a.type_id, a.date, a.status, a.ai_score,
              at.type AS assessment_type,
              c.course AS course_name,
              (SELECT COUNT(*) FROM assessments_questions aq WHERE aq.assessment_id = a.id) AS total_questions,

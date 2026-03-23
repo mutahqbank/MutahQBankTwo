@@ -1,6 +1,6 @@
 'use server'
 
-import { suggestCategoryWithOpenAI, repairExamWithOpenAI } from "@/lib/openai";
+import { suggestCategoryWithOpenAI, repairExamWithOpenAI, generateCbqRubricWithOpenAI, refineCbqRubricWithOpenAI, paraphraseAnswersWithOpenAI, generateIncorrectAnswersWithOpenAI } from "@/lib/openai";
 import { query } from "@/lib/database";
 import { getServerUser } from "@/lib/auth-server";
 
@@ -119,6 +119,107 @@ export async function repairExamAction(
     return { success: false, reasoning: "Failed to process AI repair." };
   } catch (error: any) {
     console.error("AI Repair Action Error:", error);
+    return { success: false, reasoning: error.message };
+  }
+}
+
+/**
+ * Server Action for AI CBQ Rubric Generation
+ */
+export async function generateCbqRubricAction(
+  cbqStem: string,
+  cleanedExplanation: string,
+  subquestionsWithModelAnswers: string
+) {
+  try {
+    const user = await getServerUser();
+    if (!user) return { success: false, reasoning: "Authentication required." };
+
+    if (user.role !== "admin" && user.role !== "instructor") {
+      return { success: false, reasoning: "Access Denied: AI rubric generation is restricted to admin/instructor roles." };
+    }
+
+    const result = await generateCbqRubricWithOpenAI(
+      cbqStem,
+      cleanedExplanation,
+      subquestionsWithModelAnswers
+    );
+
+    if (result) {
+      return { success: true, rubric: result };
+    }
+    return { success: false, reasoning: "Failed to generate AI rubric." };
+  } catch (error: any) {
+    console.error("AI Rubric Generation Action Error:", error);
+    return { success: false, reasoning: error.message };
+  }
+}
+
+/**
+ * Server Action for AI CBQ Rubric Refinement
+ */
+export async function refineCbqRubricAction(
+  originalRubricJson: string
+) {
+  try {
+    const user = await getServerUser();
+    if (!user) return { success: false, reasoning: "Authentication required." };
+
+    if (user.role !== "admin" && user.role !== "instructor") {
+      return { success: false, reasoning: "Access Denied: AI rubric refinement is restricted to admin/instructor roles." };
+    }
+
+    const result = await refineCbqRubricWithOpenAI(originalRubricJson);
+
+    if (result) {
+      return { success: true, rubric: result };
+    }
+    return { success: false, reasoning: "Failed to refine AI rubric." };
+  } catch (error: any) {
+    console.error("AI Rubric Refinement Action Error:", error);
+    return { success: false, reasoning: error.message };
+  }
+}
+
+/**
+ * Server Action for AI Paraphrasing (Dev Test)
+ */
+export async function paraphraseAnswersAction(
+  data: { id: string | number; question: string; answer: string }[]
+) {
+  try {
+    const user = await getServerUser();
+    if (!user) return { success: false, reasoning: "Authentication required." };
+    if (user.role !== "admin") return { success: false, reasoning: "Access restricted to admins." };
+
+    const result = await paraphraseAnswersWithOpenAI(data);
+    if (result) {
+      return { success: true, paraphrasedAnswers: result };
+    }
+    return { success: false, reasoning: "Failed to paraphrase answers." };
+  } catch (error: any) {
+    console.error("AI Paraphrasing Action Error:", error);
+    return { success: false, reasoning: error.message };
+  }
+}
+/**
+ * Server Action for AI Incorrect Generation (Dev Test)
+ */
+export async function generateIncorrectAction(
+  answers: { id: string | number; text: string }[]
+) {
+  try {
+    const user = await getServerUser();
+    if (!user) return { success: false, reasoning: "Authentication required." };
+    if (user.role !== "admin") return { success: false, reasoning: "Access restricted to admins." };
+
+    const result = await generateIncorrectAnswersWithOpenAI(answers);
+    if (result) {
+      return { success: true, incorrectAnswers: result };
+    }
+    return { success: false, reasoning: "Failed to generate incorrect answers." };
+  } catch (error: any) {
+    console.error("AI Incorrect Action Error:", error);
     return { success: false, reasoning: error.message };
   }
 }

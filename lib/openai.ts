@@ -171,14 +171,20 @@ export async function repairExamWithOpenAI(
       });
 
       if (hasAnswers) {
+        // HARD LIMIT: Only evaluate up to 10 CBQs per exam mode
+        if (relevantCbqs.length >= 10) continue; 
+        
         relevantCbqs.push({
           id: q.id,
-          text: q.question_text?.replace(/<[^>]*>?/gm, '').substring(0, 300),
+          stem: q.question_text?.replace(/<[^>]*>?/gm, '').trim().substring(0, 600),
+          explanation: q.explanation_html
+            ? q.explanation_html.replace(/<[^>]*>?/gm, '').trim().substring(0, 600)
+            : undefined,
           subQuestions: q.sub_questions.map(sq => ({
             id: sq.id,
-            text: sq.subquestion_text.replace(/<[^>]*>?/gm, '').substring(0, 150), // Truncate question stem
-            correctAnswer: sq.answer_html.replace(/<[^>]*>?/gm, '').substring(0, 200), // Truncate model answer
-            userAnswer: (userCbqAnswers[q.id]?.[sq.id] || "").substring(0, 200) // Truncate student answer
+            question: sq.subquestion_text.replace(/<[^>]*>?/gm, '').trim().substring(0, 200),
+            modelAnswer: sq.answer_html.replace(/<[^>]*>?/gm, '').trim().substring(0, 300),
+            studentAnswer: (userCbqAnswers[q.id]?.[sq.id] || "").trim().substring(0, 300)
           }))
         });
       }
@@ -186,68 +192,59 @@ export async function repairExamWithOpenAI(
   }
 
   const systemInstruction = `
-    You are a medical exam evaluator. Assess student answers from ${courseName}.
+    You are a STRICT MEDICAL EXAMINER.
+    
+    Task: Compare the student's written answers to the provided model answers for Case-Based Questions.
+    
+    Strict Guidelines:
+    - Accept equivalent medical terminology and synonyms.
+    - Do NOT require identical wording.
+    - CLINICAL MEANING vs. CONFIDENCE: Do NOT penalize hesitant phrasing. IGNORE prefixes like "I think", "Probably", "Could be", "Maybe", "i think it is". If the student identifies the correct clinical concept, award 1.0 regardless of their perceived confidence level.
+    - If the student says "Could be [Correct Dx]", they get 1.0. Correctness is about CONTENT, not CERTAINTY.
+    - Do NOT infer missing information.
+    - If any key concept is missing → do NOT give full marks.
+    - Be strict and exam-focused on CLINICAL ACCURACY, not the student's tone or professional persona.
+    - Ignore echoed question labels/stems (e.g. if the question is "ALP:" and student writes "ALP: High", grade the "High").
+    - TRUNCATED WORDS: Award at least 0.5 credit (up to 1.0) if a word is only partially written but the intended clinical concept is clear (e.g. "fractu" for "fracture", "depres" for "depressed"). Be generous if the intention is obvious.
+    - Strictly award 0.0 for nonsense, technical artifacts (e.g. "&rarr;"), or single fragments (e.g. "1 ->") that don't convey a medical answer.
 
-    EXAM MODE COMPARISON POLICY:
-    - Accept obvious synonyms and equivalent medical terms.
-    - Accept spelling mistakes and small wording differences.
-    - Accept short phrasing if the meaning is clear.
-    - Allow partial credit when the student shows the correct system, concept, or one correct component.
-    - Do not aggressively infer intended meaning from vague or incomplete answers.
-    - Do not fill in missing logic for the student.
-    - If the answer is ambiguous, stay conservative.
-    - If the answer clearly conflicts with the model answer, note it gently.
-    - Grade on a scale of 0 to 1.0.
+    == GAP ANALYSIS (summary field) ==
+    Write 3–5 plain-text sentences addressing the student DIRECTLY (using "You", "Your"):
+    - Honesty about their performance.
+    - Two or three specific clinical gaps from wrong answers.
+    - Targeted revision tips.
+    - Supportive but professional closing line.
+    Tone: direct and honest. No third-person. No markdown.
 
-    FEEDBACK STYLE:
-    - Brief, supportive, low-intensity, exam-focused.
-    - Not chatty. Not overly instructional.
-
-    OUTPUT RULES:
-
-    AI Gap Analysis & Recommendations (summary field):
-    - 1 to 2 short sentences only.
-    - Mention the main gap only.
-    - Include 1 to 2 focused revision points.
-    - Keep encouragement brief.
-
-    AI Evaluation (feedback field per question):
-    - 1 to 2 short sentences only.
-    - State whether the answer was close, partially correct, or missed the key point.
-    - Compare by clear meaning only.
-    - End with a short encouraging line.
-
-    GENERAL RULES:
-    - Minimize the AI role. Do not over-repair the student's answer.
-    - Do not generate long teaching content.
-    - Do not rewrite the model answer.
-    - Do not use harsh language.
-    - Plain text only. No markdown formatting in feedback.
-
-    OUTPUT JSON:
-    Return EXACTLY this JSON structure.
-    Ensure "id" is a NUMBER matching the input question ID perfectly.
+    == OUTPUT FORMAT ==
+    Return ONLY valid JSON in this exact structure:
     {
       "questions": [
         {
-          "id": [NUMBER ID],
-          "points": [0-1],
-          "feedback": "AI Evaluation (1-2 sentences max)."
+          "id": <question_id>,
+          "points": 0,
+          "subquestions": [
+            { 
+              "id": <subquestion_id>, 
+              "score": 1.0, 0.5, or 0.0,
+              "reason": "one short sentence explaining why" 
+            }
+          ]
         }
       ],
-      "estimated_score": [0-100],
-      "summary": "AI Gap Analysis & Recommendations (1-2 sentences, main gap, 1-2 revision points)."
+      "estimated_score": 0,
+      "summary": "<the gap analysis text>"
     }
   `;
 
   const userPrompt = `
-    PLEASE GRADE THESE QUESTIONS CAREFULLY BUT TOLERANTLY.
-    
-    MCQ SUMMARY (For Gap Analysis context):
-    ${Object.entries(mcqSummary).map(([s, c]) => `${s}: ${c.correct}/${c.total}`).join('\n')}
+    Grade the following Case-Based Questions. For each sub-question, compare the student's answer to the model answer by MEANING, not wording.
 
-    CBQs FOR DETAILED GRADING (Compare Student Answer vs Model Answer):
-    ${JSON.stringify(relevantCbqs, null, 1)}
+    MCQ PERFORMANCE SUMMARY (per subject, for the Gap Analysis):
+    ${Object.entries(mcqSummary).map(([s, c]) => `${s}: ${c.correct}/${c.total} correct`).join('\n') || "No MCQs"}
+
+    CASE-BASED QUESTIONS TO GRADE:
+    ${JSON.stringify(relevantCbqs, null, 2)}
   `;
 
   try {
@@ -258,14 +255,369 @@ export async function repairExamWithOpenAI(
         { role: "user", content: userPrompt },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 4000,
-      temperature: 0.7,
+      max_tokens: 8000,
+      temperature: 0.2,
+    });
+
+    const text = response.choices[0].message.content || "{}";
+    const result = JSON.parse(text);
+
+    // Deterministic Score Calculation
+    let targetTotalMax = 0;
+    let targetTotalEarned = 0;
+
+    // 1. Add MCQs
+    for (const subject in mcqSummary) {
+      targetTotalMax += mcqSummary[subject].total;
+      targetTotalEarned += mcqSummary[subject].correct;
+    }
+
+    // 2. Add CBQs (each CBQ's max score is its sub_question length)
+    for (const q of questions) {
+      const isCBQ = q.sub_questions.length > 0;
+      if (isCBQ) {
+        const cbqMax = q.sub_questions.length;
+        targetTotalMax += cbqMax;
+        
+        const aiScoreObj = result.questions?.find((qr: any) => Number(qr.id) === Number(q.id));
+        
+        if (aiScoreObj && Array.isArray(aiScoreObj.subquestions)) {
+          // Deterministically grade the CBQ based entirely on the subquestions array.
+          // This prevents contradictory checkmarks vs total score hallucinations.
+          let correctCount = 0;
+          aiScoreObj.subquestions.forEach((sqRes: any) => {
+            if (typeof sqRes.score === 'number') {
+              correctCount += sqRes.score;
+            } else if (sqRes.is_correct === true) {
+              correctCount += 1; // Fallback for previous cached JSON format
+            }
+          });
+          
+          aiScoreObj.points = correctCount / cbqMax;
+          targetTotalEarned += correctCount;
+        } else if (aiScoreObj && typeof aiScoreObj.points === "number") {
+          // Fallback if subquestions array failed to generate
+          targetTotalEarned += (aiScoreObj.points * cbqMax);
+        }
+      }
+    }
+
+    // 3. Overall calculation
+    if (targetTotalMax > 0) {
+      result.estimated_score = Math.round((targetTotalEarned / targetTotalMax) * 100);
+    } else {
+      result.estimated_score = 0;
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error("OpenAI exam repair failed:", error?.message || error);
+    return null;
+  }
+}
+
+/**
+ * AI CBQ Rubric Generation Logic
+ * Evaluates CBQ stem, explanation, and subquestions to generate a strict scoring rubric.
+ */
+export async function generateCbqRubricWithOpenAI(
+  cbqStem: string,
+  cleanedExplanation: string,
+  subquestionsWithModelAnswers: string
+) {
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn("OPENAI_API_KEY is missing. AI rubric generation will not work.");
+    return null;
+  }
+
+  const systemInstruction = `
+    You are an expert medical examiner designing rubrics for EXAM MODE scoring.
+
+    Your task is to create a STRICT, FAIR, and CONSISTENT scoring rubric for each sub-question in a clinical case-based question (CBQ).
+
+    This rubric will be used to grade student answers in an EXAM setting.
+
+    EXAM MODE RULES:
+    - Only award marks for what is explicitly stated.
+    - Do NOT assume missing knowledge.
+    - Do NOT infer unstated reasoning.
+    - Be strict but fair.
+    - Accept standard clinical synonyms, but not vague or ambiguous answers.
+    - Penalize incorrect or unsafe statements.
+    - Partial credit should be LIMITED and justified.
+
+    INPUTS:
+    - CBQ stem
+    - Cleaned explanation (from explanation_html)
+    - Sub-questions with model answers
+
+    GOAL:
+    Convert the explanation + model answers into a COMPACT grading rubric optimized for automated scoring.
+
+    DO NOT:
+    - write explanations
+    - include teaching content
+    - repeat the original explanation
+    - include HTML
+    - produce long text
+
+    RUBRIC DESIGN:
+
+    For EACH sub-question, extract:
+
+    1. required_concepts
+       - essential for full marks
+       - must be explicitly stated
+       - keep precise and minimal
+
+    2. acceptable_alternatives
+       - valid equivalent terminology
+       - accepted synonyms only
+
+    3. optional_concepts
+       - extra correct details
+       - should NOT compensate for missing required concepts
+
+    4. partial_credit_concepts
+       - incomplete, indirect, or non-definitive answers
+       - should earn limited marks only
+
+    5. critical_errors
+       - incorrect diagnoses
+       - incorrect investigations
+       - unsafe or wrong management
+       - contradictions
+
+    6. disallowed_overcredit
+       - statements that are true but irrelevant
+       - should NOT earn marks alone
+
+    STRICTNESS RULES:
+    - If the question expects a specific answer, keep rubric narrow.
+    - Do NOT reward vague answers (e.g., "do tests", "biopsy" without specification if specificity matters).
+    - Do NOT reward partially correct answers as full marks.
+    - Required concepts must be clearly identifiable in student answers.
+    - Avoid duplication between fields.
+
+    STRICT OUTPUT RULES:
+    - Do NOT over-generate concepts.
+    - Do NOT include more than 5 required_concepts.
+    - Prefer fewer, more precise concepts.
+    - Do NOT duplicate concepts across fields.
+    - If unsure, place concept in optional_concepts, not required.
+    - critical_errors must only include clearly wrong or unsafe statements.
+    - Avoid vague concepts like "do tests", "further investigation".
+
+    COMPACTNESS RULES:
+    - Keep each concept short (prefer <8 words)
+    - Avoid long sentences
+    - Avoid redundancy
+    - Keep token usage minimal
+
+    OUTPUT FORMAT:
+    Return ONLY valid JSON.
+    {
+      "cbq_summary": "max 30-40 words, optional",
+      "subquestions": [
+        {
+          "subquestion_index": 1,
+          "question_focus": "short phrase",
+          "max_score": 5,
+          "required_concepts": [],
+          "acceptable_alternatives": [],
+          "optional_concepts": [],
+          "partial_credit_concepts": [],
+          "critical_errors": [],
+          "disallowed_overcredit": []
+        }
+      ]
+    }
+
+    ERROR HANDLING:
+    - If explanation and model answer differ, prioritize clinically correct and exam-relevant answer.
+    - Do NOT hallucinate uncommon details.
+    - If unclear, prefer stricter rubric over permissive one.
+  `;
+
+  const userPrompt = `
+    INPUT:
+    CBQ_STEM:
+    ${cbqStem}
+
+    CLEANED_EXPLANATION:
+    ${cleanedExplanation}
+
+    SUBQUESTIONS:
+    ${subquestionsWithModelAnswers}
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Use gpt-4o for high fidelity if required
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 3000,
+      temperature: 0.1, // Low temperature for consistent rubrics
     });
 
     const text = response.choices[0].message.content || "{}";
     return JSON.parse(text);
   } catch (error: any) {
-    console.error("OpenAI exam repair failed:", error?.message || error);
+    console.error("OpenAI CBQ rubric generation failed:", error?.message || error);
+    return null;
+  }
+}
+
+/**
+ * AI CBQ Rubric Refinement Logic
+ * Reviews a generated medical exam rubric and improves its precision, brevity, and structure.
+ */
+export async function refineCbqRubricWithOpenAI(
+  originalRubricJson: string
+) {
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn("OPENAI_API_KEY is missing. AI rubric refinement will not work.");
+    return null;
+  }
+
+  const systemInstruction = `
+    You are reviewing a medical exam rubric.
+
+    Fix:
+    - duplicated concepts
+    - overly broad required_concepts
+    - missing critical_errors
+    - vague wording
+
+    Return improved JSON only.
+  `;
+
+  const userPrompt = `
+    ORIGINAL RUBRIC JSON:
+    ${originalRubricJson}
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Use gpt-4o for high fidelity if required
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 3000,
+      temperature: 0.1, // Low temperature for consistent refinement
+    });
+
+    const text = response.choices[0].message.content || "{}";
+    return JSON.parse(text);
+  } catch (error: any) {
+    console.error("OpenAI CBQ rubric refinement failed:", error?.message || error);
+    return null;
+  }
+}
+
+/**
+ * AI Paraphrasing Logic for Dev Test
+ * Generates semantic equivalents of model answers to test AI evaluation.
+ */
+export async function paraphraseAnswersWithOpenAI(
+  data: { id: string | number; question: string; answer: string }[]
+) {
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn("OPENAI_API_KEY is missing. AI paraphrasing will not work.");
+    return null;
+  }
+
+  const systemInstruction = `
+    You are a professional medical student.
+    
+    Task: Paraphrase the medical answers.
+    Rules:
+    - Keep the EXACT same clinical meaning.
+    - If the question asks for multiple options (e.g., "Give 2 causes"), you MUST provide that many options separated by commas.
+    - EACH individual option MUST be max 2 words.
+    - If it's a single-answer question, provide exactly 1 word or a 2-word term. 
+    - BE EXTREMELY CONCISE. 
+    - Use different wording and medical synonyms.
+    - Return a JSON object where keys are the original IDs and values are the paraphrased strings.
+    - Format: { "ID": "paraphrased text" }
+  `;
+
+  const userPrompt = `
+    Paraphrase these answers based on the questions:
+    ${JSON.stringify(data)}
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7, // Higher temperature for varied paraphrasing
+    });
+
+    const text = response.choices[0].message.content || "{}";
+    return JSON.parse(text);
+  } catch (error: any) {
+    console.error("OpenAI paraphrasing failed:", error?.message || error);
+    return null;
+  }
+}
+
+/**
+ * AI Incorrect Answer Generation Logic for Dev Test
+ * Generates clinically incorrect but linguistically similar answers to test AI precision.
+ */
+export async function generateIncorrectAnswersWithOpenAI(
+  answers: { id: string | number; text: string }[]
+) {
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn("OPENAI_API_KEY is missing. AI incorrect generation will not work.");
+    return null;
+  }
+
+  const systemInstruction = `
+    You are a deceptive medical examiner.
+    
+    Task: Generate "Similar but Wrong" medical answers.
+    Rules:
+    - The answer must be CLINICALLY INCORRECT for the same clinical context.
+    - Use wording that is LINGUISTICALLY SIMILAR to the original answer.
+    - Use related but wrong medical terms (e.g., "Hypokalemia" -> "Hyperkalemia", "Increase dose" -> "Decrease dose", "Left" -> "Right").
+    - If the original is a specific diagnosis, use a plausible but wrong alternative in the same class.
+    - BE EXTREMELY CONCISE. You MUST provide exactly 2 to 3 words.
+    - Do NOT include any explanations.
+    - Return a JSON object where keys are the original IDs and values are the incorrect strings.
+    - Format: { "ID": "incorrect text" }
+  `;
+
+  const userPrompt = `
+    Generate "Similar but Wrong" answers for these medical answers:
+    ${JSON.stringify(answers)}
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.5,
+    });
+
+    const text = response.choices[0].message.content || "{}";
+    return JSON.parse(text);
+  } catch (error: any) {
+    console.error("OpenAI incorrect generation failed:", error?.message || error);
     return null;
   }
 }

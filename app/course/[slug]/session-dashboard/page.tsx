@@ -11,8 +11,8 @@ import {
   Eye, EyeOff, Send, AlertCircle, Lock, BookOpen, FileText, Timer
 } from "lucide-react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { repairExamAction } from "@/app/actions/ai-actions"
-import { Sparkles, BrainCircuit } from "lucide-react"
+import { repairExamAction, paraphraseAnswersAction, generateIncorrectAction } from "@/app/actions/ai-actions"
+import { Sparkles, BrainCircuit, Check, X } from "lucide-react"
 
 // Global SWRProvider handles fetching and caching rules.
 
@@ -29,7 +29,7 @@ interface DBQuestion {
   _savedFlagged?: boolean;
   _savedNotes?: Record<number, string>; // sub_question id -> text
 }
-interface Assessment { id: number; course_name: string; assessment_type: string; date: string; total_questions: string; correct_answers: string }
+interface Assessment { id: number; course_name: string; assessment_type: string; type_id?: number; status?: string; date: string; total_questions: string; correct_answers: string; ai_score?: number | null; }
 
 type Mode = "dashboard" | "study" | "exam" | "session" | "results"
 
@@ -368,14 +368,44 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   const [flagged, setFlagged] = useState<Set<number>>(new Set())
   const [questionsLoading, setQuestionsLoading] = useState(true) // Start true to check for active
 
-  // ─── AI Repair state ─────────────────────────────────────────
-  const [repairing, setRepairing] = useState(false)
   const [aiRepairedResults, setAiRepairedResults] = useState<{ 
     estimated_score: number; 
     summary: string; 
-    questions: { id: number; points: number; feedback: string }[];
+    questions: { 
+      id: number; 
+      points: number; 
+      subquestions?: { id: number; is_correct?: boolean; score?: number; reason?: string }[];
+    }[];
     isExam?: boolean;
+    isFallback?: boolean;
   } | null>(null)
+
+  const [lastAssessmentId, setLastAssessmentId] = useState<number | null>(null)
+  const [repairing, setRepairing] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState("Grading Case-Based Questions & Gap Analysis.")
+
+  useEffect(() => {
+    if (mode === "results" && !aiRepairedResults && repairing) {
+      const cbqs = questions.filter(q => q.sub_questions.length > 0);
+      const phases = [
+        "Initializing AI Medical Examiner...",
+        "Analyzing patient case history...",
+        ...cbqs.map((_, i) => `Evaluating Case-Based Question ${i + 1}...`),
+        "Synthesizing clinical performance...",
+        "Comparing with medical standards...",
+        "Generating Gap Analysis & Tips...",
+        "Finalizing your report..."
+      ];
+      
+      let i = 0;
+      setLoadingMessage(phases[0]);
+      const interval = setInterval(() => {
+        i = (i + 1) % phases.length;
+        setLoadingMessage(phases[i]);
+      }, 2500);
+      return () => clearInterval(interval);
+    }
+  }, [mode, aiRepairedResults, repairing, questions]);
 
   // ─── Exam timer ────────────────────────────────────────────────
   const [secondsLeft, setSecondsLeft] = useState(0)
@@ -458,7 +488,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
           course_id: courseId,
           limit: questionCount,
           subject_ids: Array.from(selectedSubjects),
-          mode: sessionMode
+          mode: (sessionMode === "session" && examFilter !== "All") ? "exam" : sessionMode
         }
         if (examFilter !== "All") payload.exam_period = examFilter
 
@@ -490,10 +520,10 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
         if (!data.length) { alert("No questions found for this selection."); setQuestionsLoading(false); return }
 
-        // Enforce Exam Mode Limits: user-chosen count, capped at 100 MCQs and 20 CBQs
+        // Enforce Exam Mode Limits: user-chosen count, capped at 100 MCQs and 10 CBQs
         if (sessionMode === "exam") {
           const mcqs = data.filter((q: any) => q.sub_questions.length === 0).slice(0, Math.min(100, questionCount))
-          const cbqs = data.filter((q: any) => q.sub_questions.length > 0).slice(0, Math.min(20, questionCount))
+          const cbqs = data.filter((q: any) => q.sub_questions.length > 0).slice(0, Math.min(10, questionCount))
           data = [...mcqs, ...cbqs]
         }
 
@@ -556,6 +586,75 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
     } catch (e) {
       console.error(e)
       alert("Failed to resume session.")
+    }
+    setQuestionsLoading(false)
+  }
+
+  async function reviewSession(sessionId: number) {
+    setQuestionsLoading(true)
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}?user_id=${user?.id}`)
+      const data = await res.json()
+
+      if (data && data.questions) {
+        setQuestions(data.questions)
+        const restoredAnswers: Record<number, number> = {}
+        const restoredRevealed = new Set<number>()
+        const restoredFlagged = new Set<number>()
+        const restoredCbqAnswers: Record<number, Record<number, string>> = {}
+
+        data.questions.forEach((q: any) => {
+          if (q._savedAnswerId) {
+            restoredAnswers[q.id] = q._savedAnswerId
+          }
+          if (q._savedNotes && Object.keys(q._savedNotes).length > 0) {
+            restoredCbqAnswers[q.id] = q._savedNotes
+          }
+          if (q._savedFlagged) restoredFlagged.add(q.id)
+
+          // Reveal all questions so the user can review them without scoring
+          restoredRevealed.add(q.id)
+        })
+
+        setAnswers(restoredAnswers)
+        setCbqTextAnswers(restoredCbqAnswers)
+        setRevealed(restoredRevealed)
+        setFlagged(restoredFlagged)
+        
+        setExamResults(null)
+        setAiRepairedResults(null) 
+        setMode("study") // Enter Study mode immediately without scoring
+        setDashTab("new") 
+      }
+    } catch (e) {
+      console.error(e)
+      alert("Failed to review session.")
+    }
+    setQuestionsLoading(false)
+  }
+
+  async function redoSession(sessionId: number) {
+    setQuestionsLoading(true)
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}?user_id=${user?.id}`)
+      const data = await res.json()
+
+      if (data && data.questions) {
+        setQuestions(data.questions)
+        setAnswers({})
+        setCbqTextAnswers({})
+        setRevealed(new Set())
+        setFlagged(new Set())
+        
+        setActiveSessionId(null)
+        endTimeRef.current = null
+        setCurrentIdx(0)
+        setMode("exam")
+        setDashTab("new") 
+      }
+    } catch (e) {
+      console.error(e)
+      alert("Failed to redo session.")
     }
     setQuestionsLoading(false)
   }
@@ -640,9 +739,95 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  function handleExamSubmit() {
+  async function handleAutoFillDev() {
+    const newAnswers = { ...cbqTextAnswers }
+    const newMcqs = { ...answers }
+
+    // Humanization helpers
+    const makeHumanTypo = (str: string) => {
+      let t = str.trim();
+      if (Math.random() > 0.4) t = t.toLowerCase();
+      if (Math.random() > 0.8 && t.length > 5) {
+        // Swap adjacent characters
+        const idx = Math.floor(Math.random() * (t.length - 2)) + 1;
+        const arr = t.split("");
+        [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+        t = arr.join("");
+      }
+      if (Math.random() > 0.9 && t.length > 3) {
+        // Remove a letter
+        const idx = Math.floor(Math.random() * t.length);
+        t = t.slice(0, idx) + t.slice(idx + 1);
+      }
+      return t;
+    };
+
+    const humanize = (str: string) => {
+      let t = str.trim();
+      // No prefixes to ensure exactly 2-word count is maintained
+      t = (Math.random() > 0.5 ? t.toLowerCase() : t);
+      
+      // Minimal punctuation additions
+      if (Math.random() > 0.95) t += "?";
+      
+      return makeHumanTypo(t);
+    };
+
+    // Collect CBQ answers for AI paraphrasing with context
+    const cbqsToParaphrase: { id: string; question: string; answer: string }[] = [];
+    questions.forEach(q => {
+      if (q.sub_questions.length > 0) {
+        q.sub_questions.forEach(sq => {
+          cbqsToParaphrase.push({
+            id: `${q.id}-${sq.id}`,
+            question: sq.subquestion_text.replace(/<[^>]*>?/gm, '').trim(),
+            answer: sq.answer_html.replace(/<[^>]*>?/gm, '').trim()
+          });
+        });
+      }
+    });
+
+    let aiParaphrased: Record<string, string> = {};
+
+    if (cbqsToParaphrase.length > 0) {
+       const res = await paraphraseAnswersAction(cbqsToParaphrase);
+       if (res.success && res.paraphrasedAnswers) {
+         aiParaphrased = res.paraphrasedAnswers;
+       }
+    }
+
+    questions.forEach(q => {
+      // Auto-fill MCQs randomly
+      if (q.sub_questions.length === 0) {
+         if (q.options.length > 0) {
+            newMcqs[q.id] = q.options[Math.floor(Math.random() * q.options.length)].id
+         }
+      } else {
+         if (!newAnswers[q.id]) newAnswers[q.id] = {}
+         q.sub_questions.forEach(sq => {
+            const key = `${q.id}-${sq.id}`;
+            const rand = Math.random();
+
+            if (aiParaphrased[key]) {
+               // 100% Synonymous Correct (Exclusively correct + synonymous)
+               newAnswers[q.id][sq.id] = humanize(aiParaphrased[key]);
+            } else {
+               // Hard fallback
+               newAnswers[q.id][sq.id] = humanize(sq.answer_html.replace(/<[^>]*>?/gm, '').trim().toLowerCase());
+            }
+         })
+      }
+    });
+    
+    setAnswers(newMcqs)
+    setCbqTextAnswers(newAnswers)
+  }
+
+  async function handleExamSubmit() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     endTimeRef.current = null
+
+    let createdSessionId: number | null = null;
 
     // Calculate results locally
     let correct = 0
@@ -670,28 +855,31 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         note: cbqTextAnswers[q.id] ? JSON.stringify(cbqTextAnswers[q.id]) : null
       }))
 
-      fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id, course_id: courseId, type_id: 2, subject_ids: Array.from(selectedSubjects)
-        })
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data.id) {
-            fetch("/api/sessions", {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ assessment_id: data.id, answers: payload })
-            }).catch(console.error)
-          }
-        })
-        .catch(console.error)
+      try {
+        const r = await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.id, course_id: courseId, type_id: 2, subject_ids: Array.from(selectedSubjects)
+          })
+        });
+        const data = await r.json()
+        if (data.id) {
+          createdSessionId = data.id;
+          await fetch("/api/sessions", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assessment_id: data.id, answers: payload })
+          }).catch(console.error)
+        }
+      } catch (e) {
+        console.error(e)
+      }
     }
 
     // If stateful session, mark as completed on server
     if (mode === "session" && activeSessionId) {
+      createdSessionId = activeSessionId;
       fetch(`/api/sessions/${activeSessionId}/sync`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -702,12 +890,16 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
     const hasCBQs = questions.some(q => q.sub_questions.length > 0)
     
+    if (createdSessionId) {
+      setLastAssessmentId(createdSessionId)
+    }
+
     if (mode === "exam" || !hasCBQs) {
       setMode("results")
       window.scrollTo({ top: 0, behavior: "smooth" })
 
       if (mode === "exam") {
-        handleAiRepair()
+        handleAiRepair(createdSessionId)
       } else {
         // MCQ-only Session mode: skip AI, show local results only
         setAiRepairedResults({
@@ -725,8 +917,54 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
     }
   }
 
-  async function handleAiRepair() {
+  async function handleAiRepair(assessmentId: number | null) {
     setRepairing(true)
+
+    // Pre-compute local scores for fallback (used if AI fails)
+    let localCorrect = 0, localTotal = 0
+    questions.forEach(q => {
+      if (q.sub_questions.length === 0) {
+        localTotal++
+        if (answers[q.id] && q.options.find(o => o.id === answers[q.id])?.correct) localCorrect++
+      }
+    })
+    const mcqScore = localTotal > 0 ? (localCorrect / localTotal) : 0
+
+    // Local CBQ heuristic: answered = 50% credit (0.5), no answer = 0
+    let localCbqMax = 0;
+    let localCbqEarned = 0;
+
+    const localCbqResults = questions
+      .filter(q => q.sub_questions.length > 0)
+      .map(q => {
+        let answeredSubQs = 0;
+        q.sub_questions.forEach(sq => {
+          const ans = cbqTextAnswers[q.id]?.[sq.id]
+          if (ans && ans.trim().length > 0) answeredSubQs++;
+        });
+
+        const maxScore = q.sub_questions.length;
+        localCbqMax += maxScore;
+
+        const points = answeredSubQs > 0 ? 0.5 : 0;
+        localCbqEarned += (points * maxScore);
+
+        return { id: q.id, points };
+      })
+
+    const totalMax = localTotal + localCbqMax
+    const blendedScore = totalMax > 0
+      ? Math.round(((localCorrect + localCbqEarned) / totalMax) * 100)
+      : 0
+
+    const fallbackResult = {
+      estimated_score: blendedScore,
+      summary: "AI review is temporarily unavailable. Your score above is estimated based on your MCQ performance and whether you attempted each case-based question. Full CBQ grading will be reflected when the AI is available. You've clearly put in the effort — keep going, you're making great progress!",
+      questions: localCbqResults,
+      isExam: true as const,
+      isFallback: true
+    }
+
     try {
       const result = await repairExamAction(
         questions,
@@ -734,19 +972,27 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         cbqTextAnswers,
         courseName
       )
-      if (result.success) {
+      if (result?.success) {
         setAiRepairedResults({
           estimated_score: result.estimated_score,
           summary: result.summary,
           questions: result.questions,
           isExam: true
         })
+        if (assessmentId) {
+          fetch("/api/sessions", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assessment_id: assessmentId, ai_score: result.estimated_score })
+          }).catch(console.error)
+        }
       } else {
-        alert(result.reasoning || "Repair failed.")
+        console.warn("AI repair unavailable:", result?.reasoning)
+        setAiRepairedResults(fallbackResult)
       }
     } catch (e) {
       console.error(e)
-      alert("An error occurred during AI repair.")
+      setAiRepairedResults(fallbackResult)
     }
     setRepairing(false)
   }
@@ -788,13 +1034,13 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   // ════════════════════════════════════════════════════════════════
   if (mode === "results" && examResults) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-8 select-none">
         <div className="text-center mb-12">
           {!aiRepairedResults ? (
             <div className="flex flex-col items-center justify-center py-16">
               <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
               <h2 className="text-2xl font-bold text-foreground">AI Review in Progress...</h2>
-              <p className="text-muted-foreground mt-2">Grading Case-Based Questions & Gap Analysis.</p>
+              <p className="text-muted-foreground mt-2 animate-pulse">{loadingMessage}</p>
             </div>
           ) : (
             <div className="animate-in fade-in zoom-in duration-700">
@@ -824,6 +1070,16 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                 <p className="text-lg leading-relaxed text-foreground whitespace-pre-wrap">
                   {aiRepairedResults.summary}
                 </p>
+                {aiRepairedResults.isFallback && (
+                  <Button 
+                    variant="default"
+                    onClick={() => handleAiRepair(lastAssessmentId)}
+                    disabled={repairing}
+                    className="mt-6 w-full sm:w-auto bg-primary text-primary-foreground font-bold hover:bg-primary/90"
+                  >
+                    {repairing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Retrying AI Review...</> : <><RotateCcw className="mr-2 h-4 w-4" /> Re-evaluate with AI</>}
+                  </Button>
+                )}
               </div>
             )}
 
@@ -838,22 +1094,26 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                 const qResult = aiRepairedResults.questions.find(qr => Number(qr.id) === Number(q.id));
                 const isCBQ = q.sub_questions.length > 0;
                 const isCorrectMCQ = !isCBQ && answers[q.id] && q.options.find(o => o.id === answers[q.id])?.correct;
-                const scorePercentage = isCBQ ? (qResult ? qResult.points * 100 : 0) : (isCorrectMCQ ? 100 : 0);
+                
+                // If it's a CBQ and we have no AI result, it was skipped (shown as null)
+                const scorePercentage = isCBQ 
+                  ? (qResult ? Math.round(qResult.points * 100) : null) 
+                  : (isCorrectMCQ ? 100 : 0);
                 
                 return (
                   <div key={q.id} className="overflow-hidden rounded-2xl border border-border bg-background shadow-xl">
                     {/* Header */}
-                    <div className={`flex items-center justify-between border-b px-6 py-4 ${scorePercentage >= 100 ? "bg-green-500/5" : scorePercentage > 0 ? "bg-amber-500/5" : "bg-destructive/5"}`}>
+                    <div className={`flex items-center justify-between border-b px-6 py-4 ${scorePercentage === null ? "bg-muted/10" : scorePercentage >= 100 ? "bg-green-500/5" : scorePercentage > 0 ? "bg-amber-500/5" : "bg-destructive/5"}`}>
                       <div className="flex items-center gap-3">
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white shadow">
                           {idx + 1}
                         </span>
                         <span className="text-sm font-bold text-foreground">
-                          {isCBQ ? "Case-Based Question" : `MCQ - ${q.subject_name || "General"}`}
+                          {isCBQ ? `Case-Based Question - ${q.subject_name || "General"}` : `MCQ - ${q.subject_name || "General"}`}
                         </span>
                       </div>
-                      <div className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-tighter shadow-sm ${scorePercentage >= 100 ? "bg-green-500 text-white" : scorePercentage > 0 ? "bg-amber-500 text-white" : "bg-destructive text-white"}`}>
-                        {scorePercentage}% Credit
+                      <div className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-tighter shadow-sm ${scorePercentage === null ? "bg-muted text-muted-foreground" : scorePercentage >= 100 ? "bg-green-500 text-white" : scorePercentage > 0 ? "bg-amber-500 text-white" : "bg-destructive text-white"}`}>
+                        {scorePercentage === null ? "--% Credit" : `${scorePercentage}% Credit`}
                       </div>
                     </div>
 
@@ -866,13 +1126,36 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                           <div className="mb-6 space-y-4">
                             <div className="space-y-2">
                               <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Your Answers</h4>
-                              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-                                {q.sub_questions.map(sq => (
-                                  <div key={sq.id} className="text-sm">
-                                    <span className="font-bold text-primary mr-2">{sq.subquestion_text.replace(/<[^>]*>?/gm, '')}:</span>
-                                    <span>{cbqTextAnswers[q.id]?.[sq.id] || "No answer provided"}</span>
-                                  </div>
-                                ))}
+                              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-4">
+                                {q.sub_questions.map(sq => {
+                                  let checkIcon = null;
+                                  if (qResult && qResult.subquestions) {
+                                    const aiSq = qResult.subquestions.find((s: any) => Number(s.id) === Number(sq.id));
+                                    if (aiSq) {
+                                      const sc = typeof aiSq.score === 'number' ? aiSq.score : (aiSq.is_correct ? 1 : 0);
+                                      if (sc >= 1) {
+                                        checkIcon = <Check className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />;
+                                      } else if (sc > 0) {
+                                        checkIcon = (
+                                          <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[11px] font-black text-amber-600 shadow-sm">
+                                            ½
+                                          </div>
+                                        );
+                                      } else {
+                                        checkIcon = <X className="h-5 w-5 text-destructive mt-0.5 shrink-0" />;
+                                      }
+                                    }
+                                  }
+                                  return (
+                                    <div key={sq.id} className="text-sm flex items-start gap-3">
+                                      {checkIcon}
+                                      <div className="flex-1">
+                                        <span className="font-bold text-primary mr-2">{sq.subquestion_text.replace(/<[^>]*>?/gm, '')}:</span>
+                                        <span className="text-foreground">{cbqTextAnswers[q.id]?.[sq.id] || "No answer provided"}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                             <div className="space-y-2">
@@ -887,14 +1170,33 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                               </div>
                             </div>
                           </div>
-                          {/* AI Evaluation for CBQ */}
-                          <div className="space-y-2 rounded-xl bg-primary/5 p-4 border border-primary/10">
-                            <div className="flex items-center gap-2 mb-1">
-                               <BrainCircuit className="h-4 w-4 text-primary" />
-                               <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">AI Evaluation</h4>
-                            </div>
-                            <p className="text-sm text-foreground italic">"{qResult?.feedback || "Evaluation completed."}"</p>
-                          </div>
+                          {/* AI Score for CBQ */}
+                          {qResult && (() => {
+                            const maxScore = Math.max(1, q.sub_questions.length);
+                            const studentScore = Number((qResult.points * maxScore).toFixed(1));
+                            const percentage = Math.round(qResult.points * 100);
+                            return (
+                              <div className="mt-4 flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                                <div className="flex items-center gap-2">
+                                  <BrainCircuit className="h-5 w-5 text-primary" />
+                                  <span className="text-xs font-black uppercase tracking-widest text-primary">AI Evaluation</span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-6">
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Score</span>
+                                    <span className="text-xl font-black text-foreground">{studentScore} <span className="text-sm font-semibold text-muted-foreground">/ {maxScore}</span></span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Percentage</span>
+                                    <span className={`text-xl font-black ${percentage >= 70 ? "text-green-600" : percentage >= 40 ? "text-amber-500" : "text-destructive"}`}>
+                                      {percentage}%
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                              </div>
+                            );
+                          })()}
                         </>
                       ) : (
                         // MCQ simplified "Full Question" Review
@@ -1043,9 +1345,16 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
               {/* Actions */}
               {(mode === "exam" || mode === "session") && (
-                <Button onClick={handleExamSubmit} className="w-full bg-destructive py-5 text-base font-semibold text-destructive-foreground hover:bg-destructive/90">
-                  Submit Session
-                </Button>
+                <>
+                  {user?.role === "admin" && (
+                    <Button onClick={handleAutoFillDev} variant="outline" className="w-full border-primary text-primary hover:bg-primary/10 mb-2">
+                      <Sparkles className="mr-2 h-4 w-4" /> Auto-Fill (Dev Test)
+                    </Button>
+                  )}
+                  <Button onClick={handleExamSubmit} className="w-full bg-destructive py-5 text-base font-semibold text-destructive-foreground hover:bg-destructive/90">
+                    Submit Session
+                  </Button>
+                </>
               )}
 
               {mode === "session" ? (
@@ -1229,7 +1538,8 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                   <hr className="border-border" />
                   <Button onClick={() => startSession("session")} disabled={questionsLoading || maxAvailableQuestions === 0}
                     className="w-full bg-secondary py-5 text-base font-bold text-secondary-foreground shadow hover:bg-secondary/90 disabled:opacity-50">
-                    {questionsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin outline-none" /> : <BookOpen className="mr-2 h-4 w-4" />} Session Mode
+                    {questionsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin outline-none" /> : <BookOpen className="mr-2 h-4 w-4" />} 
+                    {examFilter === "All" ? "Session Mode" : "Exam Mode (Resumable)"}
                   </Button>
                   <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                     onClick={() => { setSelectedSubjects(new Set()); setQuestionCount(20); setTimedMode(false); setProgressFilter("all"); handleExamFilterChange("All"); }}>
@@ -1241,9 +1551,11 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
           </div>
         </section>
       ) : (
-        <section className="mx-auto max-w-4xl px-4 py-8">
+        <section className="mx-auto max-w-4xl px-4 py-8 space-y-6">
+
+
           <div className="overflow-hidden rounded-xl border border-border shadow-sm">
-            <div className="bg-primary px-4 py-3"><h2 className="font-bold text-primary-foreground">Session History</h2></div>
+            <div className="bg-primary px-4 py-3"><h2 className="font-bold text-primary-foreground">All Sessions</h2></div>
             {history && history.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1258,7 +1570,14 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                     {history.map((h, index) => {
                       const total = Number(h.total_questions) || 0
                       const correct = Number(h.correct_answers) || 0
-                      const pct = total > 0 ? Math.round((correct / total) * 100) : 0
+                      let pct = total > 0 ? Math.round((correct / total) * 100) : 0
+                      let displayStr = `${correct}/${total} (${pct}%)`
+                      
+                      const hasAiScore = h.ai_score !== null && h.ai_score !== undefined;
+                      if (hasAiScore) {
+                        pct = Number(h.ai_score);
+                        displayStr = `AI Grade: ${pct}%`;
+                      }
 
                       // Check if it's the resumable active session
                       const isActive = (activeSessionId === h.id) || (h as any).status === 'active'
@@ -1267,7 +1586,9 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                         <tr key={`${h.id}-${index}`} className="border-b border-border/50">
                           <td className="px-4 py-3 capitalize text-foreground">
                             {isActive ? (
-                              <span className="font-bold text-secondary">Session Mode (Active)</span>
+                              <span className="font-bold text-secondary">
+                                {String(h.assessment_type).toLowerCase() === "preview" || String(h.assessment_type).toLowerCase() === "exam" ? "Exam Mode" : "Session Mode"} (Active)
+                              </span>
                             ) : (
                               String(h.assessment_type).toLowerCase() === "1" || String(h.assessment_type).toLowerCase() === "session" ? "Session Mode" :
                               String(h.assessment_type).toLowerCase() === "preview" || String(h.assessment_type).toLowerCase() === "exam" ? "Exam Mode" :
@@ -1283,7 +1604,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                               <span className="text-muted-foreground italic">Practice</span>
                             ) : (
                               <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${pct >= 70 ? "bg-green-500/20 text-green-700" : pct >= 50 ? "bg-amber-500/20 text-amber-700" : "bg-destructive/20 text-destructive"}`}>
-                                {correct}/{total} ({pct}%)
+                                {displayStr}
                               </span>
                             )}
                           </td>
@@ -1291,7 +1612,10 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                             {isActive ? (
                               <Button size="sm" onClick={() => resumeSession(h.id)} className="bg-secondary text-secondary-foreground hover:bg-secondary/90">Resume</Button>
                             ) : (
-                              <span className="text-xs text-muted-foreground">Completed</span>
+                              <div className="flex items-center justify-end gap-2">
+                                <Button variant="outline" size="sm" onClick={() => reviewSession(h.id)} className="h-8 border-secondary text-xs text-secondary hover:bg-secondary hover:text-secondary-foreground">Review</Button>
+                                <Button size="sm" onClick={() => redoSession(h.id)} className="h-8 bg-primary text-xs text-primary-foreground hover:bg-primary/90">Redo</Button>
+                              </div>
                             )}
                           </td>
                         </tr>
