@@ -19,7 +19,7 @@ const BLOCKED_ADMIN_IDS = [164, 500]
 interface DBSubject { id: number; name: string; course_id: number; active: boolean; question_count: string | number }
 interface DBCourse { id: number; name: string; slug: string; description: string | null; about: string | null; is_active: boolean; hero_image: string | null; total_subjects: string | number; total_questions: string | number }
 interface PkgCourse { id: number; name: string; questions_count: string | number }
-interface DBPackage { id: number; price: number; users_limit: number; duration: number; active: boolean; courses: PkgCourse[] }
+interface DBPackage { id: number; price: number; users_limit: number; duration: number; active: boolean; courses: PkgCourse[]; custom_name?: string | null; design_level?: string | null }
 interface AllCourse { id: number; name: string; questions_count: string | number }
 
 function getPackageTitle(usersLimit: number, coursesCount: number): string {
@@ -178,10 +178,12 @@ function AdminPackageRow({
     users_limit: pkg?.users_limit ?? 1,
     duration: pkg?.duration ?? 30,
     course_ids: pkg?.courses?.map(c => c.id) ?? [],
+    custom_name: pkg?.custom_name ?? "",
+    design_level: pkg?.design_level ?? "normal",
   })
   const [busy, setBusy] = useState(false)
 
-  const dynamicTitle = getPackageTitle(form.users_limit, form.course_ids.length)
+  const dynamicTitle = form.custom_name?.trim() ? form.custom_name : getPackageTitle(form.users_limit, form.course_ids.length)
   const canSave = form.price > 0 && form.users_limit >= 1 && form.course_ids.length > 0
 
   const save = async () => {
@@ -226,6 +228,19 @@ function AdminPackageRow({
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Custom Name</label>
+            <input type="text" placeholder="Auto-generated if empty" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" value={form.custom_name} onChange={e => setForm(f => ({ ...f, custom_name: e.target.value }))} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Design Level</label>
+            <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" value={form.design_level} onChange={e => setForm(f => ({ ...f, design_level: e.target.value }))}>
+              <option value="normal">Normal</option>
+              <option value="deal-same">Blue Value (deal-same)</option>
+              <option value="deal-diff">Gold Premium (deal-diff)</option>
+              <option value="special-gradient">Special Gradient</option>
+            </select>
+          </div>
+          <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Price (JOD)</label>
             <input type="number" min={0} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" value={form.price} onChange={e => setForm(f => ({ ...f, price: +e.target.value }))} />
           </div>
@@ -249,7 +264,7 @@ function AdminPackageRow({
 
   if (!pkg) return null
 
-  const title = getPackageTitle(pkg.users_limit, pkg.courses?.length ?? 0)
+  const title = pkg.custom_name?.trim() ? pkg.custom_name : getPackageTitle(pkg.users_limit, pkg.courses?.length ?? 0)
   return (
     <div className={`rounded-lg border border-border bg-background p-5 shadow-sm ${!pkg.active ? "opacity-50" : ""}`}>
       <div className="flex items-center justify-between mb-3">
@@ -259,7 +274,7 @@ function AdminPackageRow({
         </div>
         <div className="flex items-center gap-2">
           <button onClick={toggleActive} disabled={busy}>{pkg.active ? <ToggleRight className="h-5 w-5 text-green-500" /> : <ToggleLeft className="h-5 w-5 text-muted-foreground" />}</button>
-          <button onClick={() => { setForm({ price: pkg.price, users_limit: pkg.users_limit, duration: pkg.duration, course_ids: pkg.courses?.map(c => c.id) ?? [] }); setEditing(true) }} className="text-muted-foreground hover:text-foreground"><Pencil className="h-4 w-4" /></button>
+          <button onClick={() => { setForm({ price: pkg.price, users_limit: pkg.users_limit, duration: pkg.duration, course_ids: pkg.courses?.map(c => c.id) ?? [], custom_name: pkg.custom_name ?? "", design_level: pkg.design_level ?? "normal" }); setEditing(true) }} className="text-muted-foreground hover:text-foreground"><Pencil className="h-4 w-4" /></button>
           <button onClick={deletePkg} disabled={busy} className="text-destructive/60 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
         </div>
       </div>
@@ -281,8 +296,22 @@ function AdminPackageRow({
 /* ═══════════════════════════════════════════
    User Package Card
    ═══════════════════════════════════════════ */
+function getCourseBaseName(name: string) {
+  return name.split('(')[0].trim().toLowerCase()
+}
+
+function getPackageDesignLevel(pkg: DBPackage): 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient' {
+  if (pkg.design_level && pkg.design_level !== 'normal' && pkg.design_level !== '') {
+    return pkg.design_level as 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient'
+  }
+  if (!pkg.courses || pkg.courses.length <= 1) return 'normal'
+  const themes = new Set(pkg.courses.map(c => getCourseBaseName(c.name)))
+  if (themes.size === 1) return 'deal-same'
+  return 'deal-diff'
+}
+
 function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSelected: boolean; onSelect: () => void }) {
-  const title = getPackageTitle(pkg.users_limit, pkg.courses?.length ?? 0)
+  const title = pkg.custom_name?.trim() ? pkg.custom_name : getPackageTitle(pkg.users_limit, pkg.courses?.length ?? 0)
   const totalQuestions = pkg.courses?.reduce((sum, c) => sum + Number(c.questions_count), 0) ?? 0
   const features = [
     "Subscribe for the end of the course",
@@ -291,29 +320,81 @@ function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSele
     "Watch from anywhere.",
     "Timed tests and tutor-led exams.",
   ]
+
+  const designLevel = getPackageDesignLevel(pkg)
+
+  let containerClass = "border-border shadow-sm focus-within:ring-2 focus-within:ring-secondary/50 bg-background"
+  let headerClass = "bg-background"
+  let contentClass = "bg-muted/30"
+  let footerClass = "bg-background"
+  let iconContainer = pkg.users_limit > 1 ? "bg-primary/10 text-primary" : "bg-secondary/10 text-secondary"
+  let badgeClass = ""
+  let badgeText = ""
+  let buttonClass = isSelected ? "bg-secondary text-secondary-foreground hover:bg-secondary/90" : "bg-primary text-primary-foreground hover:bg-primary/90"
+  let textClass = "text-foreground"
+  let textSecondaryClass = "text-muted-foreground"
+  let checkClass = "text-green-500"
+  let dividerClass = "border-border"
+
+  if (designLevel === 'deal-same') {
+    containerClass = "border-blue-300 shadow-md relative bg-background"
+    headerClass = "bg-gradient-to-br from-blue-50 to-white"
+    iconContainer = "bg-blue-100 text-blue-500 shadow-sm"
+    buttonClass = isSelected ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md" : "bg-blue-500 text-white hover:bg-blue-600"
+    if (isSelected) containerClass += " ring-2 ring-blue-500 border-blue-500"
+  } else if (designLevel === 'deal-diff') {
+    containerClass = "border-amber-300 shadow-lg relative transform transition hover:-translate-y-1 bg-background"
+    headerClass = "bg-gradient-to-br from-amber-50 via-white to-amber-50"
+    iconContainer = "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-md shadow-amber-200"
+    badgeClass = "absolute top-0 right-0 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider shadow-sm z-10"
+    badgeText = "Best Value"
+    buttonClass = isSelected ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 shadow-md" : "bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:from-amber-500 hover:to-orange-600"
+    if (isSelected) containerClass += " ring-2 ring-amber-500 border-transparent"
+  } else if (designLevel === 'special-gradient') {
+    containerClass = "border-0 shadow-2xl relative transform transition-all duration-300 hover:-translate-y-2 hover:shadow-orange-500/20 bg-gradient-to-br from-slate-900 via-slate-800 to-amber-600/90 overflow-hidden"
+    headerClass = "bg-transparent pt-8 pb-4"
+    contentClass = "bg-transparent"
+    footerClass = "bg-transparent pb-6 pt-2"
+    textClass = "text-white"
+    textSecondaryClass = "text-slate-300"
+    checkClass = "text-white"
+    dividerClass = "border-white/20"
+    iconContainer = "bg-white/10 text-white ring-1 ring-white/20 shadow-inner"
+    badgeClass = "absolute top-0 right-0 bg-white text-amber-600 text-[10px] font-extrabold px-4 py-1.5 rounded-bl-xl uppercase tracking-widest shadow-md z-10"
+    badgeText = "Special"
+    buttonClass = isSelected ? "bg-white text-slate-900 py-6 text-base hover:bg-white/90 shadow-lg font-bold" : "border border-white/60 bg-white/5 text-white py-6 text-base hover:bg-white hover:text-slate-900 transition-all font-semibold"
+  } else {
+    // Normal level
+    if (isSelected) {
+      containerClass = "border-secondary shadow-lg ring-1 ring-secondary bg-background"
+      headerClass = "bg-secondary/5"
+    }
+  }
+
   return (
-    <div className={`flex flex-col overflow-hidden rounded-xl border-2 transition-all ${isSelected ? "border-secondary shadow-lg" : "border-border shadow-sm"}`}>
-      <div className={`flex flex-col items-center gap-2 px-5 py-6 ${isSelected ? "bg-secondary/5" : "bg-background"}`}>
-        <div className={`flex h-12 w-12 items-center justify-center rounded-full ${pkg.users_limit > 1 ? "bg-primary/10" : "bg-secondary/10"}`}>
-          {pkg.users_limit > 1 ? <Users className="h-6 w-6 text-primary" /> : <BookOpen className="h-6 w-6 text-secondary" />}
+    <div className={`flex flex-col overflow-hidden rounded-xl border-2 transition-all ${containerClass}`}>
+      {badgeText && <div className={badgeClass}>{badgeText}</div>}
+      <div className={`flex flex-col items-center gap-2 px-5 py-6 ${headerClass}`}>
+        <div className={`flex h-12 w-12 items-center justify-center rounded-full ${iconContainer}`}>
+          {pkg.users_limit > 1 ? <Users className="h-6 w-6" /> : <BookOpen className="h-6 w-6" />}
         </div>
-        <h3 className="text-sm font-bold text-foreground">{title}</h3>
-        <p className="text-3xl font-bold text-foreground">{pkg.price} <span className="text-sm font-normal text-muted-foreground">JOD</span></p>
-        <p className="text-xs text-muted-foreground">{pkg.users_limit} user{pkg.users_limit > 1 ? "s" : ""}</p>
+        <h3 className={`text-sm font-bold text-center px-4 ${textClass}`}>{title}</h3>
+        <p className={`text-3xl font-bold ${textClass}`}>{pkg.price} <span className={`text-sm font-normal ${textSecondaryClass}`}>JOD</span></p>
+        <p className={`text-xs ${textSecondaryClass}`}>{pkg.users_limit} user{pkg.users_limit > 1 ? "s" : ""}</p>
       </div>
-      <div className="flex flex-1 flex-col gap-2 bg-muted/30 px-5 py-4">
+      <div className={`flex flex-1 flex-col gap-2 px-5 py-4 ${contentClass}`}>
         {features.map(f => (
-          <div key={f} className="flex items-start gap-2 text-sm text-foreground">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
+          <div key={f} className={`flex items-start gap-2 text-sm ${textClass}`}>
+            <Check className={`mt-0.5 h-4 w-4 shrink-0 ${checkClass}`} />
             <span>{f}</span>
           </div>
         ))}
         {pkg.courses && pkg.courses.length > 1 && (
-          <div className="mt-3 border-t border-border pt-3">
-            <h6 className="text-sm font-medium text-foreground mb-1.5">
+          <div className={`mt-3 border-t pt-3 ${dividerClass}`}>
+            <h6 className={`text-sm font-medium mb-1.5 ${textClass}`}>
               Courses Included:
             </h6>
-            <ol className="flex flex-col list-decimal gap-1 pl-5 text-sm text-foreground">
+            <ol className={`flex flex-col list-decimal gap-1 pl-5 text-sm ${textClass}`}>
                 {pkg.courses.map(c=> (
                   <li key={c.id || c.name}>{c.name}</li>
                 ))}
@@ -321,8 +402,8 @@ function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSele
           </div>
         )}
       </div>
-      <div className="border-t border-border bg-background px-5 py-3">
-        <Button onClick={onSelect} className={`w-full ${isSelected ? "bg-secondary text-secondary-foreground hover:bg-secondary/90" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}>
+      <div className={`border-t px-5 py-3 ${dividerClass} ${footerClass}`}>
+        <Button onClick={onSelect} className={`w-full ${buttonClass}`}>
           {isSelected ? "Selected" : "Select Package"}
         </Button>
       </div>
@@ -342,6 +423,9 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
   const [addingPackage, setAddingPackage] = useState(false)
   const [subjectBusy, setSubjectBusy] = useState(false)
   const [selectedPkg, setSelectedPkg] = useState<number | null>(null)
+  
+  // Package filtering
+  const [packageFilter, setPackageFilter] = useState<"individual" | "group">("individual")
 
   // Mass Deactivation State
   const [showDeactivateModal, setShowDeactivateModal] = useState(false)
@@ -565,10 +649,24 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
               </div>
             ) : (
               /* ── User-facing package cards ── */
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {packages?.map(pkg => (
-                  <UserPackageCard key={pkg.id} pkg={pkg} isSelected={selectedPkg === pkg.id} onSelect={() => setSelectedPkg(pkg.id)} />
-                ))}
+              <div className="space-y-6">
+                <div className="flex justify-center">
+                  <div className="inline-flex rounded-lg bg-muted/50 p-1">
+                    <button onClick={() => { setPackageFilter('individual'); setSelectedPkg(null) }} className={`px-6 py-2.5 rounded-md text-sm font-semibold transition-all ${packageFilter === 'individual' ? 'bg-background shadow-sm text-secondary' : 'text-muted-foreground hover:text-foreground'}`}>Individual Plans</button>
+                    <button onClick={() => { setPackageFilter('group'); setSelectedPkg(null) }} className={`px-6 py-2.5 rounded-md text-sm font-semibold transition-all ${packageFilter === 'group' ? 'bg-background shadow-sm text-secondary' : 'text-muted-foreground hover:text-foreground'}`}>Group Plans</button>
+                  </div>
+                </div>
+                
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {packages?.filter(pkg => packageFilter === 'individual' ? pkg.users_limit === 1 : pkg.users_limit > 1).map(pkg => (
+                    <UserPackageCard key={pkg.id} pkg={pkg} isSelected={selectedPkg === pkg.id} onSelect={() => setSelectedPkg(pkg.id)} />
+                  ))}
+                  {packages?.filter(pkg => packageFilter === 'individual' ? pkg.users_limit === 1 : pkg.users_limit > 1).length === 0 && (
+                    <div className="col-span-full py-8 text-center text-muted-foreground">
+                      No {packageFilter} packages available at the moment.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
