@@ -336,6 +336,60 @@ function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSele
   let checkClass = "text-green-500"
   let dividerClass = "border-border"
 
+  if (designLevel === 'special-gradient') {
+    const cardContent = (
+      <>
+        {badgeText && <div className="absolute top-0 right-0 bg-white text-orange-600 text-[11px] font-black px-5 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-xl z-20">SPECIAL</div>}
+        <div className="flex flex-col items-center gap-2 px-5 py-6 bg-transparent pt-8 pb-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white ring-2 ring-white/20 shadow-xl backdrop-blur-sm">
+            {pkg.users_limit > 1 ? <Users className="h-6 w-6" /> : <BookOpen className="h-6 w-6" />}
+          </div>
+          <h3 className="text-sm font-bold text-center px-4 text-white drop-shadow-sm font-medium">{title}</h3>
+          <p className="text-3xl font-bold text-white drop-shadow-sm font-medium">{pkg.price} <span className="text-sm font-normal text-orange-50 font-medium">JOD</span></p>
+          <p className="text-xs text-orange-50 font-medium">{pkg.users_limit} user{pkg.users_limit > 1 ? "s" : ""}</p>
+        </div>
+        <div className="flex flex-1 flex-col gap-2 px-5 py-4 bg-white/5 backdrop-blur-md">
+          {features.map(f => (
+            <div key={f} className="flex items-start gap-2 text-sm text-white drop-shadow-sm font-medium">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />
+              <span>{f}</span>
+            </div>
+          ))}
+          {pkg.courses && pkg.courses.length > 1 && (
+            <div className="mt-3 border-t pt-3 border-white/10">
+              <h6 className="text-sm font-medium mb-1.5 text-white drop-shadow-sm font-medium">
+                Courses Included:
+              </h6>
+              <ol className="flex flex-col list-decimal gap-1 pl-5 text-sm text-white drop-shadow-sm font-medium">
+                  {pkg.courses.map(c=> (
+                    <li key={c.id || c.name}>{c.name}</li>
+                  ))}
+              </ol>
+            </div>
+          )}
+        </div>
+        <div className="border-t px-5 py-3 border-white/10 bg-transparent pb-6 pt-2">
+          <Button onClick={onSelect} className={`w-full ${isSelected ? "bg-white text-orange-600 py-5 text-base hover:bg-slate-50 shadow-xl font-bold rounded-xl" : "border-2 border-white/80 bg-white/10 backdrop-blur-sm text-white py-5 text-base hover:bg-white hover:text-orange-700 hover:shadow-lg transition-all font-extrabold rounded-xl"}`}>
+            {isSelected ? "Selected" : "Select Package"}
+          </Button>
+        </div>
+      </>
+    )
+
+    return (
+      <div 
+        className={`group relative p-[2px] overflow-hidden rounded-xl transition-all duration-500 hover:-translate-y-2 cursor-pointer
+        ${isSelected ? 'shadow-[0_0_40px_-5px_rgba(249,115,22,0.6)] ring-1 ring-orange-500/50' : 'shadow-[0_0_25px_-10px_rgba(249,115,22,0.4)]'}`}
+        onClick={onSelect}
+      >
+        <div className="absolute inset-[-1000%] animate-spin-slow bg-[conic-gradient(from_0deg,transparent_0deg,transparent_310deg,#f97316_340deg,transparent_360deg)] opacity-90 group-hover:opacity-100 group-hover:animate-[spin_2s_linear_infinite]" />
+        <div className="relative flex flex-col h-full w-full overflow-hidden rounded-[calc(0.75rem-2px)] bg-gradient-to-br from-orange-700 via-orange-500 to-amber-400">
+           {cardContent}
+        </div>
+      </div>
+    )
+  }
+
   if (designLevel === 'deal-same') {
     containerClass = "border-blue-300 shadow-md relative bg-background"
     headerClass = "bg-gradient-to-br from-blue-50 to-white"
@@ -350,19 +404,6 @@ function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSele
     badgeText = "Best Value"
     buttonClass = isSelected ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 shadow-md" : "bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:from-amber-500 hover:to-orange-600"
     if (isSelected) containerClass += " ring-2 ring-amber-500 border-transparent"
-  } else if (designLevel === 'special-gradient') {
-    containerClass = "border border-rose-400/30 shadow-[0_0_40px_-10px_rgba(225,29,72,0.4)] relative transform transition-all duration-500 hover:-translate-y-3 hover:shadow-[0_0_60px_-10px_rgba(225,29,72,0.6)] bg-gradient-to-br from-violet-700 via-rose-500 to-orange-500 overflow-hidden"
-    headerClass = "bg-transparent pt-8 pb-4"
-    contentClass = "bg-white/10 backdrop-blur-md"
-    footerClass = "bg-transparent pb-6 pt-2"
-    textClass = "text-white drop-shadow-sm font-medium"
-    textSecondaryClass = "text-rose-100 font-medium"
-    checkClass = "text-yellow-300"
-    dividerClass = "border-white/20"
-    iconContainer = "bg-white/20 text-white ring-2 ring-white/40 shadow-xl backdrop-blur-sm"
-    badgeClass = "absolute top-0 right-0 bg-yellow-400 text-slate-900 text-[11px] font-black px-5 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-xl z-10"
-    badgeText = "Special Offer"
-    buttonClass = isSelected ? "bg-white text-violet-700 py-5 text-base hover:bg-zinc-100 shadow-xl font-bold rounded-xl" : "border-2 border-white/80 bg-white/10 backdrop-blur-sm text-white py-5 text-base hover:bg-white hover:text-violet-800 hover:shadow-lg transition-all font-extrabold rounded-xl"
   } else {
     // Normal level
     if (isSelected) {

@@ -80,6 +80,12 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       keyframes: {
+        gradient: {
+          '0%, 100%': { backgroundPosition: '0% 0%' },
+          '25%': { backgroundPosition: '50% 100%' },
+          '50%': { backgroundPosition: '100% 50%' },
+          '75%': { backgroundPosition: '50% 0%' },
+        },
         'accordion-down': {
           from: {
             height: '0',
@@ -98,6 +104,8 @@ const config: Config = {
         },
       },
       animation: {
+        gradient: 'gradient 40s ease infinite',
+        'spin-slow': 'spin 4s linear infinite',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
       },

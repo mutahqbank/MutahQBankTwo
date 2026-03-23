@@ -13,7 +13,7 @@ import {
 // Global SWRProvider handles fetching and caching rules.
 
 interface PkgCourse { id: number; name: string; questions_count: string | number }
-interface DBPackage { id: number; price: number; users_limit: number; duration: number; active: boolean; courses: PkgCourse[] }
+interface DBPackage { id: number; price: number; users_limit: number; duration: number; active: boolean; courses: PkgCourse[]; custom_name?: string | null; design_level?: string | null }
 interface DBCourse { id: number; name: string; slug: string }
 
 function getPackageTitle(usersLimit: number, coursesCount: number): string {
@@ -23,9 +23,23 @@ function getPackageTitle(usersLimit: number, coursesCount: number): string {
   return "Group Package deal"
 }
 
+function getCourseBaseName(name: string) {
+  return name.split('(')[0].trim().toLowerCase()
+}
+
+function getPackageDesignLevel(pkg: DBPackage): 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient' {
+  if (pkg.design_level && pkg.design_level !== 'normal' && pkg.design_level !== '') {
+    return pkg.design_level as 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient'
+  }
+  if (!pkg.courses || pkg.courses.length <= 1) return 'normal'
+  const themes = new Set(pkg.courses.map(c => getCourseBaseName(c.name)))
+  if (themes.size === 1) return 'deal-same'
+  return 'deal-diff'
+}
+
 /* ─── Package selection card ─── */
 function PackageOption({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSelected: boolean; onSelect: () => void }) {
-  const title = getPackageTitle(pkg.users_limit, pkg.courses?.length ?? 0)
+  const title = pkg.custom_name?.trim() ? pkg.custom_name : getPackageTitle(pkg.users_limit, pkg.courses?.length ?? 0)
   const totalQ = pkg.courses?.reduce((sum, c) => sum + Number(c.questions_count), 0) ?? 0
   const features = [
     "Subscribe for the end of the course",
@@ -34,17 +48,89 @@ function PackageOption({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSelect
     "Watch from anywhere.",
     "Timed tests and tutor-led exams.",
   ]
+
+  const designLevel = getPackageDesignLevel(pkg)
+
+  // Default styles (Normal)
+  let containerClass = "border-border shadow-sm bg-background hover:border-secondary/40"
+  let iconContainer = pkg.users_limit > 1 ? "bg-slate-100 text-slate-500" : "bg-secondary/10 text-secondary"
+  let badgeClass = ""
+  let badgeText = ""
+
+  if (designLevel === 'special-gradient') {
+    return (
+      <div
+        onClick={onSelect}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => e.key === "Enter" && onSelect()}
+        className={`group relative p-[2px] overflow-hidden rounded-xl transition-all duration-500 hover:-translate-y-1 cursor-pointer
+        ${isSelected ? 'shadow-[0_0_30px_-5px_rgba(249,115,22,0.5)] ring-1 ring-orange-500/50' : 'shadow-sm'}`}
+      >
+        <div className="absolute inset-[-1000%] animate-[spin_8s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_310deg,#f97316_340deg,transparent_360deg)] opacity-90 group-hover:animate-[spin_3s_linear_infinite]" />
+        <div className="relative flex flex-col h-full w-full overflow-hidden rounded-[calc(0.75rem-2px)] bg-gradient-to-br from-orange-600 via-orange-500 to-amber-400 p-5">
+           <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm">
+              {pkg.users_limit > 1 ? <Users className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">{title}</h3>
+              <p className="text-xs text-orange-50">{pkg.users_limit} user{pkg.users_limit > 1 ? "s" : ""}</p>
+            </div>
+            <span className="ml-auto text-xl font-bold text-white">{pkg.price} <span className="text-xs font-normal text-orange-50">JOD</span></span>
+          </div>
+          <ul className="flex flex-col gap-1.5 flex-1">
+            {features.map(f => (
+              <li key={f} className="flex items-start gap-2 text-xs text-white">
+                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200" /> {f}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 border-t border-white/20 pt-3">
+            <h6 className="text-xs font-bold text-white mb-1.5">Courses Included:</h6>
+            <ol className="flex flex-col list-decimal gap-1 pl-5 text-[11px] text-orange-50 font-medium">
+                {pkg.courses.map(c=> (
+                  <li key={c.id || c.name}>{c.name}</li>
+                ))}
+            </ol>
+          </div>
+          {isSelected && (
+            <div className="mt-3 flex items-center justify-center gap-1 rounded-md bg-white py-1.5 text-xs font-bold text-orange-600 shadow-lg">
+              <Check className="h-3.5 w-3.5" /> Selected
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (designLevel === 'deal-same') {
+    containerClass = "border-blue-200 bg-white hover:border-blue-400"
+    iconContainer = "bg-blue-50 text-blue-500"
+    if (isSelected) containerClass = "border-blue-500 ring-2 ring-blue-500 bg-blue-50/30"
+  } else if (designLevel === 'deal-diff') {
+    containerClass = "border-amber-200 bg-white hover:border-amber-400 shadow-md"
+    iconContainer = "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm"
+    badgeClass = "absolute top-0 right-0 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[9px] font-black px-2.5 py-1 rounded-bl-lg uppercase tracking-tight z-10"
+    badgeText = "Best Value"
+    if (isSelected) containerClass = "border-amber-500 ring-2 ring-amber-500 bg-amber-50/30"
+  } else {
+    // Normal level
+    if (isSelected) containerClass = "border-secondary ring-1 ring-secondary bg-secondary/5 shadow-lg"
+  }
+
   return (
     <div
       onClick={onSelect}
       role="button"
       tabIndex={0}
       onKeyDown={e => e.key === "Enter" && onSelect()}
-      className={`cursor-pointer rounded-xl border-2 p-5 transition-all ${isSelected ? "border-secondary bg-secondary/5 shadow-lg" : "border-border bg-background shadow-sm hover:border-secondary/40"}`}
+      className={`relative cursor-pointer rounded-xl border-2 p-5 transition-all ${containerClass}`}
     >
+      {badgeText && <div className={badgeClass}>{badgeText}</div>}
       <div className="flex items-center gap-3 mb-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${pkg.users_limit > 1 ? "bg-primary/10" : "bg-secondary/10"}`}>
-          {pkg.users_limit > 1 ? <Users className="h-5 w-5 text-primary" /> : <BookOpen className="h-5 w-5 text-secondary" />}
+        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${iconContainer}`}>
+          {pkg.users_limit > 1 ? <Users className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
         </div>
         <div>
           <h3 className="text-sm font-bold text-foreground">{title}</h3>
@@ -60,17 +146,20 @@ function PackageOption({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSelect
         ))}
       </ul>
        <div className="mt-3 border-t border-border pt-3">
-            <h6 className="text-xs font-medium text-foreground mb-1.5">
+            <h6 className="text-xs font-bold text-foreground mb-1.5">
               Courses Included:
             </h6>
-            <ol className="flex flex-col list-decimal gap-1 pl-5 text-xs text-muted-foreground">
+            <ol className="flex flex-col list-decimal gap-1 pl-5 text-[11px] text-muted-foreground font-medium">
                 {pkg.courses.map(c=> (
                   <li key={c.id || c.name}>{c.name}</li>
                 ))}
             </ol>
           </div>
       {isSelected && (
-        <div className="mt-3 flex items-center justify-center gap-1 rounded-md bg-secondary py-1.5 text-xs font-semibold text-secondary-foreground">
+        <div className={`mt-3 flex items-center justify-center gap-1 rounded-md py-1.5 text-xs font-bold shadow-sm transition-all
+          ${designLevel === 'deal-same' ? 'bg-blue-600 text-white' : 
+            designLevel === 'deal-diff' ? 'bg-amber-500 text-white' : 
+            'bg-secondary text-secondary-foreground'}`}>
           <Check className="h-3.5 w-3.5" /> Selected
         </div>
       )}
@@ -91,12 +180,23 @@ export default function PaymentPage({ params }: { params: Promise<{ slug: string
   const { data: packages, isLoading: pkgLoading } = useSWR<DBPackage[]>(`/api/courses/${slug}/packages`)
 
   const [selectedPkg, setSelectedPkg] = useState<number | null>(preselectedPkg ? Number(preselectedPkg) : null)
+  const [packageFilter, setPackageFilter] = useState<"individual" | "group">("individual")
   const [file, setFile] = useState<File | null>(null)
   const [coupon, setCoupon] = useState("")
   const [note, setNote] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [apiError, setApiError] = useState("")
+
+  // Set initial filter based on preselected package
+  useMemo(() => {
+    if (preselectedPkg && packages) {
+      const pkg = packages.find(p => p.id === Number(preselectedPkg))
+      if (pkg && pkg.users_limit > 1) {
+        setPackageFilter("group")
+      }
+    }
+  }, [preselectedPkg, packages])
 
   const selectedPackage = useMemo(() => packages?.find(p => p.id === selectedPkg), [packages, selectedPkg])
   const isGroup = (selectedPackage?.users_limit ?? 1) > 1
@@ -251,12 +351,37 @@ export default function PaymentPage({ params }: { params: Promise<{ slug: string
 
         {/* Select Package */}
         <div className="mb-10">
-          <h3 className="mb-4 text-lg font-bold text-foreground">Choose Your Package</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <h3 className="text-lg font-bold text-foreground">Choose Your Package</h3>
+            
+            <div className="inline-flex rounded-lg bg-muted/50 p-1">
+              <button 
+                type="button"
+                onClick={() => setPackageFilter('individual')} 
+                className={`flex-1 sm:flex-none px-6 py-2 rounded-md text-sm font-semibold transition-all ${packageFilter === 'individual' ? 'bg-background shadow-sm text-secondary' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Individual
+              </button>
+              <button 
+                type="button"
+                onClick={() => setPackageFilter('group')} 
+                className={`flex-1 sm:flex-none px-6 py-2 rounded-md text-sm font-semibold transition-all ${packageFilter === 'group' ? 'bg-background shadow-sm text-secondary' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Group
+              </button>
+            </div>
+          </div>
+
           {packages && packages.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
-              {packages.map(pkg => (
+              {packages
+                .filter(pkg => packageFilter === "individual" ? pkg.users_limit === 1 : pkg.users_limit > 1)
+                .map(pkg => (
                 <PackageOption key={pkg.id} pkg={pkg} isSelected={selectedPkg === pkg.id} onSelect={() => { setSelectedPkg(pkg.id); setApiError("") }} />
               ))}
+              {packages.filter(pkg => packageFilter === "individual" ? pkg.users_limit === 1 : pkg.users_limit > 1).length === 0 && (
+                <p className="col-span-full py-8 text-center text-sm text-muted-foreground">No {packageFilter} packages available for this course.</p>
+              )}
             </div>
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">No packages available for this course.</p>
