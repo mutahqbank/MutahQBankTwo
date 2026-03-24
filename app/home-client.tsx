@@ -32,10 +32,18 @@ export function HomeClient({
                     className="absolute inset-0 bg-cover bg-center"
                     style={{ backgroundImage: "url(/images/hero-bg.jpg)" }}
                 />
-                <div className="absolute inset-0 bg-primary/20" />
-                <h1 className="relative z-10 mx-auto max-w-4xl px-4 text-center text-balance text-3xl font-bold text-white drop-shadow-lg sm:text-4xl md:text-5xl lg:text-6xl">
-                    All Your Medical Education Needs Are Met Here
-                </h1>
+                <div className="absolute inset-0 bg-primary/40 backdrop-blur-[2px]" />
+                <div className="relative z-10 mx-auto max-w-4xl px-4 text-center">
+                    <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-secondary/20 backdrop-blur-md px-4 py-1 text-[10px] font-black uppercase tracking-[0.3em] text-secondary ring-1 ring-secondary/30 animate-pulse">
+                        Something big is coming...
+                    </div>
+                    <h1 className="text-balance text-4xl font-black text-white drop-shadow-2xl sm:text-5xl md:text-6xl lg:text-7xl">
+                        <span className="text-secondary">Q</span>uestionosis
+                    </h1>
+                    <p className="mt-4 text-lg font-medium text-white/90 drop-shadow-lg md:text-xl lg:text-2xl">
+                        More than just a question bank
+                    </p>
+                </div>
             </section>
 
             {/* Feature Cards */}

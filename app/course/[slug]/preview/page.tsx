@@ -278,7 +278,7 @@ export default function FreePreviewPage({ params }: { params: Promise<{ slug: st
                 {[...Array(12)].map((_, i) => (
                   <div key={i} className="flex gap-8 whitespace-nowrap md:gap-16">
                     {[...Array(5)].map((_, j) => (
-                      <span key={j} className="text-3xl font-black uppercase tracking-widest text-foreground md:text-6xl">MUTAHQBANK</span>
+                      <span key={j} className="text-3xl font-black uppercase tracking-widest text-foreground md:text-6xl">QUESTIONOSIS</span>
                     ))}
                   </div>
                 ))}

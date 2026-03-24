@@ -1,4 +1,4 @@
--- mutahQbank PostgreSQL schema
+-- Questionosis PostgreSQL schema
 -- Safe to run against existing database (IF NOT EXISTS)
 
 -- 1. users

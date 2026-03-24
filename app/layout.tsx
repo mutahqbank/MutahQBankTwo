@@ -10,7 +10,7 @@ import { Toaster } from "sonner"
 const _inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "mutahQbank - Medical Education Platform",
+  title: "mutahQbank - More than just a question bank",
   description:
     "Comprehensive medical education platform with 18 courses, 579+ subjects, and 6723+ questions for medical students.",
 }
