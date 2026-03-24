@@ -3,6 +3,8 @@
 import { CourseTile } from "@/components/course-tile"
 import type { Course } from "@/lib/types"
 import { BookOpen, FileText, Smartphone, RefreshCw, BookMarked, ClipboardList, HelpCircle } from "lucide-react"
+import { FeaturedAnnouncement } from "@/components/featured-announcement"
+import { PackagesSection } from "@/components/packages-section"
 
 const features = [
     { icon: BookOpen, title: "Organized past papers", description: "Questions organized by topic and exam type" },
@@ -56,6 +58,9 @@ export function HomeClient({
                     </div>
                 </div>
             </section>
+
+            {/* Packages Section */}
+            <PackagesSection />
 
             {/* Statistics Bar */}
             <section className="bg-muted py-10">

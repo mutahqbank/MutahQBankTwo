@@ -23,7 +23,7 @@ export async function GET(
 
     // Get packages linked to this course
     const result = await query(`
-      SELECT p.id, p.price, p.users_limit, p.duration, p.active, p.custom_name, p.design_level
+      SELECT p.id, p.price, p.users_limit, p.duration, p.active, p.custom_name, p.design_level, p.original_price
       FROM packages p
       JOIN plans pl ON p.id = pl.package_id
       WHERE pl.course_id = $1 ${activeFilter}
@@ -77,7 +77,7 @@ export async function POST(
     }
 
     const fallbackCourseId = course.id
-    const { price, users_limit, duration, course_ids, custom_name, design_level } = await request.json()
+    const { price, original_price, users_limit, duration, course_ids, custom_name, design_level } = await request.json()
 
     if (!price || price <= 0) return NextResponse.json({ error: "Price is required" }, { status: 400 })
     if (!users_limit || users_limit < 1) return NextResponse.json({ error: "Users limit must be >= 1" }, { status: 400 })
@@ -89,8 +89,8 @@ export async function POST(
 
     // Create the package
     const pkgResult = await query(
-      `INSERT INTO packages (price, users_limit, duration, active, custom_name, design_level) VALUES ($1, $2, $3, true, $4, $5) RETURNING id`,
-      [price, users_limit || 1, duration || 30, custom_name || null, design_level || 'normal']
+      `INSERT INTO packages (price, original_price, users_limit, duration, active, custom_name, design_level) VALUES ($1, $2, $3, $4, true, $5, $6) RETURNING id`,
+      [price, original_price || null, users_limit || 1, duration || 30, custom_name || null, design_level || 'normal']
     )
     const packageId = pkgResult.rows[0].id
 
@@ -99,7 +99,7 @@ export async function POST(
       await query(`INSERT INTO plans (course_id, package_id) VALUES ($1, $2)`, [cId, packageId])
     }
 
-    return NextResponse.json({ id: packageId, price, users_limit: users_limit || 1, duration: duration || 30, active: true, custom_name, design_level }, { status: 201 })
+    return NextResponse.json({ id: packageId, price, original_price, users_limit: users_limit || 1, duration: duration || 30, active: true, custom_name, design_level }, { status: 201 })
   } catch (error) {
     console.error("Failed to create package:", error)
     return NextResponse.json({ error: "Failed to create package" }, { status: 500 })
@@ -131,7 +131,7 @@ export async function PUT(
       }
     }
 
-    const { id, price, users_limit, duration, active, course_ids, custom_name, design_level } = await request.json()
+    const { id, price, original_price, users_limit, duration, active, course_ids, custom_name, design_level } = await request.json()
     if (!id) return NextResponse.json({ error: "Package id is required" }, { status: 400 })
 
     const fields: string[] = []
@@ -139,6 +139,7 @@ export async function PUT(
     let idx = 1
 
     if (price !== undefined) { fields.push(`price = $${idx++}`); values.push(price) }
+    if (original_price !== undefined) { fields.push(`original_price = $${idx++}`); values.push(original_price || null) }
     if (users_limit !== undefined) { fields.push(`users_limit = $${idx++}`); values.push(users_limit) }
     if (duration !== undefined) { fields.push(`duration = $${idx++}`); values.push(duration) }
     if (active !== undefined) { fields.push(`active = $${idx++}`); values.push(active) }

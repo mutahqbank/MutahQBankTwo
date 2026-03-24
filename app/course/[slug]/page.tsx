@@ -237,7 +237,9 @@ function AdminPackageRow({
               <option value="normal">Normal</option>
               <option value="deal-same">Blue Value (deal-same)</option>
               <option value="deal-diff">Gold Premium (deal-diff)</option>
-              <option value="special-gradient">Special Gradient</option>
+              <option value="special-gradient">Special Gradient #1</option>
+              <option value="special-2">Cyber Value (#2)</option>
+              <option value="special-3">Elite Premium (#3)</option>
             </select>
           </div>
           <div>
@@ -300,9 +302,9 @@ function getCourseBaseName(name: string) {
   return name.split('(')[0].trim().toLowerCase()
 }
 
-function getPackageDesignLevel(pkg: DBPackage): 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient' {
+function getPackageDesignLevel(pkg: DBPackage): 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient' | 'special-2' | 'special-3' {
   if (pkg.design_level && pkg.design_level !== 'normal' && pkg.design_level !== '') {
-    return pkg.design_level as 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient'
+    return pkg.design_level as 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient' | 'special-2' | 'special-3'
   }
   if (!pkg.courses || pkg.courses.length <= 1) return 'normal'
   const themes = new Set(pkg.courses.map(c => getCourseBaseName(c.name)))
@@ -336,22 +338,50 @@ function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSele
   let checkClass = "text-green-500"
   let dividerClass = "border-border"
 
-  if (designLevel === 'special-gradient') {
+  if (designLevel === 'special-gradient' || designLevel === 'special-2' || designLevel === 'special-3') {
+    let beamColor = "#f97316" // Orange for special-gradient
+    let bgGradient = "from-orange-700 via-orange-500 to-amber-400"
+    let iconBg = "bg-white/10"
+    let checkIconColor = "text-amber-200"
+    let buttonVariant = isSelected ? "bg-white text-orange-600 hover:bg-slate-50" : "border-2 border-white/80 bg-white/10 backdrop-blur-sm text-white hover:bg-white hover:text-orange-700"
+    let badgeText = "SPECIAL"
+    let badgeColor = "bg-white text-orange-600"
+
+    if (designLevel === 'special-2') {
+      beamColor = "#06b6d4" // Cyan
+      bgGradient = "from-slate-900 via-blue-800 to-cyan-700"
+      iconBg = "bg-cyan-500/20"
+      checkIconColor = "text-cyan-300"
+      buttonVariant = isSelected ? "bg-cyan-500 text-white hover:bg-cyan-400 border-none shadow-[0_0_15px_rgba(6,182,212,0.5)]" : "border-2 border-cyan-400/50 bg-cyan-500/10 backdrop-blur-sm text-white hover:bg-cyan-500"
+      badgeText = "CYBER VALUE"
+      badgeColor = "bg-cyan-500 text-white"
+    } else if (designLevel === 'special-3') {
+      beamColor = "#fbbf24" // Amber/Gold
+      bgGradient = "from-zinc-950 via-indigo-950 to-amber-900"
+      iconBg = "bg-amber-500/20"
+      checkIconColor = "text-amber-400"
+      buttonVariant = isSelected ? "bg-amber-500 text-white hover:bg-amber-400 border-none shadow-[0_0_20px_rgba(251,191,36,0.4)]" : "border-2 border-amber-400/50 bg-amber-500/10 backdrop-blur-sm text-white hover:bg-amber-500"
+      badgeText = "ELITE PREMIUM"
+      badgeColor = "bg-amber-500 text-white"
+    }
+
     const cardContent = (
       <>
-        {badgeText && <div className="absolute top-0 right-0 bg-white text-orange-600 text-[11px] font-black px-5 py-1.5 rounded-bl-2xl uppercase tracking-widest shadow-xl z-20">SPECIAL</div>}
+        <div className={`absolute top-0 right-0 ${badgeColor} text-[10px] font-black px-4 py-1.5 rounded-bl-xl uppercase tracking-widest shadow-lg z-20`}>
+          {badgeText}
+        </div>
         <div className="flex flex-col items-center gap-2 px-5 py-6 bg-transparent pt-8 pb-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white ring-2 ring-white/20 shadow-xl backdrop-blur-sm">
+          <div className={`flex h-12 w-12 items-center justify-center rounded-full ${iconBg} text-white ring-2 ring-white/20 shadow-xl backdrop-blur-sm`}>
             {pkg.users_limit > 1 ? <Users className="h-6 w-6" /> : <BookOpen className="h-6 w-6" />}
           </div>
           <h3 className="text-sm font-bold text-center px-4 text-white drop-shadow-sm font-medium">{title}</h3>
-          <p className="text-3xl font-bold text-white drop-shadow-sm font-medium">{pkg.price} <span className="text-sm font-normal text-orange-50 font-medium">JOD</span></p>
-          <p className="text-xs text-orange-50 font-medium">{pkg.users_limit} user{pkg.users_limit > 1 ? "s" : ""}</p>
+          <p className="text-3xl font-bold text-white drop-shadow-sm font-medium">{pkg.price} <span className="text-sm font-normal text-white/80 font-medium">JOD</span></p>
+          <p className="text-xs text-white/80 font-medium">{pkg.users_limit} user{pkg.users_limit > 1 ? "s" : ""}</p>
         </div>
         <div className="flex flex-1 flex-col gap-2 px-5 py-4 bg-white/5 backdrop-blur-md">
           {features.map(f => (
             <div key={f} className="flex items-start gap-2 text-sm text-white drop-shadow-sm font-medium">
-              <Check className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" />
+              <Check className={`mt-0.5 h-4 w-4 shrink-0 ${checkIconColor}`} />
               <span>{f}</span>
             </div>
           ))}
@@ -369,7 +399,7 @@ function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSele
           )}
         </div>
         <div className="border-t px-5 py-3 border-white/10 bg-transparent pb-6 pt-2">
-          <Button onClick={onSelect} className={`w-full ${isSelected ? "bg-white text-orange-600 py-5 text-base hover:bg-slate-50 shadow-xl font-bold rounded-xl" : "border-2 border-white/80 bg-white/10 backdrop-blur-sm text-white py-5 text-base hover:bg-white hover:text-orange-700 hover:shadow-lg transition-all font-extrabold rounded-xl"}`}>
+          <Button onClick={onSelect} className={`w-full py-5 text-base shadow-xl font-extrabold rounded-xl transition-all hover:scale-[1.02] ${buttonVariant}`}>
             {isSelected ? "Selected" : "Select Package"}
           </Button>
         </div>
@@ -379,11 +409,14 @@ function UserPackageCard({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSele
     return (
       <div 
         className={`group relative p-[2px] overflow-hidden rounded-xl transition-all duration-500 hover:-translate-y-2 cursor-pointer
-        ${isSelected ? 'shadow-[0_0_40px_-5px_rgba(249,115,22,0.6)] ring-1 ring-orange-500/50' : 'shadow-[0_0_25px_-10px_rgba(249,115,22,0.4)]'}`}
+        ${isSelected ? 'shadow-[0_0_40px_-5px_rgba(249,115,22,0.6)] ring-1 ring-white/10' : 'shadow-2xl'}`}
         onClick={onSelect}
       >
-        <div className="absolute inset-[-1000%] animate-spin-slow bg-[conic-gradient(from_0deg,transparent_0deg,transparent_310deg,#f97316_340deg,transparent_360deg)] opacity-90 group-hover:opacity-100 group-hover:animate-[spin_2s_linear_infinite]" />
-        <div className="relative flex flex-col h-full w-full overflow-hidden rounded-[calc(0.75rem-2px)] bg-gradient-to-br from-orange-700 via-orange-500 to-amber-400">
+        <div 
+          className={`absolute inset-[-1000%] ${!isSelected ? "animate-spin-slow" : "animate-[spin_2s_linear_infinite]"} opacity-90`} 
+          style={{ backgroundImage: `conic-gradient(from_0deg,transparent_0deg,transparent_310deg,${beamColor}_340deg,transparent_360deg)` }}
+        />
+        <div className={`relative flex flex-col h-full w-full overflow-hidden rounded-[calc(0.75rem-2px)] bg-gradient-to-br ${bgGradient}`}>
            {cardContent}
         </div>
       </div>

@@ -13,7 +13,7 @@ import {
 // Global SWRProvider handles fetching and caching rules.
 
 interface PkgCourse { id: number; name: string; questions_count: string | number }
-interface DBPackage { id: number; price: number; users_limit: number; duration: number; active: boolean; courses: PkgCourse[]; custom_name?: string | null; design_level?: string | null }
+interface DBPackage { id: number; price: number; original_price?: number | null; users_limit: number; duration: number; active: boolean; courses: PkgCourse[]; custom_name?: string | null; design_level?: string | null }
 interface DBCourse { id: number; name: string; slug: string }
 
 function getPackageTitle(usersLimit: number, coursesCount: number): string {
@@ -27,9 +27,9 @@ function getCourseBaseName(name: string) {
   return name.split('(')[0].trim().toLowerCase()
 }
 
-function getPackageDesignLevel(pkg: DBPackage): 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient' {
+function getPackageDesignLevel(pkg: DBPackage): 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient' | 'special-2' | 'special-3' {
   if (pkg.design_level && pkg.design_level !== 'normal' && pkg.design_level !== '') {
-    return pkg.design_level as 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient'
+    return pkg.design_level as 'normal' | 'deal-same' | 'deal-diff' | 'special-gradient' | 'special-2' | 'special-3'
   }
   if (!pkg.courses || pkg.courses.length <= 1) return 'normal'
   const themes = new Set(pkg.courses.map(c => getCourseBaseName(c.name)))
@@ -50,6 +50,8 @@ function PackageOption({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSelect
   ]
 
   const designLevel = getPackageDesignLevel(pkg)
+  const hasDiscount = pkg.original_price && pkg.original_price > pkg.price
+  const discountPercentage = hasDiscount ? Math.round(((pkg.original_price! - pkg.price) / pkg.original_price!) * 100) : 0
 
   // Default styles (Normal)
   let containerClass = "border-border shadow-sm bg-background hover:border-secondary/40"
@@ -57,7 +59,27 @@ function PackageOption({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSelect
   let badgeClass = ""
   let badgeText = ""
 
-  if (designLevel === 'special-gradient') {
+  if (designLevel === 'special-gradient' || designLevel === 'special-2' || designLevel === 'special-3') {
+    let beamColor = "#f97316" // Orange for special-gradient
+    let bgGradient = "from-orange-600 via-orange-500 to-amber-400"
+    let checkIconColor = "text-amber-200"
+    let badgeText = "SPECIAL"
+    let badgeColor = "bg-white text-orange-600"
+
+    if (designLevel === 'special-2') {
+      beamColor = "#06b6d4" // Cyan
+      bgGradient = "from-slate-900 via-blue-800 to-cyan-700"
+      checkIconColor = "text-cyan-300"
+      badgeText = "CYBER VALUE"
+      badgeColor = "bg-cyan-500 text-white"
+    } else if (designLevel === 'special-3') {
+      beamColor = "#fbbf24" // Amber/Gold
+      bgGradient = "from-zinc-950 via-indigo-950 to-amber-900"
+      checkIconColor = "text-amber-400"
+      badgeText = "ELITE PREMIUM"
+      badgeColor = "bg-amber-500 text-white"
+    }
+
     return (
       <div
         onClick={onSelect}
@@ -65,37 +87,59 @@ function PackageOption({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSelect
         tabIndex={0}
         onKeyDown={e => e.key === "Enter" && onSelect()}
         className={`group relative p-[2px] overflow-hidden rounded-xl transition-all duration-500 hover:-translate-y-1 cursor-pointer
-        ${isSelected ? 'shadow-[0_0_30px_-5px_rgba(249,115,22,0.5)] ring-1 ring-orange-500/50' : 'shadow-sm'}`}
+        ${isSelected ? `shadow-[0_0_30px_-5px_rgba(249,115,22,0.5)] ring-1 ring-white/20` : 'shadow-sm'}`}
       >
-        <div className="absolute inset-[-1000%] animate-[spin_8s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_310deg,#f97316_340deg,transparent_360deg)] opacity-90 group-hover:animate-[spin_3s_linear_infinite]" />
-        <div className="relative flex flex-col h-full w-full overflow-hidden rounded-[calc(0.75rem-2px)] bg-gradient-to-br from-orange-600 via-orange-500 to-amber-400 p-5">
+        <div 
+          className={`absolute inset-[-1000%] ${isSelected ? "animate-[spin_3s_linear_infinite]" : "animate-[spin_8s_linear_infinite]"} opacity-90`}
+          style={{ backgroundImage: `conic-gradient(from_0deg,transparent_0deg,transparent_310deg,${beamColor}_340deg,transparent_360deg)` }}
+        />
+        <div className={`relative flex flex-col h-full w-full overflow-hidden rounded-[calc(0.75rem-2px)] bg-gradient-to-br ${bgGradient} p-5`}>
            <div className="flex items-center gap-3 mb-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm">
               {pkg.users_limit > 1 ? <Users className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">{title}</h3>
-              <p className="text-xs text-orange-50">{pkg.users_limit} user{pkg.users_limit > 1 ? "s" : ""}</p>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white">{title}</h3>
+                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter ${badgeColor}`}>
+                   {designLevel === 'special-gradient' ? 'Special' : designLevel === 'special-2' ? 'Cyber' : 'Elite'}
+                </span>
+              </div>
+              <p className="text-xs text-white/80">{pkg.users_limit} user{pkg.users_limit > 1 ? "s" : ""}</p>
             </div>
-            <span className="ml-auto text-xl font-bold text-white">{pkg.price} <span className="text-xs font-normal text-orange-50">JOD</span></span>
+            <div className="ml-auto text-right">
+                <p className="text-xl font-bold text-white leading-none">
+                    {pkg.price} <span className="text-xs font-normal text-white/80">JOD</span>
+                </p>
+                {hasDiscount && (
+                    <p className="text-[10px] text-white/50 line-through mt-0.5 leading-none font-medium">
+                        {pkg.original_price} JOD
+                    </p>
+                )}
+                {hasDiscount && (
+                    <div className="mt-1.5 inline-block px-1.5 py-0.5 rounded bg-white text-orange-600 text-[9px] font-black uppercase tracking-tighter shadow-md">
+                        Save {discountPercentage}%
+                    </div>
+                )}
+            </div>
           </div>
           <ul className="flex flex-col gap-1.5 flex-1">
             {features.map(f => (
               <li key={f} className="flex items-start gap-2 text-xs text-white">
-                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200" /> {f}
+                <Check className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${checkIconColor}`} /> {f}
               </li>
             ))}
           </ul>
           <div className="mt-3 border-t border-white/20 pt-3">
             <h6 className="text-xs font-bold text-white mb-1.5">Courses Included:</h6>
-            <ol className="flex flex-col list-decimal gap-1 pl-5 text-[11px] text-orange-50 font-medium">
+            <ol className="flex flex-col list-decimal gap-1 pl-5 text-[11px] text-white/80 font-medium">
                 {pkg.courses.map(c=> (
                   <li key={c.id || c.name}>{c.name}</li>
                 ))}
             </ol>
           </div>
           {isSelected && (
-            <div className="mt-3 flex items-center justify-center gap-1 rounded-md bg-white py-1.5 text-xs font-bold text-orange-600 shadow-lg">
+            <div className={`mt-3 flex items-center justify-center gap-1 rounded-md py-1.5 text-xs font-bold shadow-lg ${badgeColor}`}>
               <Check className="h-3.5 w-3.5" /> Selected
             </div>
           )}
@@ -136,7 +180,21 @@ function PackageOption({ pkg, isSelected, onSelect }: { pkg: DBPackage; isSelect
           <h3 className="text-sm font-bold text-foreground">{title}</h3>
           <p className="text-xs text-muted-foreground">{pkg.users_limit} user{pkg.users_limit > 1 ? "s" : ""}</p>
         </div>
-        <span className="ml-auto text-xl font-bold text-foreground">{pkg.price} <span className="text-xs font-normal text-muted-foreground">JOD</span></span>
+        <div className="ml-auto text-right">
+            <p className="text-xl font-bold text-foreground leading-none">
+                {pkg.price} <span className="text-xs font-normal text-muted-foreground">JOD</span>
+            </p>
+            {hasDiscount && (
+                <p className="text-[10px] text-muted-foreground/50 line-through mt-0.5 leading-none font-medium text-right">
+                    {pkg.original_price} JOD
+                </p>
+            )}
+            {hasDiscount && (
+                <div className="mt-1.5 inline-block px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground text-[9px] font-black uppercase tracking-tighter shadow-sm border border-secondary/20">
+                    Save {discountPercentage}%
+                </div>
+            )}
+        </div>
       </div>
       <ul className="flex flex-col gap-1.5">
         {features.map(f => (
