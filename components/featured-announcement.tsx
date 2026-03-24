@@ -104,7 +104,7 @@ export function FeaturedAnnouncement() {
           <h2 className="mb-2 text-xl font-bold tracking-tight">
             {announcement.title}
           </h2>
-          <p className="mb-5 text-sm text-primary-foreground/80 line-clamp-2">
+          <p className="mb-5 text-sm text-primary-foreground/80">
             {announcement.description}
           </p>
 

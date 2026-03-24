@@ -113,6 +113,12 @@ export function FeaturedPackageCard({ pkg, isCompact = false }: { pkg: FeaturedP
               {pkg.users_limit > 1 ? <Users className={`${isCompact ? 'h-3 w-3' : 'h-5 w-5'}`} /> : <BookOpen className={`${isCompact ? 'h-3 w-3' : 'h-5 w-5'}`} />}
             </div>
             <h3 className={`${isCompact ? 'text-[11px]' : 'text-sm'} font-bold text-center px-4 text-white drop-shadow-sm leading-tight`}>{title}</h3>
+            {title === "Minors - 5th Year Bundle" && (
+              <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-orange-600 border border-white/20 text-[10px] font-black shadow-lg animate-pulse transition-all">
+                <Star className="h-3 w-3 fill-current shrink-0" />
+                OPENS ON 6TH OF MAY
+              </div>
+            )}
             <div className="flex items-baseline gap-2">
               <p className={`${isCompact ? 'text-xl' : 'text-2xl'} font-black text-white drop-shadow-sm leading-none`}>
                 {pkg.price} <span className="text-[10px] font-normal text-white/80">JOD</span>
@@ -198,6 +204,12 @@ export function FeaturedPackageCard({ pkg, isCompact = false }: { pkg: FeaturedP
            {pkg.users_limit > 1 ? <Users className={`${isCompact ? 'h-3 w-3' : 'h-5 w-5'}`} /> : <BookOpen className={`${isCompact ? 'h-3 w-3' : 'h-5 w-5'}`} />}
         </div>
         <h3 className={`${isCompact ? 'text-[11px]' : 'text-sm'} font-bold text-center px-4 ${textClass} leading-tight`}>{title}</h3>
+        {title === "Minors - 5th Year Bundle" && (
+          <div className="mt-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary text-secondary-foreground border border-secondary/20 text-[10px] font-black shadow-md animate-pulse transition-all">
+              <Star className="h-3 w-3 fill-current shrink-0" />
+              OPENS ON 6TH OF MAY
+          </div>
+        )}
         <div className="flex items-baseline gap-2">
             <p className={`${isCompact ? 'text-xl' : 'text-3xl'} font-black ${textClass} leading-none`}>
                 {pkg.price} <span className={`text-[10px] font-normal ${textSecondaryClass}`}>JOD</span>
