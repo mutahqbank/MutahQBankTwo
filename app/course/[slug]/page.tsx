@@ -611,7 +611,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ slug: s
         <div className="relative z-10 px-4 py-16 text-center">
           <h1 className="text-balance text-3xl font-bold text-white md:text-4xl">{course.name}</h1>
           {!course.is_active && <span className="mt-2 inline-block rounded bg-red-500/80 px-3 py-1 text-xs font-medium text-white">Inactive</span>}
-          {canModify && !editMode && (
+          {isAdmin && !editMode && (
             <div className="mt-4"><Button onClick={() => setEditMode(true)} className="bg-secondary text-secondary-foreground hover:bg-secondary/90"><Edit3 className="mr-2 h-4 w-4" /> Enable Editing Mode</Button></div>
           )}
         </div>

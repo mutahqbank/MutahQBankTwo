@@ -1071,30 +1071,51 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
     
     try {
       const lectureData = (subjects || []).map((s: any) => ({
-        title: s.subject || s.name,
+        title: (s.subject || s.name || "").trim(),
         description: s.description || ""
       }))
 
+      console.log(`AI Differentiation: Sending ${lectureData.length} lectures to OpenAI`);
       const result = await differentiateDescriptionsAction(lectureData)
       
       if (result.success && result.lectures) {
         toast.loading("Updating database...", { id: tid })
         
         let successCount = 0
+        let errorCount = 0
+
         for (const updatedLect of result.lectures) {
-          const sTitle = updatedLect.title.trim().toLowerCase()
+          const sTitle = (updatedLect.title || "").trim().toLowerCase()
+          if (!sTitle) continue
+
           const original = subjects.find((s: any) => (s.subject || s.name || "").trim().toLowerCase() === sTitle)
-          if (original) {
+          
+          if (original && original.id) {
+            console.log(`AI Differentiation: Updating ID ${original.id} (${original.subject || original.name})`);
             const res = await fetch(`/api/courses/${courseId}/subjects`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: original.id, description: updatedLect.description })
+              body: JSON.stringify({ 
+                id: original.id, 
+                description: (updatedLect.description || "").trim() 
+              })
             })
-            if (res.ok) successCount++
+            if (res.ok) {
+              successCount++
+            } else {
+              console.error(`AI Differentiation: Failed to update ID ${original.id}`, await res.text());
+              errorCount++
+            }
+          } else {
+            console.warn(`AI Differentiation: Could not find matching subject for title: "${updatedLect.title}"`);
           }
         }
         
-        toast.success(`Successfully improved ${successCount} descriptions!`, { id: tid })
+        if (successCount > 0) {
+          toast.success(`Successfully improved ${successCount} descriptions!${errorCount > 0 ? ` (${errorCount} failed)` : ""}`, { id: tid })
+        } else {
+          toast.error("No descriptions were updated. Please check console.", { id: tid })
+        }
         mutateSubjects()
       } else {
         throw new Error(result.reasoning || "AI failed to process")
