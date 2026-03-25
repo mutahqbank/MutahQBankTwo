@@ -621,3 +621,129 @@ export async function generateIncorrectAnswersWithOpenAI(
     return null;
   }
 }
+
+/**
+ * AI Lecture Description Differentiation Logic
+ * Rewrites lecture descriptions as a coordinated set to minimize overlap for MCQ classification.
+ */
+export async function differentiateDescriptionsWithOpenAI(
+  lectures: { title: string; description: string }[]
+) {
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn("OPENAI_API_KEY is missing. AI description differentiation will not work.");
+    return null;
+  }
+
+  const systemPrompt = `
+You are editing ONLY the AI descriptions of lecture cards for an MCQ classification system.
+
+Your task:
+Rewrite the descriptions so each lecture is clearly distinguishable from the others, with the least possible overlap.
+
+Critical constraints:
+- Modify ONLY lecture descriptions.
+- Do NOT change lecture titles.
+- Do NOT change question counts.
+- Do NOT reorder lectures.
+- Do NOT change lock/restrict states.
+- Do NOT change any UI text, labels, colors, buttons, layout, IDs, metadata, or any other field.
+- Do NOT create, delete, merge, split, hide, or rename lectures.
+- Do NOT manipulate anything else in the screen data.
+- Output only the updated descriptions mapped to their original lecture titles.
+
+Optimization target:
+These descriptions are used by another AI to classify unclassified MCQs into the correct lecture.
+Therefore:
+- Minimize overlap across lectures as much as possible
+- Make each description uniquely identifying
+- Prefer features that help separate neighboring/similar lectures
+- Remove generic broad wording
+- Avoid repeating the same keywords across multiple lectures unless unavoidable
+- Make the whole set mutually exclusive as much as medically reasonable
+
+Writing rules:
+- Each description must be 12 to 28 words
+- Use compact keyword-style prose, not full teaching summaries
+- Focus on discriminators: hallmark presentation, core diagnosis clues, classic associations, signature investigations, defining emergencies, age/context when helpful
+- Avoid vague phrases like "management", "important concepts", "common causes"
+- Do not invent topics not justified by the title
+- Preserve medical correctness
+- English only
+
+Before finalizing, internally check:
+1. Did you return every lecture exactly once?
+2. Did you modify only descriptions?
+3. Are any two descriptions still easily confusable?
+4. Did you remove broad overlapping terms where possible?
+5. Is each description short, specific, and classification-oriented?
+
+Return JSON only in this exact format:
+{
+  "lectures": [
+    {
+      "title": "exact original title",
+      "description": "new tightly differentiated description"
+    }
+  ]
+}
+`;
+
+  const userPrompt = `
+Rewrite the following lecture descriptions as a single coordinated set for AI-based MCQ classification.
+
+Goal:
+Produce new descriptions with near-zero overlap between lectures wherever medically possible.
+The descriptions must help another AI assign questions to the correct lecture and avoid false classification.
+
+Instructions:
+- Read the full set first
+- Rewrite all descriptions together, not one by one
+- Keep only the description field changed
+- Preserve every title exactly
+- Make similar lectures sharply separated
+- If a lecture title is broad, define its scope narrowly enough to reduce collision with neighboring lectures
+- If a lecture title is already inherently overlapping with another title, still rewrite both descriptions to minimize confusion as much as possible without changing titles
+- Return all lectures
+- Return JSON only
+
+Lecture data:
+${JSON.stringify(lectures, null, 2)}
+`;
+
+  const callOpenAI = async (model: string) => {
+    console.log(`Calling OpenAI with model: ${model}`);
+    const response = await openai.chat.completions.create({
+      model: model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.1, // Low temperature for consistency
+    });
+
+    const text = response.choices[0].message.content || "{}";
+    const result = JSON.parse(text);
+    
+    // Basic validation: ensure it has the "lectures" array and titles match
+    if (!result.lectures || !Array.isArray(result.lectures)) {
+      throw new Error("Invalid response format: missing lectures array");
+    }
+    
+    return result;
+  };
+
+  try {
+    // Primary attempt with gpt-5.4-nano
+    try {
+      return await callOpenAI("gpt-5.4-nano");
+    } catch (primaryError) {
+      console.warn("Primary model gpt-5.4-nano failed, retrying with gpt-5.4-mini:", primaryError);
+      // Fallback attempt with gpt-5.4-mini
+      return await callOpenAI("gpt-5.4-mini");
+    }
+  } catch (error: any) {
+    console.error("OpenAI description differentiation failed:", error?.message || error);
+    return null;
+  }
+}

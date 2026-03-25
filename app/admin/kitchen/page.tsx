@@ -34,7 +34,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import useSWR, { mutate as globalMutate } from "swr"
 import { toast } from "sonner"
-import { suggestCategoryAction } from "@/app/actions/ai-actions"
+import { suggestCategoryAction, differentiateDescriptionsAction } from "@/app/actions/ai-actions"
 
 /* --- Types --- */
 type QuestionStatus = "unclassified" | "draft" | "flagged" | "pending_approval" | "approved"
@@ -339,6 +339,7 @@ export default function KitchenPage() {
                   mutateSubjects={mutateSubjects}
                   isAdmin={isAdmin}
                   isInstructor={isInstructor}
+                  user={user}
                   mutateCourses={mutateCourses}
                   setActiveSection={setActiveSection}
                 />
@@ -583,7 +584,7 @@ function SelectionView({ courses, onSelect, isAdmin, mutate }: { courses: Course
           </div>
         
         {isAdmin && (
-          <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100">
+          <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100 z-20">
             <button 
               onClick={(e) => handleToggleStatus(e, course.id, Boolean(course.active))}
               className={`p-2.5 rounded-xl backdrop-blur-md text-white transition-all ${
@@ -1044,7 +1045,7 @@ function PoolView({ courseId, questions, subjects, mutate, onStartWorkflow, onEd
   )
 }
 
-function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, isInstructor, courseName, mutateCourses, selectedPeriod, setActiveSection }: any) {
+function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutateSubjects, isAdmin, isInstructor, user, courseName, mutateCourses, selectedPeriod, setActiveSection }: any) {
   const [newLectureName, setNewLectureName] = useState("")
   const [newLectureDesc, setNewLectureDesc] = useState("")
   const [bulkText, setBulkText] = useState("")
@@ -1059,6 +1060,51 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
   const [isEditingDesc, setIsEditingDesc] = useState(false)
   const [editDescValue, setEditDescValue] = useState("")
   const [isSavingDesc, setIsSavingDesc] = useState(false)
+  const [isDifferentiating, setIsDifferentiating] = useState(false)
+
+  const handleDifferentiateDescriptions = async () => {
+    if (isDifferentiating) return
+    if (!confirm("This will overwrite ALL lecture descriptions in this course with AI-optimized ones. Continue?")) return
+    
+    setIsDifferentiating(true)
+    const tid = toast.loading("Differentiating descriptions...")
+    
+    try {
+      const lectureData = (subjects || []).map((s: any) => ({
+        title: s.subject || s.name,
+        description: s.description || ""
+      }))
+
+      const result = await differentiateDescriptionsAction(lectureData)
+      
+      if (result.success && result.lectures) {
+        toast.loading("Updating database...", { id: tid })
+        
+        let successCount = 0
+        for (const updatedLect of result.lectures) {
+          const sTitle = updatedLect.title.trim().toLowerCase()
+          const original = subjects.find((s: any) => (s.subject || s.name || "").trim().toLowerCase() === sTitle)
+          if (original) {
+            const res = await fetch(`/api/courses/${courseId}/subjects`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: original.id, description: updatedLect.description })
+            })
+            if (res.ok) successCount++
+          }
+        }
+        
+        toast.success(`Successfully improved ${successCount} descriptions!`, { id: tid })
+        mutateSubjects()
+      } else {
+        throw new Error(result.reasoning || "AI failed to process")
+      }
+    } catch (e: any) {
+      toast.error(e.message || "An error occurred", { id: tid })
+    } finally {
+      setIsDifferentiating(false)
+    }
+  }
   
   // Group questions by subject
   const subjectsWithDrafts = (subjects || []).map((sub: any) => ({
@@ -1301,6 +1347,16 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
           
           {(isAdmin || isInstructor) && (
             <div className="flex items-center gap-3">
+              {user?.username === "mkbnat" && (
+                <Button 
+                  onClick={handleDifferentiateDescriptions}
+                  disabled={isDifferentiating}
+                  className="h-12 px-6 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-black uppercase tracking-widest text-xs flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isDifferentiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
+                  {isDifferentiating ? "Differentiating..." : "Differentiate Descriptions"}
+                </Button>
+              )}
               <Button 
                 onClick={handleDeactivateAll} 
                 disabled={isActivating}

@@ -1,6 +1,6 @@
 'use server'
 
-import { suggestCategoryWithOpenAI, repairExamWithOpenAI, generateCbqRubricWithOpenAI, refineCbqRubricWithOpenAI, paraphraseAnswersWithOpenAI, generateIncorrectAnswersWithOpenAI } from "@/lib/openai";
+import { suggestCategoryWithOpenAI, repairExamWithOpenAI, generateCbqRubricWithOpenAI, refineCbqRubricWithOpenAI, paraphraseAnswersWithOpenAI, generateIncorrectAnswersWithOpenAI, differentiateDescriptionsWithOpenAI } from "@/lib/openai";
 import { query } from "@/lib/database";
 import { getServerUser } from "@/lib/auth-server";
 
@@ -220,6 +220,33 @@ export async function generateIncorrectAction(
     return { success: false, reasoning: "Failed to generate incorrect answers." };
   } catch (error: any) {
     console.error("AI Incorrect Action Error:", error);
+    return { success: false, reasoning: error.message };
+  }
+}
+
+/**
+ * Server Action for AI Lecture Description Differentiation
+ */
+export async function differentiateDescriptionsAction(
+  lectures: { title: string; description: string }[]
+) {
+  try {
+    const user = await getServerUser();
+    if (!user) return { success: false, reasoning: "Authentication required." };
+
+    if (user.role !== "admin" && user.role !== "instructor") {
+      return { success: false, reasoning: "Access Denied: This feature is restricted to admin/instructor roles." };
+    }
+
+    const result = await differentiateDescriptionsWithOpenAI(lectures);
+
+    if (result && result.lectures) {
+      return { success: true, lectures: result.lectures };
+    }
+
+    return { success: false, reasoning: "Failed to process AI differentiation." };
+  } catch (error: any) {
+    console.error("AI Differentiation Action Error:", error);
     return { success: false, reasoning: error.message };
   }
 }

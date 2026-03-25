@@ -1,0 +1,95 @@
+OVERLAP REPORT FOR COURSE 44 (Pediatrics Final)
+==============================================
+
+DUPLICATE NAMES:
+- "⬇️⬇️⬇️⬇️": IDs 1260, 1276, 1249, 1240, 1229, 1267, 1295, 1287, 1214
+
+DUPLICATE DESCRIPTIONS:
+
+ALL SUBJECTS AND DESCRIPTIONS:
+ID: 1260   | Subject: ⬇️⬇️⬇️⬇️                                 | Desc: NONE
+ID: 1276   | Subject: ⬇️⬇️⬇️⬇️                                 | Desc: NONE
+ID: 1249   | Subject: ⬇️⬇️⬇️⬇️                                 | Desc: NONE
+ID: 1240   | Subject: ⬇️⬇️⬇️⬇️                                 | Desc: NONE
+ID: 1229   | Subject: ⬇️⬇️⬇️⬇️                                 | Desc: NONE
+ID: 1267   | Subject: ⬇️⬇️⬇️⬇️                                 | Desc: NONE
+ID: 1295   | Subject: ⬇️⬇️⬇️⬇️                                 | Desc: NONE
+ID: 1287   | Subject: ⬇️⬇️⬇️⬇️                                 | Desc: NONE
+ID: 1214   | Subject: ⬇️⬇️⬇️⬇️                                 | Desc: NONE
+ID: 1228   | Subject: acute flaccid paralysis (6th year)       | Desc: Acute flaccid paralysis: sudden onset weakness with reduced tone and reflexes, causes include Guillain-Barré syndrome, poliomyelitis, transverse myelitis
+ID: 1251   | Subject: Acute gastroenteritis                    | Desc: Acute gastroenteritis: diarrhea, vomiting, dehydration, viral gastroenteritis, ORS, rotavirus
+ID: 1221   | Subject: ADHD                                     | Desc: ADHD: attention deficit hyperactivity disorder, inattention, hyperactivity, impulsivity, behavioral disorder
+ID: 1288   | Subject: AKD & CKD                                | Desc: AKD & CKD: acute kidney disease, chronic kidney disease, renal failure, elevated creatinine, pediatric nephrology
+ID: 1241   | Subject: Anemia                                   | Desc: Anemia: microcytic anemia, iron deficiency, hemolytic anemia, megaloblastic anemia, pallor, hemoglobin
+ID: 1286   | Subject: approach to inborn errors of metabolism (6th year) | Desc: Inborn errors of metabolism: inherited metabolic disorders presenting with vomiting, developmental delay, metabolic acidosis, hypoglycemia; requires systematic diagnostic approach
+ID: 1268   | Subject: Asthma                                   | Desc: Asthma: wheeze, reversible airway obstruction, bronchodilator, inhaled steroids, pediatric asthma
+ID: 1274   | Subject: asthma/allergic rhinitis sinusitis (6th year) | Desc: spectrum of allergic airway diseases involving wheeze, nasal congestion, sneezing, and sinus inflammation
+ID: 1222   | Subject: Autistic spectrum disorder               | Desc: Autistic spectrum disorder: ASD, social communication deficit, repetitive behavior, autism screening, neurodevelopmental disorder
+ID: 1236   | Subject: Bacterial Neonatal Sepsis                | Desc: Bacterial Neonatal Sepsis: early onset sepsis, late onset sepsis, GBS, neonatal infection, antibiotics, septic workup
+ID: 1242   | Subject: Bleeding disorders                       | Desc: Bleeding disorders: hemophilia, von Willebrand disease, platelet disorders, coagulopathy, purpura
+ID: 1269   | Subject: Bronchiolitis                            | Desc: Bronchiolitis: RSV, wheezing infant, viral bronchiolitis, respiratory distress, lower respiratory infection
+ID: 1220   | Subject: Cerebral palsy                           | Desc: Cerebral palsy: spastic CP, motor disability, perinatal insult, developmental delay, cerebral palsy classification
+ID: 1248   | Subject: child abuse (6th year)                   | Desc: Child abuse: physical, emotional, or sexual harm to a child, presenting with unexplained injuries, developmental issues, or behavioral changes
+ID: 1250   | Subject: Chronic diarrhea & malabsorption         | Desc: Chronic diarrhea & malabsorption: celiac disease, chronic diarrhea, steatorrhea, failure to thrive, malabsorption syndrome
+ID: 1296   | Subject: Common chromosomal anomalies             | Desc: Common chromosomal anomalies: Down syndrome, Turner syndrome, Klinefelter syndrome, trisomy 18, trisomy 13
+ID: 1234   | Subject: Common problems in neonates              | Desc: Common problems in neonates: hypothermia, hypoglycemia, jaundice, feeding difficulty, sepsis, respiratory distress
+ID: 1282   | Subject: Congenital adrenal hyperplasia           | Desc: Congenital adrenal hyperplasia: CAH, 21-hydroxylase deficiency, salt wasting, ambiguous genitalia, adrenal crisis
+ID: 1247   | Subject: congenital immunodeficiency (6th year)   | Desc: Congenital immunodeficiency: primary immune disorders leading to recurrent infections, involving B-cell, T-cell, or combined defects (e.g., SCID)
+ID: 1257   | Subject: constipation (6th year)                  | Desc: Constipation: infrequent or difficult bowel movements in children, often functional, associated with stool withholding, abdominal pain, and hard stools
+ID: 1262   | Subject: cyanotic & acyanotic heart disease       | Desc: Cyanotic & acyanotic heart disease: congenital heart disease, VSD, ASD, PDA, TOF, murmur, shunt lesions
+ID: 1261   | Subject: Cyanotic heart disease                   | Desc: Cyanotic heart disease: TOF, transposition of great arteries, cyanosis, right-to-left shunt, clubbing
+ID: 1272   | Subject: Cystic Fibrosis                          | Desc: Cystic Fibrosis: CF, recurrent chest infection, pancreatic insufficiency, salty sweat, bronchiectasis
+ID: 1215   | Subject: Developmental assessment                 | Desc: Developmental assessment: developmental milestones, gross motor, fine motor, speech, social development, developmental delay
+ID: 1280   | Subject: DKA (6th year)                           | Desc: Diabetic ketoacidosis: acute complication of type 1 diabetes with hyperglycemia, ketosis, metabolic acidosis, dehydration, and altered consciousness
+ID: 1226   | Subject: Encephalitis (6th year)                  | Desc: Encephalitis: inflammation of brain parenchyma, usually viral (e.g., HSV), presenting with fever, altered consciousness, seizures, focal neurological deficits, CSF changes
+ID: 1298   | Subject: Endemic disease                          | Desc: Endemic disease: brucellosis, leishmaniasis, malaria, regional infections, endemic pediatric disease
+ID: 1217   | Subject: Epilepsy                                 | Desc: Epilepsy: seizure disorder, recurrent seizures, EEG, antiepileptic drugs, focal seizure, generalized seizure
+ID: 1297   | Subject: Exanthematous                            | Desc: Exanthematous: measles, rubella, roseola, varicella, scarlet fever, rash with fever
+ID: 1218   | Subject: Febrile seizures & Status epilepticus    | Desc: Febrile seizures & Status epilepticus: fever seizure, prolonged seizure, convulsion, benzodiazepines, emergency seizure management, status epilepticus
+ID: 1292   | Subject: Fluid therapy in children                | Desc: Fluid therapy in children: maintenance fluids, dehydration, rehydration, electrolyte correction, pediatric IV fluids
+ID: 1278   | Subject: FTT obesity                              | Desc: FTT obesity: failure to thrive, obesity, malnutrition, BMI percentile, weight disorders
+ID: 1258   | Subject: functional abdominal pain (6th year)     | Desc: Functional abdominal pain: recurrent abdominal pain without organic cause, related to gut-brain interaction, common in school-aged children
+ID: 1253   | Subject: GERD                                     | Desc: GERD: gastroesophageal reflux, regurgitation, reflux disease, vomiting infant, esophagitis
+ID: 1255   | Subject: GI bleeding                              | Desc: GI bleeding: hematemesis, melena, lower GI bleeding, upper GI bleeding, anemia, endoscopy
+ID: 1277   | Subject: Growth in children & FTT                 | Desc: Growth in children & FTT: growth chart, developmental growth, failure to thrive, anthropometry, nutrition assessment
+ID: 1219   | Subject: Headache                                 | Desc: Headache: migraine, tension headache, raised ICP, secondary headache, pediatric headache
+ID: 1243   | Subject: Hematological malignancies               | Desc: Hematological malignancies: leukemia, lymphoma, bone marrow failure, blast cells, childhood blood cancer
+ID: 1291   | Subject: Hematuria & nephritis                    | Desc: Hematuria & nephritis: gross hematuria, microscopic hematuria, glomerulonephritis, post-streptococcal nephritis
+ID: 1246   | Subject: hemoglobinopathies (6th year)            | Desc: Hemoglobinopathies: inherited disorders of hemoglobin (e.g., sickle cell disease, thalassemia), causing anemia, hemolysis, and related complications
+ID: 1256   | Subject: Hepatitis                                | Desc: Hepatitis: viral hepatitis, jaundice, liver enzymes, hepatitis A, hepatitis B, hepatomegaly
+ID: 1265   | Subject: HSP                                      | Desc: HSP: Henoch-Schönlein purpura, IgA vasculitis, purpura, abdominal pain, nephritis, arthralgia
+ID: 1266   | Subject: HTN in children (6th year)               | Desc: Hypertension in children: elevated blood pressure based on age/height percentiles, may be primary or secondary (renal/endocrine causes)
+ID: 1294   | Subject: HUS (6th year)                           | Desc: HUS: hemolytic uremic syndrome, AKI, thrombocytopenia, microangiopathic hemolytic anemia, diarrhea-associated HUS
+ID: 1216   | Subject: Immunization                             | Desc: Immunization: vaccination schedule, childhood vaccines, EPI, contraindications, live vaccines, vaccine-preventable diseases
+ID: 1252   | Subject: Infant feeding                           | Desc: Infant feeding: breastfeeding, formula feeding, complementary feeding, weeding, nutrition in infancy
+ID: 1235   | Subject: Infant of diabetic mother                | Desc: Infant of diabetic mother: IDM, macrosomia, neonatal hypoglycemia, polycythemia, congenital anomalies
+ID: 1254   | Subject: Introduction to allergic disorder        | Desc: Introduction to allergic disorder: food allergy, atopy, eczema, allergic rhinitis, hypersensitivity, IgE mediated allergy
+ID: 1244   | Subject: JIA (Juvenile idiopathic arthritis)      | Desc: JIA (Juvenile idiopathic arthritis): juvenile arthritis, chronic joint swelling, autoimmune arthritis, uveitis, pediatric rheumatology
+ID: 1263   | Subject: Kawasaki disease                         | Desc: Kawasaki disease: vasculitis, strawberry tongue, coronary artery aneurysm, prolonged fever, IVIG
+ID: 1224   | Subject: Meningitis                               | Desc: Meningitis: bacterial meningitis, neck stiffness, CSF analysis, meningeal signs, fever, altered consciousness
+ID: 1293   | Subject: metabolic acidosis and RTA (6th year)    | Desc: Metabolic acidosis & RTA: acid-base disorders due to impaired renal acid handling, presenting with low bicarbonate, growth failure, and electrolyte imbalance
+ID: 1223   | Subject: Muscular dystrophy                       | Desc: Muscular dystrophy: Duchenne muscular dystrophy, proximal weakness, Gowers sign, dystrophin, calf pseudohypertrophy
+ID: 1238   | Subject: neonatal asphyxia & HIE (6th year)       | Desc: Neonatal asphyxia & HIE: perinatal hypoxia leading to hypoxic-ischemic encephalopathy, presenting with poor tone, seizures, altered consciousness, multi-organ injury
+ID: 1230   | Subject: Neonatal history                         | Desc: Neonatal history: birth history, antenatal history, natal history, postnatal history, gestational age, APGAR
+ID: 1231   | Subject: Neonatal Jaundice                        | Desc: Neonatal jaundice: physiological jaundice, pathological jaundice, unconjugated bilirubin, kernicterus, phototherapy
+ID: 1239   | Subject: neonatal resuscitation (6th year)        | Desc: Neonatal resuscitation: immediate management of newborns with respiratory or circulatory compromise, including airway support, ventilation, chest compressions, and medications
+ID: 1232   | Subject: Neonatal seizures                        | Desc: Neonatal seizures: jitteriness, neonatal convulsions, hypoxic ischemic encephalopathy, metabolic causes, EEG
+ID: 1290   | Subject: Nephrotic syndrome & proteinuria         | Desc: Nephrotic syndrome & proteinuria: edema, heavy proteinuria, hypoalbuminemia, minimal change disease, nephrotic child
+ID: 1227   | Subject: neural tube defect (6th year)            | Desc: Neural tube defect: congenital CNS malformations (spina bifida, anencephaly), due to failure of neural tube closure, associated with folate deficiency, neurological deficits
+ID: 1284   | Subject: Pediatric DM                             | Desc: Pediatric DM: type 1 diabetes, hyperglycemia, insulin, polyuria, polydipsia, diabetes in children
+ID: 1245   | Subject: Pediatric malignancy                     | Desc: Pediatric malignancy: solid tumors, leukemia, neuroblastoma, Wilms tumor, childhood cancer
+ID: 1271   | Subject: Pneumonia                                | Desc: Pneumonia: community acquired pneumonia, fever, cough, consolidation, bacterial pneumonia
+ID: 1259   | Subject: poisoning and insect bites (6th year)    | Desc: Poisoning and insect bites: toxic exposure or envenomation in children, presenting with systemic or local symptoms, requiring supportive care and antidotes if indicated
+ID: 1281   | Subject: Puberty                                  | Desc: Puberty: normal puberty, precocious puberty, delayed puberty, Tanner stage, endocrine maturation
+ID: 1233   | Subject: RDS                                      | Desc: RDS: respiratory distress syndrome, surfactant deficiency, preterm infant, hyaline membrane disease
+ID: 1275   | Subject: respiratory failure (6th year)           | Desc: Respiratory failure: inability to maintain adequate oxygenation or ventilation, presenting with hypoxia, hypercapnia, and respiratory distress
+ID: 1264   | Subject: Rheumatic fever                          | Desc: Rheumatic fever: post-streptococcal disease, Jones criteria, carditis, chorea, migratory arthritis
+ID: 1283   | Subject: Rickets                                  | Desc: Rickets: vitamin D deficiency, bowed legs, hypocalcemia, metaphyseal changes, bone deformity
+ID: 1285   | Subject: short stature (6th year)                 | Desc: Short stature: height below expected percentile for age, causes include familial, endocrine (GH deficiency), chronic disease, or genetic syndromes
+ID: 1225   | Subject: Spinal muscle atrophy                    | Desc: Spinal muscle atrophy: SMA, hypotonia, motor neuron disease, tongue fasciculation, progressive weakness
+ID: 1273   | Subject: TB                                       | Desc: TB: tuberculosis, chronic cough, contact history, Mantoux, pediatric TB
+ID: 1279   | Subject: Thyroid disorders                        | Desc: Thyroid disorders: hypothyroidism, hyperthyroidism, congenital hypothyroidism, goiter, thyroid function tests
+ID: 1300   | Subject: Unclassified Pool                        | Desc: NONE
+ID: 1270   | Subject: URTI                                     | Desc: URTI: upper respiratory tract infection, common cold, pharyngitis, otitis, tonsillitis
+ID: 1289   | Subject: UTI                                      | Desc: UTI: urinary tract infection, fever, dysuria, pyelonephritis, urine culture, vesicoureteral reflux
+ID: 1237   | Subject: Viral Neonatal Sepsis (6th year)         | Desc: Viral neonatal sepsis: systemic viral infection in neonates (e.g., HSV, CMV), presenting with fever, lethargy, poor feeding, seizures, requiring antiviral therapy

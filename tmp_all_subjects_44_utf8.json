@@ -1,0 +1,432 @@
+﻿[
+  {
+    "id": 1260,
+    "subject": "⬇️⬇️⬇️⬇️",
+    "description": null
+  },
+  {
+    "id": 1276,
+    "subject": "⬇️⬇️⬇️⬇️",
+    "description": null
+  },
+  {
+    "id": 1249,
+    "subject": "⬇️⬇️⬇️⬇️",
+    "description": null
+  },
+  {
+    "id": 1240,
+    "subject": "⬇️⬇️⬇️⬇️",
+    "description": null
+  },
+  {
+    "id": 1229,
+    "subject": "⬇️⬇️⬇️⬇️",
+    "description": null
+  },
+  {
+    "id": 1267,
+    "subject": "⬇️⬇️⬇️⬇️",
+    "description": null
+  },
+  {
+    "id": 1295,
+    "subject": "⬇️⬇️⬇️⬇️",
+    "description": null
+  },
+  {
+    "id": 1287,
+    "subject": "⬇️⬇️⬇️⬇️",
+    "description": null
+  },
+  {
+    "id": 1214,
+    "subject": "⬇️⬇️⬇️⬇️",
+    "description": null
+  },
+  {
+    "id": 1228,
+    "subject": "acute flaccid paralysis (6th year)",
+    "description": "Acute flaccid paralysis: sudden onset weakness with reduced tone and reflexes, causes include Guillain-Barré syndrome, poliomyelitis, transverse myelitis"
+  },
+  {
+    "id": 1251,
+    "subject": "Acute gastroenteritis",
+    "description": "Acute gastroenteritis: diarrhea, vomiting, dehydration, viral gastroenteritis, ORS, rotavirus"
+  },
+  {
+    "id": 1221,
+    "subject": "ADHD",
+    "description": "ADHD: attention deficit hyperactivity disorder, inattention, hyperactivity, impulsivity, behavioral disorder"
+  },
+  {
+    "id": 1288,
+    "subject": "AKD & CKD",
+    "description": "AKD & CKD: acute kidney disease, chronic kidney disease, renal failure, elevated creatinine, pediatric nephrology"
+  },
+  {
+    "id": 1241,
+    "subject": "Anemia",
+    "description": "Anemia: microcytic anemia, iron deficiency, hemolytic anemia, megaloblastic anemia, pallor, hemoglobin"
+  },
+  {
+    "id": 1286,
+    "subject": "approach to inborn errors of metabolism (6th year)",
+    "description": "Inborn errors of metabolism: inherited metabolic disorders presenting with vomiting, developmental delay, metabolic acidosis, hypoglycemia; requires systematic diagnostic approach"
+  },
+  {
+    "id": 1268,
+    "subject": "Asthma",
+    "description": "Asthma: wheeze, reversible airway obstruction, bronchodilator, inhaled steroids, pediatric asthma"
+  },
+  {
+    "id": 1274,
+    "subject": "asthma/allergic rhinitis sinusitis (6th year)",
+    "description": "spectrum of allergic airway diseases involving wheeze, nasal congestion, sneezing, and sinus inflammation"
+  },
+  {
+    "id": 1222,
+    "subject": "Autistic spectrum disorder",
+    "description": "Autistic spectrum disorder: ASD, social communication deficit, repetitive behavior, autism screening, neurodevelopmental disorder"
+  },
+  {
+    "id": 1236,
+    "subject": "Bacterial Neonatal Sepsis",
+    "description": "Bacterial Neonatal Sepsis: early onset sepsis, late onset sepsis, GBS, neonatal infection, antibiotics, septic workup"
+  },
+  {
+    "id": 1242,
+    "subject": "Bleeding disorders",
+    "description": "Bleeding disorders: hemophilia, von Willebrand disease, platelet disorders, coagulopathy, purpura"
+  },
+  {
+    "id": 1269,
+    "subject": "Bronchiolitis",
+    "description": "Bronchiolitis: RSV, wheezing infant, viral bronchiolitis, respiratory distress, lower respiratory infection"
+  },
+  {
+    "id": 1220,
+    "subject": "Cerebral palsy",
+    "description": "Cerebral palsy: spastic CP, motor disability, perinatal insult, developmental delay, cerebral palsy classification"
+  },
+  {
+    "id": 1248,
+    "subject": "child abuse (6th year)",
+    "description": "Child abuse: physical, emotional, or sexual harm to a child, presenting with unexplained injuries, developmental issues, or behavioral changes"
+  },
+  {
+    "id": 1250,
+    "subject": "Chronic diarrhea & malabsorption",
+    "description": "Chronic diarrhea & malabsorption: celiac disease, chronic diarrhea, steatorrhea, failure to thrive, malabsorption syndrome"
+  },
+  {
+    "id": 1296,
+    "subject": "Common chromosomal anomalies",
+    "description": "Common chromosomal anomalies: Down syndrome, Turner syndrome, Klinefelter syndrome, trisomy 18, trisomy 13"
+  },
+  {
+    "id": 1234,
+    "subject": "Common problems in neonates",
+    "description": "Common problems in neonates: hypothermia, hypoglycemia, jaundice, feeding difficulty, sepsis, respiratory distress"
+  },
+  {
+    "id": 1282,
+    "subject": "Congenital adrenal hyperplasia",
+    "description": "Congenital adrenal hyperplasia: CAH, 21-hydroxylase deficiency, salt wasting, ambiguous genitalia, adrenal crisis"
+  },
+  {
+    "id": 1247,
+    "subject": "congenital immunodeficiency (6th year)",
+    "description": "Congenital immunodeficiency: primary immune disorders leading to recurrent infections, involving B-cell, T-cell, or combined defects (e.g., SCID)"
+  },
+  {
+    "id": 1257,
+    "subject": "constipation (6th year)",
+    "description": "Constipation: infrequent or difficult bowel movements in children, often functional, associated with stool withholding, abdominal pain, and hard stools"
+  },
+  {
+    "id": 1262,
+    "subject": "cyanotic & acyanotic heart disease",
+    "description": "Cyanotic & acyanotic heart disease: congenital heart disease, VSD, ASD, PDA, TOF, murmur, shunt lesions"
+  },
+  {
+    "id": 1261,
+    "subject": "Cyanotic heart disease",
+    "description": "Cyanotic heart disease: TOF, transposition of great arteries, cyanosis, right-to-left shunt, clubbing"
+  },
+  {
+    "id": 1272,
+    "subject": "Cystic Fibrosis",
+    "description": "Cystic Fibrosis: CF, recurrent chest infection, pancreatic insufficiency, salty sweat, bronchiectasis"
+  },
+  {
+    "id": 1215,
+    "subject": "Developmental assessment",
+    "description": "Developmental assessment: developmental milestones, gross motor, fine motor, speech, social development, developmental delay"
+  },
+  {
+    "id": 1280,
+    "subject": "DKA (6th year)",
+    "description": "Diabetic ketoacidosis: acute complication of type 1 diabetes with hyperglycemia, ketosis, metabolic acidosis, dehydration, and altered consciousness"
+  },
+  {
+    "id": 1226,
+    "subject": "Encephalitis (6th year)",
+    "description": "Encephalitis: inflammation of brain parenchyma, usually viral (e.g., HSV), presenting with fever, altered consciousness, seizures, focal neurological deficits, CSF changes"
+  },
+  {
+    "id": 1298,
+    "subject": "Endemic disease",
+    "description": "Endemic disease: brucellosis, leishmaniasis, malaria, regional infections, endemic pediatric disease"
+  },
+  {
+    "id": 1217,
+    "subject": "Epilepsy",
+    "description": "Epilepsy: seizure disorder, recurrent seizures, EEG, antiepileptic drugs, focal seizure, generalized seizure"
+  },
+  {
+    "id": 1297,
+    "subject": "Exanthematous",
+    "description": "Exanthematous: measles, rubella, roseola, varicella, scarlet fever, rash with fever"
+  },
+  {
+    "id": 1218,
+    "subject": "Febrile seizures & Status epilepticus",
+    "description": "Febrile seizures & Status epilepticus: fever seizure, prolonged seizure, convulsion, benzodiazepines, emergency seizure management, status epilepticus"
+  },
+  {
+    "id": 1292,
+    "subject": "Fluid therapy in children",
+    "description": "Fluid therapy in children: maintenance fluids, dehydration, rehydration, electrolyte correction, pediatric IV fluids"
+  },
+  {
+    "id": 1278,
+    "subject": "FTT obesity",
+    "description": "FTT obesity: failure to thrive, obesity, malnutrition, BMI percentile, weight disorders"
+  },
+  {
+    "id": 1258,
+    "subject": "functional abdominal pain (6th year)",
+    "description": "Functional abdominal pain: recurrent abdominal pain without organic cause, related to gut-brain interaction, common in school-aged children"
+  },
+  {
+    "id": 1253,
+    "subject": "GERD",
+    "description": "GERD: gastroesophageal reflux, regurgitation, reflux disease, vomiting infant, esophagitis"
+  },
+  {
+    "id": 1255,
+    "subject": "GI bleeding",
+    "description": "GI bleeding: hematemesis, melena, lower GI bleeding, upper GI bleeding, anemia, endoscopy"
+  },
+  {
+    "id": 1277,
+    "subject": "Growth in children & FTT",
+    "description": "Growth in children & FTT: growth chart, developmental growth, failure to thrive, anthropometry, nutrition assessment"
+  },
+  {
+    "id": 1219,
+    "subject": "Headache",
+    "description": "Headache: migraine, tension headache, raised ICP, secondary headache, pediatric headache"
+  },
+  {
+    "id": 1243,
+    "subject": "Hematological malignancies",
+    "description": "Hematological malignancies: leukemia, lymphoma, bone marrow failure, blast cells, childhood blood cancer"
+  },
+  {
+    "id": 1291,
+    "subject": "Hematuria & nephritis",
+    "description": "Hematuria & nephritis: gross hematuria, microscopic hematuria, glomerulonephritis, post-streptococcal nephritis"
+  },
+  {
+    "id": 1246,
+    "subject": "hemoglobinopathies (6th year)",
+    "description": "Hemoglobinopathies: inherited disorders of hemoglobin (e.g., sickle cell disease, thalassemia), causing anemia, hemolysis, and related complications"
+  },
+  {
+    "id": 1256,
+    "subject": "Hepatitis",
+    "description": "Hepatitis: viral hepatitis, jaundice, liver enzymes, hepatitis A, hepatitis B, hepatomegaly"
+  },
+  {
+    "id": 1265,
+    "subject": "HSP",
+    "description": "HSP: Henoch-Schönlein purpura, IgA vasculitis, purpura, abdominal pain, nephritis, arthralgia"
+  },
+  {
+    "id": 1266,
+    "subject": "HTN in children (6th year)",
+    "description": "Hypertension in children: elevated blood pressure based on age/height percentiles, may be primary or secondary (renal/endocrine causes)"
+  },
+  {
+    "id": 1294,
+    "subject": "HUS (6th year)",
+    "description": "HUS: hemolytic uremic syndrome, AKI, thrombocytopenia, microangiopathic hemolytic anemia, diarrhea-associated HUS"
+  },
+  {
+    "id": 1216,
+    "subject": "Immunization",
+    "description": "Immunization: vaccination schedule, childhood vaccines, EPI, contraindications, live vaccines, vaccine-preventable diseases"
+  },
+  {
+    "id": 1252,
+    "subject": "Infant feeding",
+    "description": "Infant feeding: breastfeeding, formula feeding, complementary feeding, weeding, nutrition in infancy"
+  },
+  {
+    "id": 1235,
+    "subject": "Infant of diabetic mother",
+    "description": "Infant of diabetic mother: IDM, macrosomia, neonatal hypoglycemia, polycythemia, congenital anomalies"
+  },
+  {
+    "id": 1254,
+    "subject": "Introduction to allergic disorder",
+    "description": "Introduction to allergic disorder: food allergy, atopy, eczema, allergic rhinitis, hypersensitivity, IgE mediated allergy"
+  },
+  {
+    "id": 1244,
+    "subject": "JIA (Juvenile idiopathic arthritis)",
+    "description": "JIA (Juvenile idiopathic arthritis): juvenile arthritis, chronic joint swelling, autoimmune arthritis, uveitis, pediatric rheumatology"
+  },
+  {
+    "id": 1263,
+    "subject": "Kawasaki disease",
+    "description": "Kawasaki disease: vasculitis, strawberry tongue, coronary artery aneurysm, prolonged fever, IVIG"
+  },
+  {
+    "id": 1224,
+    "subject": "Meningitis",
+    "description": "Meningitis: bacterial meningitis, neck stiffness, CSF analysis, meningeal signs, fever, altered consciousness"
+  },
+  {
+    "id": 1293,
+    "subject": "metabolic acidosis and RTA (6th year)",
+    "description": "Metabolic acidosis & RTA: acid-base disorders due to impaired renal acid handling, presenting with low bicarbonate, growth failure, and electrolyte imbalance"
+  },
+  {
+    "id": 1223,
+    "subject": "Muscular dystrophy",
+    "description": "Muscular dystrophy: Duchenne muscular dystrophy, proximal weakness, Gowers sign, dystrophin, calf pseudohypertrophy"
+  },
+  {
+    "id": 1238,
+    "subject": "neonatal asphyxia & HIE (6th year)",
+    "description": "Neonatal asphyxia & HIE: perinatal hypoxia leading to hypoxic-ischemic encephalopathy, presenting with poor tone, seizures, altered consciousness, multi-organ injury"
+  },
+  {
+    "id": 1230,
+    "subject": "Neonatal history",
+    "description": "Neonatal history: birth history, antenatal history, natal history, postnatal history, gestational age, APGAR"
+  },
+  {
+    "id": 1231,
+    "subject": "Neonatal Jaundice",
+    "description": "Neonatal jaundice: physiological jaundice, pathological jaundice, unconjugated bilirubin, kernicterus, phototherapy"
+  },
+  {
+    "id": 1239,
+    "subject": "neonatal resuscitation (6th year)",
+    "description": "Neonatal resuscitation: immediate management of newborns with respiratory or circulatory compromise, including airway support, ventilation, chest compressions, and medications"
+  },
+  {
+    "id": 1232,
+    "subject": "Neonatal seizures",
+    "description": "Neonatal seizures: jitteriness, neonatal convulsions, hypoxic ischemic encephalopathy, metabolic causes, EEG"
+  },
+  {
+    "id": 1290,
+    "subject": "Nephrotic syndrome & proteinuria",
+    "description": "Nephrotic syndrome & proteinuria: edema, heavy proteinuria, hypoalbuminemia, minimal change disease, nephrotic child"
+  },
+  {
+    "id": 1227,
+    "subject": "neural tube defect (6th year)",
+    "description": "Neural tube defect: congenital CNS malformations (spina bifida, anencephaly), due to failure of neural tube closure, associated with folate deficiency, neurological deficits"
+  },
+  {
+    "id": 1284,
+    "subject": "Pediatric DM",
+    "description": "Pediatric DM: type 1 diabetes, hyperglycemia, insulin, polyuria, polydipsia, diabetes in children"
+  },
+  {
+    "id": 1245,
+    "subject": "Pediatric malignancy",
+    "description": "Pediatric malignancy: solid tumors, leukemia, neuroblastoma, Wilms tumor, childhood cancer"
+  },
+  {
+    "id": 1271,
+    "subject": "Pneumonia",
+    "description": "Pneumonia: community acquired pneumonia, fever, cough, consolidation, bacterial pneumonia"
+  },
+  {
+    "id": 1259,
+    "subject": "poisoning and insect bites (6th year)",
+    "description": "Poisoning and insect bites: toxic exposure or envenomation in children, presenting with systemic or local symptoms, requiring supportive care and antidotes if indicated"
+  },
+  {
+    "id": 1281,
+    "subject": "Puberty",
+    "description": "Puberty: normal puberty, precocious puberty, delayed puberty, Tanner stage, endocrine maturation"
+  },
+  {
+    "id": 1233,
+    "subject": "RDS",
+    "description": "RDS: respiratory distress syndrome, surfactant deficiency, preterm infant, hyaline membrane disease"
+  },
+  {
+    "id": 1275,
+    "subject": "respiratory failure (6th year)",
+    "description": "Respiratory failure: inability to maintain adequate oxygenation or ventilation, presenting with hypoxia, hypercapnia, and respiratory distress"
+  },
+  {
+    "id": 1264,
+    "subject": "Rheumatic fever",
+    "description": "Rheumatic fever: post-streptococcal disease, Jones criteria, carditis, chorea, migratory arthritis"
+  },
+  {
+    "id": 1283,
+    "subject": "Rickets",
+    "description": "Rickets: vitamin D deficiency, bowed legs, hypocalcemia, metaphyseal changes, bone deformity"
+  },
+  {
+    "id": 1285,
+    "subject": "short stature (6th year)",
+    "description": "Short stature: height below expected percentile for age, causes include familial, endocrine (GH deficiency), chronic disease, or genetic syndromes"
+  },
+  {
+    "id": 1225,
+    "subject": "Spinal muscle atrophy",
+    "description": "Spinal muscle atrophy: SMA, hypotonia, motor neuron disease, tongue fasciculation, progressive weakness"
+  },
+  {
+    "id": 1273,
+    "subject": "TB",
+    "description": "TB: tuberculosis, chronic cough, contact history, Mantoux, pediatric TB"
+  },
+  {
+    "id": 1279,
+    "subject": "Thyroid disorders",
+    "description": "Thyroid disorders: hypothyroidism, hyperthyroidism, congenital hypothyroidism, goiter, thyroid function tests"
+  },
+  {
+    "id": 1300,
+    "subject": "Unclassified Pool",
+    "description": null
+  },
+  {
+    "id": 1270,
+    "subject": "URTI",
+    "description": "URTI: upper respiratory tract infection, common cold, pharyngitis, otitis, tonsillitis"
+  },
+  {
+    "id": 1289,
+    "subject": "UTI",
+    "description": "UTI: urinary tract infection, fever, dysuria, pyelonephritis, urine culture, vesicoureteral reflux"
+  },
+  {
+    "id": 1237,
+    "subject": "Viral Neonatal Sepsis (6th year)",
+    "description": "Viral neonatal sepsis: systemic viral infection in neonates (e.g., HSV, CMV), presenting with fever, lethargy, poor feeding, seizures, requiring antiviral therapy"
+  }
+]
