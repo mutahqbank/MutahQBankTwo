@@ -92,6 +92,11 @@ export async function suggestCategoryWithOpenAI(
     
     7. CRITICAL: Only return an ID that exists in the "Available Lectures" list. If unsure, pick the most relevant parent category from the list.
     
+    8. DO NOT MISCLASSIFY DIFFERENT DISEASES:
+       - DO NOT map an infection (e.g., UTI, Meningitis) to a non-infectious syndrome (e.g., Nephrotic Syndrome, Epilepsy) just because they share an organ system.
+       - Each medical diagnosis is distinct. If a specific match for "UTI" is not found, do NOT map it to "Nephrotic Syndrome".
+       - If no medically accurate match exists in the list, return ID: 0 and explain why.
+    
     OUTPUT FORMAT:
     Return ONLY a JSON object:
     {
@@ -121,7 +126,7 @@ export async function suggestCategoryWithOpenAI(
       messages: [
         {
           role: "system",
-          content: systemInstruction + "\n\nCRITICAL: Use your advanced medical reasoning to determine the differential diagnosis. Then, SCAN each available lecture to find the most specific match for that diagnosis. Choose the ID carefully."
+          content: systemInstruction + "\n\nCRITICAL: Use your advanced medical reasoning to determine the differential diagnosis. Then, SCAN each available lecture to find the most specific match for that diagnosis. Choose the ID carefully. Be STRICT: if a diagnosis like UTI does not have a matching UTI or Renal Infection lecture, DO NOT map it to a random renal lecture like Nephrotic Syndrome. Return ID 0 in such cases."
         },
         { role: "user", content: userPrompt },
       ],
