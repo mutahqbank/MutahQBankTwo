@@ -20,6 +20,20 @@ export async function suggestCategoryWithOpenAI(
     return null;
   }
 
+  // 1. Topical Extraction (Prioritizing titles/overviews as requested)
+  const peekExplanationTitle = (html: string) => {
+    if (!html) return "";
+    // Try to find text within the first header or bold tag
+    const headerMatch = /<(h[1-6]|b|strong)>(.*?)<\/\1>/i.exec(html);
+    if (headerMatch && headerMatch[2]) {
+      return headerMatch[2].replace(/<[^>]*>?/gm, '').trim();
+    }
+    // Fallback: Just take the first 80 characters of cleaned text
+    return html.replace(/<[^>]*>?/gm, '').trim().substring(0, 80) + "...";
+  };
+
+  const topicalHint = peekExplanationTitle(explanation);
+
   // 1. Clinical Data Enhancement (Helping the AI bridge terminology gaps)
   const synonymMap: Record<string, string> = {
     "urti": "Upper Respiratory Tract Infection, Pharyngitis, Tonsillitis, GAS, Common Cold",
@@ -71,6 +85,8 @@ export async function suggestCategoryWithOpenAI(
     
     5. DO NOT return 0 unless there are no subjects provided. Use your best clinical judgment to map to the most appropriate category, even if it's a broad parent discipline (e.g., Surgery, Medicine, Pediatrics).
     
+    6. CLASSIFICATION TIP: The "Explanation Title/Overview" provided is almost always the exact topic mentioned. Weight it heavily.
+    
     OUTPUT FORMAT:
     Return ONLY a JSON object:
     {
@@ -87,6 +103,7 @@ export async function suggestCategoryWithOpenAI(
     - Question: "${question}"
     - Options: ${formattedOptions}
     - Explanation (Clinical Pearls): "${cleanExplanation}"
+    - Explanation Title/Overview: "${topicalHint}"
   `;
 
   // Debug Logging
