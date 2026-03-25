@@ -68,7 +68,7 @@ export async function suggestCategoryWithOpenAI(
       }
     });
 
-    return `ID: ${l.id} | Topic: ${enhancedName} ${l.description ? `(Context: ${l.description.substring(0, 500)})` : ""}`;
+    return `- [ID ${l.id}] ${enhancedName} ${l.description ? `(Context: ${l.description.substring(0, 500)})` : ""}`;
   }).join("\n");
 
   const systemInstruction = `
@@ -85,7 +85,12 @@ export async function suggestCategoryWithOpenAI(
     
     5. DO NOT return 0 unless there are no subjects provided. Use your best clinical judgment to map to the most appropriate category, even if it's a broad parent discipline (e.g., Surgery, Medicine, Pediatrics).
     
-    6. CLASSIFICATION TIP: The "Explanation Title/Overview" provided is almost always the exact topic mentioned. Weight it heavily.
+    6. MATCHING PRIORITIES:
+       - 1. Exact Name Match: If any Lecture Topic name EXACTLY matches the "Explanation Title/Overview" or Question topic.
+       - 2. Specificity: Choose "Bacterial Meningitis" over "Neurology" if both are present.
+       - 3. Synonyms: Use the clinical context to bridge synonyms (e.g. "GAS" maps to "Pharyngitis/URTI").
+    
+    7. CRITICAL: Only return an ID that exists in the "Available Lectures" list. If unsure, pick the most relevant parent category from the list.
     
     OUTPUT FORMAT:
     Return ONLY a JSON object:
@@ -116,7 +121,7 @@ export async function suggestCategoryWithOpenAI(
       messages: [
         {
           role: "system",
-          content: systemInstruction + "\n\nCRITICAL: Use your advanced medical reasoning to determine the differential diagnosis before picking the lecture ID."
+          content: systemInstruction + "\n\nCRITICAL: Use your advanced medical reasoning to determine the differential diagnosis. Then, SCAN each available lecture to find the most specific match for that diagnosis. Choose the ID carefully."
         },
         { role: "user", content: userPrompt },
       ],
