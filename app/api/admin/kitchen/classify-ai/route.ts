@@ -26,7 +26,6 @@ export async function POST(request: NextRequest) {
         const name = s.subject || s.name || ""
         if (name.toLowerCase().includes("unclassified pool")) return false
         if (name.trim() === "---") return false
-        if (s.is_restricted) return false
         return name.trim().length > 1
       })
       .map((s: any) => ({ id: s.id, name: (s.subject || s.name).replace(/[⬇️⬆️⬅️➡️]/g, '').trim(), description: s.description || undefined }))

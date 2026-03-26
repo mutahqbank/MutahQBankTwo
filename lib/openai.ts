@@ -34,6 +34,13 @@ export async function suggestCategoryWithOpenAI(
 
   const topicalHint = peekExplanationTitle(explanation);
 
+  // 2. Exact Match Detection
+  const exactMatch = lectures.find(l => 
+    l.name.toLowerCase() === topicalHint.toLowerCase() || 
+    topicalHint.toLowerCase().includes(l.name.toLowerCase())
+  );
+  const matchRecommendation = exactMatch ? `\n    STRONG RECOMMENDATION: The title/overview "${topicalHint}" strongly suggests a match with Lecture ID ${exactMatch.id} ("${exactMatch.name}").` : "";
+
   // 1. Clinical Data Enhancement (Helping the AI bridge terminology gaps)
   const synonymMap: Record<string, string> = {
     "urti": "Upper Respiratory Tract Infection, Pharyngitis, Tonsillitis, GAS, Common Cold",
@@ -86,7 +93,7 @@ export async function suggestCategoryWithOpenAI(
     5. DO NOT return 0 unless there are no subjects provided. Use your best clinical judgment to map to the most appropriate category, even if it's a broad parent discipline (e.g., Surgery, Medicine, Pediatrics).
     
     6. MATCHING PRIORITIES:
-       - 1. Exact Name Match: If any Lecture Topic name EXACTLY matches the "Explanation Title/Overview" or Question topic.
+       - 1. Exact Name Match: If any Lecture Topic name EXACTLY matches the "Explanation Title/Overview" or Question topic. ${matchRecommendation}
        - 2. Specificity: Choose "Bacterial Meningitis" over "Neurology" if both are present.
        - 3. Synonyms: Use the clinical context to bridge synonyms (e.g. "GAS" maps to "Pharyngitis/URTI").
     
