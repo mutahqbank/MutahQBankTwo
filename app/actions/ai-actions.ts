@@ -95,6 +95,7 @@ export async function suggestCategoryAction(
         lectureId: aiResult.lectureId,
         reasoning: aiResult.reasoning,
         suggestions: aiResult.suggestions || [],
+        confidenceScore: aiResult.confidenceScore || 0,
         learned: !!aiResult.descriptionUpdate,
         success: true
       };

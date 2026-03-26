@@ -182,38 +182,39 @@ export async function suggestCategoryWithOpenAI(
       ? `\n    MANDATORY INSTRUCTION: The clinical diagnosis "${diagnosisHint}" is a DIRECT match for Lecture ID ${finalScanMatch.id} ("${finalScanMatch.name}"). You MUST return ID ${finalScanMatch.id} as the lectureId.` 
       : matchRecommendation;
 
-    // Step 2: Strict Mapping (Mapping the diagnosis to the lecture list)
     const mappingInstruction = `
       You are a Senior Medical Classifier.
       
-      TASK: Match the Clinical Diagnosis to the SINGLE most relevant Lecture ID from the list.
-      ${finalMatchInstruction}
+      TASK: Identify the TOP 3 most relevant Lectures for this Clinical Diagnosis.
       
       CLINICAL DIAGNOSIS: "${diagnosisHint}"
       CLINICAL FOCUS: "${analysis.clinical_focus}"
       
       MAPPING RULES:
-      1. ABSOLUTE PRIORITY: You MUST follow the "MANDATORY INSTRUCTION" if provided.
-      2. SPECIFICITY: A UTI question MUST map to a UTI lecture.
-      3. Synonyms: Use the clinical context (e.g., "Cystitis" -> "UTI").
-      4. Avoid broad organ system mapping: Only map if the diagnosis is a clear fit for the lecture.
+      1. ALWAYS PROVIDE 3 SUGGESTIONS: Even if one is very strong, provide 2 other plausible alternatives (or related systems).
+      2. SPECIFICITY: Mention why each suggestion was chosen in its reasoning field.
       
       Available Lectures:
       ${structuredLectures}
       
       Return ONLY valid JSON:
       { 
-        "reasoning": "Brief mapping link", 
-        "lectureId": [ID],
-        "suggestions": [...],
-        "descriptionUpdate": "1-sentence clinical pearl to add to this lecture's description (OPTIONAL)"
+        "reasoning": "Overall clinical context", 
+        "lectureId": [ID or 0],
+        "confidenceScore": [0-100],
+        "suggestions": [
+          { "id": [ID], "name": "Lecture Name", "reasoning": "..." },
+          { "id": [ID], "name": "Lecture Name", "reasoning": "..." },
+          { "id": [ID], "name": "Lecture Name", "reasoning": "..." }
+        ],
+        "descriptionUpdate": "..."
       }
     `;
 
     const mappingResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are a strict Medical Classifier. If a question contains a unique clinical keyword or hallmark diagnosis not already well-described in the lecture, provide a concise 1-sentence update for that lecture's description." },
+        { role: "system", content: "You are a Medical Classifier. Only set confidenceScore to 100 if you are MEDICALLY CERTAIN and there is zero ambiguity. Otherwise, provide suggestions and set confidence to < 100." },
         { role: "user", content: mappingInstruction },
       ],
       response_format: { type: "json_object" },
@@ -235,6 +236,8 @@ export async function suggestCategoryWithOpenAI(
     if (validId) {
       return { 
         ...result, 
+        lectureId: validId.id,
+        confidenceScore: result.confidenceScore || 0,
         suggestions: cleanedSuggestions,
         descriptionUpdate: result.descriptionUpdate 
       };
@@ -242,6 +245,7 @@ export async function suggestCategoryWithOpenAI(
       return { 
         reasoning: result.reasoning || "Please choose the most appropriate category.", 
         lectureId: 0,
+        confidenceScore: 0,
         suggestions: cleanedSuggestions,
         descriptionUpdate: null
       };

@@ -2693,22 +2693,18 @@ function WorkflowView({
                     courseName
                   )
 
-                  if (data.success && data.lectureId > 0) {
-                    // Success matched - show message and move it
+                  if (data.success && data.confidenceScore === 100 && data.lectureId > 0) {
+                    // Success matched 100% - show message and move it
                     const learnedMsg = data.learned ? " ✨ AI Learned & Updated description!" : ""
-                    toast.success(`AI Matched: ${data.reasoning}${learnedMsg}`, { id: toastId, duration: 8000 })
+                    toast.success(`AI Matched (100%): ${data.reasoning}${learnedMsg}`, { id: toastId, duration: 8000 })
                     
-                    // The move operation itself might fail, so we don't catch handleUpdate errors here 
-                    // to prevent double-toast (handleUpdate has its own toast)
                     await handleUpdate({ 
                       subject_id: data.lectureId, 
                       status: 'draft' 
-                    }).catch(() => {
-                      // handleUpdate already showed its toast, just finish here
-                    })
+                    }).catch(() => {})
                   } else if (data.success && data.suggestions?.length > 0) {
                     setAiSuggestions(data.suggestions)
-                    toast.info("AI is uncertain. Please select a suggestion.", { id: toastId })
+                    toast.success("AI is analyzed. Please choose the best match below.", { id: toastId })
                   } else {
                     toast.error(`AI Decision: ${data.reasoning || "Could not classify accurately"}`, { id: toastId, duration: 10000 })
                   }
