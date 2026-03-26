@@ -317,7 +317,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
   // ─── Modes ──────────────────────────────────────────────────────
   const [mode, setMode] = useState<Mode>("dashboard")
-  const [dashTab, setDashTab] = useState<"new" | "history">("new")
+  const [dashTab, setDashTab] = useState<"new" | "history" | "comments">("new")
 
   // ─── Dashboard config ───────────────────────────────────────────
   const [selectedSubjects, setSelectedSubjects] = useState<Set<number>>(new Set())
@@ -326,6 +326,27 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
   const [timeLimit, setTimeLimit] = useState(30)
   const [progressFilter, setProgressFilter] = useState<"all" | "new" | "correct" | "incorrect">("all")
   const [examFilter, setExamFilter] = useState<"All" | "Mid" | "Final">("All")
+
+  async function quickViewQuestion(qId: number) {
+    try {
+      setQuestionsLoading(true)
+      const res = await fetch(`/api/questions?question_id=${qId}&course_id=${courseId}`)
+      if (!res.ok) throw new Error("Failed to load question")
+      const data = await res.json()
+      if (data && data.length > 0) {
+        setQuestions(data) // The API returns an array
+        setCurrentIdx(0)
+        setRevealed(new Set([qId]))
+        setMode("study")
+        window.scrollTo({ top: 0, behavior: "smooth" })
+      }
+    } catch (err) {
+      console.error("Quick view failed:", err)
+      alert("Failed to load question for review.")
+    } finally {
+      if (typeof setQuestionsLoading === 'function') setQuestionsLoading(false)
+    }
+  }
 
   // Sync examFilter with URL
   useEffect(() => {
@@ -1434,10 +1455,11 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
         <div className="flex gap-4 border-b border-border">
           <button onClick={() => setDashTab("new")} className={`pb-3 text-sm font-semibold transition-colors ${dashTab === "new" ? "border-b-2 border-secondary text-secondary" : "text-muted-foreground hover:text-foreground"}`}>New Session</button>
           <button onClick={() => setDashTab("history")} className={`pb-3 text-sm font-semibold transition-colors ${dashTab === "history" ? "border-b-2 border-secondary text-secondary" : "text-muted-foreground hover:text-foreground"}`}>Session History</button>
+          <button onClick={() => setDashTab("comments")} className={`pb-3 text-sm font-semibold transition-colors ${dashTab === "comments" ? "border-b-2 border-secondary text-secondary" : "text-muted-foreground hover:text-foreground"}`}>My Comments</button>
         </div>
       </div>
 
-      {dashTab === "new" ? (
+      {dashTab === "new" && (
         <section className="mx-auto max-w-4xl px-4 py-8">
           <div className="grid gap-8 lg:grid-cols-5">
             <div className="lg:col-span-3">
@@ -1584,7 +1606,8 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
             </div>
           </div>
         </section>
-      ) : (
+      )}
+      {dashTab === "history" && (
         <section className="mx-auto max-w-4xl px-4 py-8 space-y-6">
 
 
@@ -1668,6 +1691,119 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
           </div>
         </section>
       )}
+      {dashTab === "comments" && (
+        <section className="mx-auto max-w-4xl px-4 py-8">
+           <UserComments 
+             slug={slug} 
+             user={user} 
+             onViewQuestion={(qId) => quickViewQuestion(qId)} 
+           />
+        </section>
+      )}
+    </div>
+  )
+}
+
+function UserComments({ slug, user, onViewQuestion }: { slug: string; user: any; onViewQuestion?: (qId: number) => void }) {
+  const { data: comments, isLoading, error } = useSWR(`/api/courses/${slug}/comments/user`)
+
+  if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-secondary" /></div>
+  if (error) return (
+    <div className="p-8 text-center text-destructive">
+      <p className="font-bold">Failed to load comments.</p>
+      <p className="text-xs opacity-70 mt-2">{error.info?.details || error.message || "Please check your clinical forum participation."}</p>
+    </div>
+  )
+
+  if (!comments || comments.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <MessageSquare className="h-12 w-12 text-muted-foreground/30" />
+        <p className="mt-4 text-sm text-muted-foreground">You haven&apos;t joined any discussions yet in this course.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl bg-muted/30 p-6 border border-border">
+         <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-secondary" />
+            Your Participation History
+         </h2>
+         <p className="text-sm text-muted-foreground">Track your questions, thoughts, and replies from others.</p>
+      </div>
+      
+      <div className="space-y-6 mb-12">
+        {comments.map((c: any) => (
+          <div key={c.id} className="overflow-hidden rounded-xl border border-border bg-background shadow-sm transition-all hover:shadow-md">
+            <div className="border-b border-border/50 bg-muted/30 px-4 py-3">
+              <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground truncate max-w-[70%]">
+                    Question Context: {c.question_text || "Clinical Case"}
+                  </span>
+                  <button 
+                    onClick={() => onViewQuestion?.(c.question_id)} 
+                    className="text-xs font-bold text-secondary hover:underline shrink-0"
+                  >
+                    Go to Question
+                  </button>
+              </div>
+            </div>
+            <div className="p-4">
+              {c.parent_text && (
+                <div className="mb-4 border-l-4 border-secondary/30 bg-secondary/5 p-3 rounded-r-lg text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-secondary opacity-70">Replying to {c.parent_username}</span>
+                  </div>
+                  <p className="italic font-medium">&ldquo;{c.parent_text}&rdquo;</p>
+                </div>
+              )}
+              
+              <div className="flex gap-4">
+                <div className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary shadow-md text-white text-sm font-black">
+                  {user.username?.substring(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <span className="text-sm font-bold text-foreground">You</span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground">
+                      {new Date(c.created_at).toLocaleDateString()} at {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div className="rounded-xl bg-secondary/5 border border-secondary/10 p-4 shadow-inner">
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{c.comment_text}</p>
+                  </div>
+                </div>
+              </div>
+              
+              {c.replies && c.replies.length > 0 && (
+                <div className="mt-6 space-y-4 pl-4 sm:pl-14 border-l-2 border-dotted border-secondary/20 ml-2 sm:ml-5">
+                  <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-secondary flex items-center gap-2">
+                    <BrainCircuit className="h-4 w-4 animate-pulse" /> {c.replies.length} {c.replies.length === 1 ? "Reply" : "Replies"}
+                  </h5>
+                  {c.replies.map((r: any) => (
+                    <div key={r.id} className="group flex gap-3">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-[10px] font-bold shadow-sm">
+                        {r.username?.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 rounded-2xl bg-muted/30 p-4 border border-border group-hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-bold text-foreground">{r.username}</span>
+                          <span className="text-[9px] font-medium text-muted-foreground opacity-60">
+                            {new Date(r.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{r.comment_text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

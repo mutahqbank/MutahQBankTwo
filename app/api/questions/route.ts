@@ -5,13 +5,14 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl
     const courseId = searchParams.get("course_id")
+    const questionId = searchParams.get("question_id")
     const subjectIds = searchParams.get("subject_ids")
     const limit = searchParams.get("limit") || "20"
     const typeId = searchParams.get("type_id")
     const examPeriod = searchParams.get("exam_period")
 
-    if (!courseId) {
-      return NextResponse.json({ error: "course_id is required" }, { status: 400 })
+    if (!courseId && !questionId) {
+      return NextResponse.json({ error: "course_id or question_id is required" }, { status: 400 })
     }
 
     let sql = `
@@ -60,38 +61,47 @@ export async function GET(request: NextRequest) {
       JOIN subjects s ON q.subject_id = s.id
       LEFT JOIN questions_types qt ON q.type_id = qt.id
       LEFT JOIN questions_periods qp ON q.period_id = qp.id
-      WHERE s.course_id = $1 AND q.active = true
+      WHERE 
     `
     
-    const params: unknown[] = [parseInt(courseId)]
-    let pi = 2
+    const params: unknown[] = []
+    let pi = 1
 
-    if (subjectIds) {
-      const ids = subjectIds.split(",").map(Number).filter(Boolean)
-      if (ids.length > 0) {
-        sql += ` AND q.subject_id = ANY($${pi}::int[])`
-        params.push(ids)
+    if (questionId) {
+      sql += ` q.id = $${pi} `
+      params.push(parseInt(questionId))
+      pi++
+    } else {
+      sql += ` s.course_id = $${pi} AND q.active = true `
+      params.push(parseInt(courseId!))
+      pi++
+
+      if (subjectIds) {
+        const ids = subjectIds.split(",").map(Number).filter(Boolean)
+        if (ids.length > 0) {
+          sql += ` AND q.subject_id = ANY($${pi}::int[])`
+          params.push(ids)
+          pi++
+        }
+      }
+
+      if (typeId) {
+        sql += ` AND q.type_id = $${pi}`
+        params.push(parseInt(typeId))
         pi++
       }
-    }
 
-    if (typeId) {
-      sql += ` AND q.type_id = $${pi}`
-      params.push(parseInt(typeId))
-      pi++
-    }
+      if (examPeriod && (examPeriod === "Mid" || examPeriod === "Final")) {
+        sql += ` AND qp.period ILIKE $${pi}`
+        params.push(`%${examPeriod}%`)
+        pi++
+      }
 
-    if (examPeriod && (examPeriod === "Mid" || examPeriod === "Final")) {
-      sql += ` AND qp.period ILIKE $${pi}`
-      params.push(`%${examPeriod}%`)
-      pi++
+      sql += ` ORDER BY RANDOM() LIMIT $${pi}`
+      params.push(parseInt(limit))
     }
-
-    sql += ` ORDER BY RANDOM() LIMIT $${pi}`
-    params.push(parseInt(limit))
 
     const result = await query(sql, params)
-
     return NextResponse.json(result.rows)
   } catch (error) {
     console.error("Failed to fetch questions:", error)
