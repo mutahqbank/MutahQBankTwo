@@ -29,5 +29,14 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "tmp_*.ts", "tmp_*.tsx"]
+  "exclude": [
+    "node_modules",
+    "tmp",
+    "scripts",
+    "tmp_*.ts",
+    "tmp_*.tsx",
+    "db-check.ts",
+    "list-courses.ts",
+    "migrate-packages.ts"
+  ]
 }
