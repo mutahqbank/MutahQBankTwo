@@ -143,6 +143,60 @@ export async function suggestCategoryWithOpenAI(
   }
 }
 
+/**
+ * Extracts a concise clinical hallmark (pearl) from a question.
+ * Used for "Learning from Manual Classification" to update lecture descriptions.
+ */
+export async function extractClinicalPearlWithOpenAI(
+  question: string,
+  explanation: string,
+  options: string[]
+) {
+  if (!process.env.OPENAI_API_KEY) return null;
+
+  const cleanHtml = (html: string) => (html || "").replace(/<[^>]*>?/gm, '').trim();
+  
+  // Extract Topic Hint (Explanation Title)
+  const peekExplanationTitle = (html: string) => {
+    if (!html) return "";
+    const headerMatch = /<(h[1-6]|b|strong)>(.*?)<\/\1>/i.exec(html);
+    if (headerMatch && headerMatch[2]) {
+      return cleanHtml(headerMatch[2]).substring(0, 80);
+    }
+    return cleanHtml(html).substring(0, 80);
+  };
+
+  const topicalHint = peekExplanationTitle(explanation);
+  const formattedOptions = options.map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join(", ");
+  
+  const prompt = `
+    Analyze this MCQ and extract exactly ONE concise "Clinical Pearl" or "Hallmark Feature" (max 10 words).
+    This pearl will be added to a lecture description to help future AI classification.
+    
+    MCQ:
+    - Question: "${question}"
+    - Options: ${formattedOptions}
+    - Reference Topic Hint: "${topicalHint}"
+    - Full Explanation: "${cleanHtml(explanation).substring(0, 800)}"
+    
+    Return ONLY the pearl as a string (no JSON, no quotes).
+    Example: "Bilateral wheeze and atopy suggests Pediatric Asthma."
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 30,
+    });
+
+    return response.choices[0].message.content?.trim() || null;
+  } catch (error) {
+    console.error("AI Pearl Extraction failed:", error);
+    return null;
+  }
+}
+
 
 /**
  * AI Exam Repair Logic

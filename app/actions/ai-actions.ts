@@ -1,6 +1,6 @@
 'use server'
 
-import { suggestCategoryWithOpenAI, repairExamWithOpenAI, generateCbqRubricWithOpenAI, refineCbqRubricWithOpenAI, paraphraseAnswersWithOpenAI, generateIncorrectAnswersWithOpenAI, differentiateDescriptionsWithOpenAI } from "@/lib/openai";
+import { suggestCategoryWithOpenAI, extractClinicalPearlWithOpenAI, repairExamWithOpenAI, generateCbqRubricWithOpenAI, refineCbqRubricWithOpenAI, paraphraseAnswersWithOpenAI, generateIncorrectAnswersWithOpenAI, differentiateDescriptionsWithOpenAI } from "@/lib/openai";
 import { query } from "@/lib/database";
 import { getServerUser } from "@/lib/auth-server";
 
@@ -275,3 +275,46 @@ export async function differentiateDescriptionsAction(
     return { success: false, reasoning: error.message };
   }
 }
+
+/**
+ * Learns from a manual move by an instructor.
+ * Extracts a clinical pearl and adds it to the target subject description.
+ */
+export async function learnFromManualMoveAction(
+  question: string,
+  explanation: string,
+  options: string[],
+  subjectId: number
+) {
+  try {
+    const user = await getServerUser();
+    if (!user || (user.role !== "admin" && user.role !== "instructor")) {
+      return { success: false };
+    }
+
+    const pearl = await extractClinicalPearlWithOpenAI(question, explanation, options);
+    if (!pearl) return { success: false };
+
+    // Fetch current description
+    const currRes = await query(`SELECT description FROM subjects WHERE id = $1`, [subjectId]);
+    if (currRes.rows.length === 0) return { success: false };
+    const currentDesc = currRes.rows[0].description || "";
+
+    // Avoid duplication
+    if (!currentDesc.toLowerCase().includes(pearl.toLowerCase().substring(0, 15))) {
+      const newDesc = currentDesc 
+        ? `${currentDesc}\n\nClinical Pearl: ${pearl}` 
+        : `Clinical Pearl: ${pearl}`;
+        
+      await query(`UPDATE subjects SET description = $1 WHERE id = $2`, [newDesc, subjectId]);
+      console.log(`AI Learned from Manual Move: Added pearl to subject ${subjectId}`);
+      return { success: true, pearl };
+    }
+
+    return { success: true, alreadyExists: true };
+  } catch (error) {
+    console.error("AI Learning Action Error:", error);
+    return { success: false };
+  }
+}
+

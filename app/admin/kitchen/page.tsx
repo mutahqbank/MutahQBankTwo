@@ -34,7 +34,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import useSWR, { mutate as globalMutate } from "swr"
 import { toast } from "sonner"
-import { suggestCategoryAction, differentiateDescriptionsAction } from "@/app/actions/ai-actions"
+import { suggestCategoryAction, differentiateDescriptionsAction, learnFromManualMoveAction } from "@/app/actions/ai-actions"
 
 /* --- Types --- */
 type QuestionStatus = "unclassified" | "draft" | "flagged" | "pending_approval" | "approved"
@@ -2369,11 +2369,25 @@ function WorkflowView({
           status: data.status || "draft" // Default to draft when classified
         })
       });
-
+      
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         console.error("Server Error Details:", errorData);
         throw new Error(`Failed to move question: ${errorData.details || errorData.error || res.statusText}`);
+      }
+
+      // Trigger AI Learning in background if this was a manual move (not during AI analysis)
+      if (data.subject_id && !isAnalyzing) {
+        learnFromManualMoveAction(
+          editData.question,
+          editData.explanation,
+          editData.options,
+          data.subject_id
+        ).then(result => {
+           if (result.success && result.pearl) {
+             toast.info(`✨ AI Learned: "${result.pearl}"`, { duration: 5000 });
+           }
+        }).catch(err => console.error("Learning failed:", err));
       }
 
       setProcessedIds(prev => new Set(prev).add(processedId))
