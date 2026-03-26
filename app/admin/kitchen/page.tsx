@@ -2719,7 +2719,7 @@ function WorkflowView({
                     courseName
                   )
 
-                  if (data.success && data.confidenceScore > 85 && data.lectureId > 0) {
+                  if (data && data.success && (data.confidenceScore || 0) > 85 && (data.lectureId || 0) > 0) {
                     // Success matched >85% - show message and move it
                     const learnedMsg = data.learned ? " ✨ AI Learned & Updated description!" : ""
                     toast.success(`AI Matched (${data.confidenceScore}%): ${data.reasoning}${learnedMsg}`, { id: toastId, duration: 8000 })
@@ -2728,11 +2728,11 @@ function WorkflowView({
                       subject_id: data.lectureId, 
                       status: 'draft' 
                     }).catch(() => {})
-                  } else if (data.success && data.suggestions?.length > 0) {
+                  } else if (data && data.success && data.suggestions?.length > 0) {
                     setAiSuggestions(data.suggestions)
                     toast.success("AI is analyzed. Please choose the best match below.", { id: toastId })
                   } else {
-                    toast.error(`AI Decision: ${data.reasoning || "Could not classify accurately"}`, { id: toastId, duration: 10000 })
+                    toast.error(`AI Decision: ${data?.reasoning || "Could not classify accurately"}`, { id: toastId, duration: 10000 })
                   }
                 } catch (e: any) {
                   // This catches suggestCategoryAction crashes or network failures
