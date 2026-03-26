@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button"
 import {
   Home, ChevronRight, Clock, Hash, RotateCcw, Loader2,
   CheckSquare, Square, ChevronDown, ChevronLeft, Flag,
-  Eye, EyeOff, Send, AlertCircle, Lock, BookOpen, FileText, Timer
+  Eye, EyeOff, Send, AlertCircle, Lock, BookOpen, FileText, Timer, MessageSquare
 } from "lucide-react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { repairExamAction, paraphraseAnswersAction, generateIncorrectAction } from "@/app/actions/ai-actions"
 import { Sparkles, BrainCircuit, Check, X } from "lucide-react"
+import CommentSection from "@/components/comment-section"
 
 // Global SWRProvider handles fetching and caching rules.
 
@@ -80,6 +81,24 @@ function OptionBtn({ opt, letter, isSelected, isRevealed, percentage, onClick }:
         )}
       </div>
     </button>
+  )
+}
+
+function ResultsCommentToggle({ questionId }: { questionId: number }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="mt-4 pt-4 border-t border-border/50">
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={() => setShow(!show)}
+        className="text-xs font-bold text-muted-foreground hover:text-secondary hover:bg-secondary/5"
+      >
+        <MessageSquare className="mr-2 h-3.5 w-3.5" />
+        {show ? "Hide Discussion" : "Show Discussion"}
+      </Button>
+      {show && <div className="mt-4"><CommentSection questionId={questionId} /></div>}
+    </div>
   )
 }
 
@@ -204,6 +223,7 @@ function QuestionView({ q, selectedId, cbqAnswers, revealed, onSelect, onCbqAnsw
           }
           return null;
         })()}
+        {!isExamMode && <CommentSection questionId={q.id} />}
       </div>
     )
   }
@@ -268,6 +288,7 @@ function QuestionView({ q, selectedId, cbqAnswers, revealed, onSelect, onCbqAnsw
           )}
         </div>
       )}
+      {!isExamMode && <CommentSection questionId={q.id} />}
     </div>
   )
 }
@@ -488,7 +509,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
           course_id: courseId,
           limit: questionCount,
           subject_ids: Array.from(selectedSubjects),
-          mode: (sessionMode === "session" && examFilter !== "All") ? "exam" : sessionMode
+          mode: sessionMode
         }
         if (examFilter !== "All") payload.exam_period = examFilter
 
@@ -1197,6 +1218,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                               </div>
                             );
                           })()}
+                          <ResultsCommentToggle questionId={q.id} />
                         </>
                       ) : (
                         // MCQ simplified "Full Question" Review
@@ -1539,7 +1561,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                   <Button onClick={() => startSession("session")} disabled={questionsLoading || maxAvailableQuestions === 0}
                     className="w-full bg-secondary py-5 text-base font-bold text-secondary-foreground shadow hover:bg-secondary/90 disabled:opacity-50">
                     {questionsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin outline-none" /> : <BookOpen className="mr-2 h-4 w-4" />} 
-                    {examFilter === "All" ? "Session Mode" : "Exam Mode (Resumable)"}
+                    Session Mode
                   </Button>
                   <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                     onClick={() => { setSelectedSubjects(new Set()); setQuestionCount(20); setTimedMode(false); setProgressFilter("all"); handleExamFilterChange("All"); }}>

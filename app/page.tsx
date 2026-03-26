@@ -1,6 +1,8 @@
 import { HomeClient } from "./home-client"
 import { query } from "@/lib/database"
 
+export const dynamic = 'force-dynamic'
+
 const MAJOR_SLUGS = [
   "surgery(miniosce)",
   "pediatric(miniosce)",

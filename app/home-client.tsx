@@ -5,6 +5,7 @@ import type { Course } from "@/lib/types"
 import { BookOpen, FileText, Smartphone, RefreshCw, BookMarked, ClipboardList, HelpCircle } from "lucide-react"
 import { FeaturedAnnouncement } from "@/components/featured-announcement"
 import { PackagesSection } from "@/components/packages-section"
+import useSWR from "swr"
 
 const features = [
     { icon: BookOpen, title: "Organized past papers", description: "Questions organized by topic and exam type" },
@@ -24,6 +25,12 @@ export function HomeClient({
     minors5th: Course[]
     stats: { total_courses: number; total_subjects: number; total_questions: number } | null
 }) {
+    const { data: liveStats } = useSWR("/api/stats", { 
+        fallbackData: stats,
+        refreshInterval: 30000 // Sync every 30 seconds
+    })
+    const displayStats = liveStats || stats
+
     return (
         <div>
             {/* Hero Section */}
@@ -76,17 +83,17 @@ export function HomeClient({
                     <div className="grid grid-cols-3 gap-4">
                         <div className="flex flex-col items-center gap-2 rounded-lg bg-background p-6 shadow-sm">
                             <BookMarked className="h-8 w-8 text-secondary" />
-                            <span className="text-3xl font-bold text-foreground">{stats?.total_courses ?? 0}</span>
+                            <span className="text-3xl font-bold text-foreground">{displayStats?.total_courses ?? 0}</span>
                             <span className="text-sm text-muted-foreground">Courses</span>
                         </div>
                         <div className="flex flex-col items-center gap-2 rounded-lg bg-background p-6 shadow-sm">
                             <ClipboardList className="h-8 w-8 text-secondary" />
-                            <span className="text-3xl font-bold text-foreground">{stats?.total_subjects ?? 0}</span>
+                            <span className="text-3xl font-bold text-foreground">{displayStats?.total_subjects ?? 0}</span>
                             <span className="text-sm text-muted-foreground">Subjects</span>
                         </div>
                         <div className="flex flex-col items-center gap-2 rounded-lg bg-background p-6 shadow-sm">
                             <HelpCircle className="h-8 w-8 text-secondary" />
-                            <span className="text-3xl font-bold text-foreground">{stats?.total_questions ?? 0}+</span>
+                            <span className="text-3xl font-bold text-foreground">{displayStats?.total_questions ?? 0}+</span>
                             <span className="text-sm text-muted-foreground">Questions</span>
                         </div>
                     </div>

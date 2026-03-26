@@ -11,8 +11,8 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await query(
-      `SELECT c.*, u.username FROM comments c
-       JOIN users u ON c.user_id = u.id
+      `SELECT c.*, a.username FROM comments c
+       JOIN accounts a ON c.user_id = a.user_id
        WHERE c.question_id = $1
        ORDER BY c.created_at ASC`,
       [parseInt(questionId)]
