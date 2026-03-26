@@ -2248,6 +2248,7 @@ function WorkflowView({
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [lastAction, setLastAction] = useState<any>(null)
   const [showPreview, setShowPreview] = useState(true)
+  const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
   const [showQuestionPreview, setShowQuestionPreview] = useState(true)
   const [processedIds, setProcessedIds] = useState<Set<number>>(new Set())
   const [searchTerm, setSearchTerm] = useState("")
@@ -2306,6 +2307,7 @@ function WorkflowView({
         subject_id: q.subject_id,
         period_id: q.period_id || 2
       })
+      setAiSuggestions([]) // Clear suggestions on new question
     } else {
       setEditData(null)
     }
@@ -2693,7 +2695,8 @@ function WorkflowView({
 
                   if (data.success && data.lectureId > 0) {
                     // Success matched - show message and move it
-                    toast.success(`AI Matched: ${data.reasoning}`, { id: toastId, duration: 8000 })
+                    const learnedMsg = data.learned ? " ✨ AI Learned & Updated description!" : ""
+                    toast.success(`AI Matched: ${data.reasoning}${learnedMsg}`, { id: toastId, duration: 8000 })
                     
                     // The move operation itself might fail, so we don't catch handleUpdate errors here 
                     // to prevent double-toast (handleUpdate has its own toast)
@@ -2703,6 +2706,9 @@ function WorkflowView({
                     }).catch(() => {
                       // handleUpdate already showed its toast, just finish here
                     })
+                  } else if (data.success && data.suggestions?.length > 0) {
+                    setAiSuggestions(data.suggestions)
+                    toast.info("AI is uncertain. Please select a suggestion.", { id: toastId })
                   } else {
                     toast.error(`AI Decision: ${data.reasoning || "Could not classify accurately"}`, { id: toastId, duration: 10000 })
                   }
@@ -2728,6 +2734,44 @@ function WorkflowView({
                 </>
               )}
             </Button>
+            
+            {aiSuggestions.length > 0 && (
+              <div className="mt-4 p-5 rounded-2xl bg-orange-50/20 border border-orange-100 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center gap-2">
+                  <BrainCircuit className="h-3 w-3 text-orange-500" />
+                  <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">AI Top Suggestions</p>
+                </div>
+                <div className="grid gap-2">
+                  {aiSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.id}
+                      onClick={() => handleUpdate({ subject_id: suggestion.id, status: 'draft' })}
+                      className="group w-full p-4 rounded-xl bg-white border border-slate-100 hover:border-orange-200 hover:bg-orange-50 transition-all text-left shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="text-xs font-black text-slate-800 group-hover:text-orange-600 transition-colors uppercase tracking-tight">
+                            {suggestion.name}
+                          </p>
+                          <p className="text-[10px] font-medium text-slate-400 mt-1 line-clamp-2 leading-relaxed italic">
+                            {suggestion.reasoning}
+                          </p>
+                        </div>
+                        <div className="bg-slate-50 group-hover:bg-orange-100 p-1.5 rounded-lg transition-colors shrink-0">
+                          <CheckCircle className="h-3.5 w-3.5 text-slate-300 group-hover:text-orange-500" />
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <button 
+                  onClick={() => setAiSuggestions([])}
+                  className="w-full text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest pt-1"
+                >
+                  Clear Suggestions
+                </button>
+              </div>
+            )}
 
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />

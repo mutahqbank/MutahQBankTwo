@@ -34,12 +34,34 @@ export async function suggestCategoryWithOpenAI(
 
   const topicalHint = peekExplanationTitle(explanation);
 
-  // 2. Exact Match Detection
-  const exactMatch = lectures.find(l => 
-    l.name.toLowerCase() === topicalHint.toLowerCase() || 
-    topicalHint.toLowerCase().includes(l.name.toLowerCase())
-  );
-  const matchRecommendation = exactMatch ? `\n    STRONG RECOMMENDATION: The title/overview "${topicalHint}" strongly suggests a match with Lecture ID ${exactMatch.id} ("${exactMatch.name}").` : "";
+  // 2. Exact/Aggressive Match Detection
+  const cleanHint = topicalHint.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const findBestMatch = (customHint?: string) => {
+    const clean = (s: string) => s.toLowerCase().replace(/[⬇️⬆️⬅️➡️]/g, '').trim();
+    const hint = clean(customHint || topicalHint);
+    
+    // Priority 1: Exact string match (cleaning emojis)
+    const exact = lectures.find(l => clean(l.name) === hint);
+    if (exact) return exact;
+
+    // Priority 2: Subject is contained in hint OR Hint is contained in subject (e.g., "UTI" and "Pediatric UTI")
+    const match = lectures.find(l => {
+      const lname = clean(l.name);
+      return (lname.length > 2 && (hint.includes(lname) || lname.includes(hint)));
+    });
+    if (match) return match;
+
+    // Priority 3: Keyword overlap (significant words)
+    const diagnosisWords = hint.split(/\s+/).filter(w => w.length > 3); // Only long words
+    for (const l of lectures) {
+      const lname = clean(l.name);
+      if (diagnosisWords.some(word => lname.includes(word))) return l;
+    }
+    return null;
+  };
+
+  const exactMatch = findBestMatch();
+  const matchRecommendation = exactMatch ? `\n    CRITICAL RECOMMENDATION: The identified topic "${topicalHint}" is a DIRECT match for Lecture ID ${exactMatch.id} ("${exactMatch.name}"). Map this EXACTLY.` : "";
 
   // 1. Clinical Data Enhancement (Helping the AI bridge terminology gaps)
   const synonymMap: Record<string, string> = {
@@ -155,32 +177,43 @@ export async function suggestCategoryWithOpenAI(
     const analysis = JSON.parse(analysisResponse.choices[0].message.content || "{}");
     const diagnosisHint = analysis.diagnosis || topicalHint;
 
+    const finalScanMatch = findBestMatch(diagnosisHint); // Re-run with analyzed diagnosis
+    const finalMatchInstruction = finalScanMatch 
+      ? `\n    MANDATORY INSTRUCTION: The clinical diagnosis "${diagnosisHint}" is a DIRECT match for Lecture ID ${finalScanMatch.id} ("${finalScanMatch.name}"). You MUST return ID ${finalScanMatch.id} as the lectureId.` 
+      : matchRecommendation;
+
     // Step 2: Strict Mapping (Mapping the diagnosis to the lecture list)
     const mappingInstruction = `
       You are a Senior Medical Classifier.
       
       TASK: Match the Clinical Diagnosis to the SINGLE most relevant Lecture ID from the list.
+      ${finalMatchInstruction}
       
       CLINICAL DIAGNOSIS: "${diagnosisHint}"
       CLINICAL FOCUS: "${analysis.clinical_focus}"
       
       MAPPING RULES:
-      1. EXACT MATCH: If any lecture title exactly matches the diagnosis, pick its ID.
-      2. SPECIFICITY: If the diagnosis is "UTI", do NOT map to "Nephrotic Syndrome". If no "UTI" or "Renal Infection" exists, return ID 0.
-      3. SYNONYM CHECK: Use synonyms carefully (e.g., "GAS" -> "Pharyngitis").
+      1. ABSOLUTE PRIORITY: You MUST follow the "MANDATORY INSTRUCTION" if provided.
+      2. SPECIFICITY: A UTI question MUST map to a UTI lecture.
+      3. Synonyms: Use the clinical context (e.g., "Cystitis" -> "UTI").
       4. Avoid broad organ system mapping: Only map if the diagnosis is a clear fit for the lecture.
       
       Available Lectures:
       ${structuredLectures}
       
       Return ONLY valid JSON:
-      { "reasoning": "Brief mapping link", "lectureId": [ID] }
+      { 
+        "reasoning": "Brief mapping link", 
+        "lectureId": [ID],
+        "suggestions": [...],
+        "descriptionUpdate": "1-sentence clinical pearl to add to this lecture's description (OPTIONAL)"
+      }
     `;
 
     const mappingResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are a strict Medical Classifier. Return ID 0 if no medically accurate match is found." },
+        { role: "system", content: "You are a strict Medical Classifier. If a question contains a unique clinical keyword or hallmark diagnosis not already well-described in the lecture, provide a concise 1-sentence update for that lecture's description." },
         { role: "user", content: mappingInstruction },
       ],
       response_format: { type: "json_object" },
@@ -189,12 +222,29 @@ export async function suggestCategoryWithOpenAI(
     const text = mappingResponse.choices[0].message.content || "{}";
     const result = JSON.parse(text);
 
-    // Final Validation
+    // Final Validation & Suggestions Cleanup
+    const cleanedSuggestions = (result.suggestions || [])
+      .map((s: any) => {
+        const lect = lectures.find(l => Number(l.id) === Number(s.id));
+        if (!lect) return null;
+        return { id: lect.id, name: lect.name, reasoning: s.reasoning };
+      })
+      .filter(Boolean);
+
     const validId = lectures.find(l => Number(l.id) === Number(result.lectureId));
     if (validId) {
-      return result;
+      return { 
+        ...result, 
+        suggestions: cleanedSuggestions,
+        descriptionUpdate: result.descriptionUpdate 
+      };
     } else {
-      return { reasoning: result.reasoning || "No clear clinical match found.", lectureId: 0 };
+      return { 
+        reasoning: result.reasoning || "Please choose the most appropriate category.", 
+        lectureId: 0,
+        suggestions: cleanedSuggestions,
+        descriptionUpdate: null
+      };
     }
   } catch (error) {
     console.error("Two-step AI classification failed:", error);

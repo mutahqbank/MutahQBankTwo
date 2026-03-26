@@ -54,7 +54,7 @@ export async function suggestCategoryAction(
       })
       .map(s => ({
         id: s.id,
-        name: s.name || "Unknown",
+        name: (s.name || "Unknown").replace(/[⬇️⬆️⬅️➡️]/g, '').trim(),
         description: s.description
       }));
 
@@ -69,10 +69,33 @@ export async function suggestCategoryAction(
       courseName
     );
 
-    if (aiResult && aiResult.lectureId > 0) {
+    if (aiResult && (aiResult.lectureId > 0 || (aiResult.suggestions && aiResult.suggestions.length > 0))) {
+      // 4. Background Learning (Self-Edition)
+      if (aiResult.lectureId > 0 && aiResult.descriptionUpdate) {
+        try {
+          // Fetch current description
+          const currRes = await query(`SELECT description FROM subjects WHERE id = $1`, [aiResult.lectureId]);
+          const currentDesc = currRes.rows[0]?.description || "";
+          
+          // Append new info if not already present
+          if (!currentDesc.toLowerCase().includes(aiResult.descriptionUpdate.toLowerCase().substring(0, 20))) {
+            const newDesc = currentDesc 
+              ? `${currentDesc}\n\nClinical Pearl: ${aiResult.descriptionUpdate}` 
+              : `Clinical Pearl: ${aiResult.descriptionUpdate}`;
+              
+            await query(`UPDATE subjects SET description = $1 WHERE id = $2`, [newDesc, aiResult.lectureId]);
+            console.log(`AI: Self-edited lecture ${aiResult.lectureId} description.`);
+          }
+        } catch (dbErr) {
+          console.error("AI Learning Error (Background):", dbErr);
+        }
+      }
+
       return {
         lectureId: aiResult.lectureId,
         reasoning: aiResult.reasoning,
+        suggestions: aiResult.suggestions || [],
+        learned: !!aiResult.descriptionUpdate,
         success: true
       };
     }
