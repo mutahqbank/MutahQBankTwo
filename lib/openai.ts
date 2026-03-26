@@ -20,241 +20,129 @@ export async function suggestCategoryWithOpenAI(
     return null;
   }
 
-  // 1. Topical Extraction (Prioritizing titles/overviews as requested)
+  // 1. Helpers for data cleaning
+  const cleanHtml = (html: string) => (html || "").replace(/<[^>]*>?/gm, '').trim();
   const peekExplanationTitle = (html: string) => {
     if (!html) return "";
-    // Try to find text within the first header or bold tag
     const headerMatch = /<(h[1-6]|b|strong)>(.*?)<\/\1>/i.exec(html);
     if (headerMatch && headerMatch[2]) {
-      return headerMatch[2].replace(/<[^>]*>?/gm, '').trim();
+      return cleanHtml(headerMatch[2]).substring(0, 80);
     }
-    // Fallback: Just take the first 80 characters of cleaned text
-    return html.replace(/<[^>]*>?/gm, '').trim().substring(0, 80) + "...";
+    return cleanHtml(html).substring(0, 80);
   };
 
   const topicalHint = peekExplanationTitle(explanation);
-
-  // 2. Exact/Aggressive Match Detection
-  const cleanHint = topicalHint.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const findBestMatch = (customHint?: string) => {
-    const clean = (s: string) => s.toLowerCase().replace(/[⬇️⬆️⬅️➡️]/g, '').trim();
-    const hint = clean(customHint || topicalHint);
-    
-    // Priority 1: Exact string match (cleaning emojis)
-    const exact = lectures.find(l => clean(l.name) === hint);
-    if (exact) return exact;
-
-    // Priority 2: Subject is contained in hint OR Hint is contained in subject (e.g., "UTI" and "Pediatric UTI")
-    const match = lectures.find(l => {
-      const lname = clean(l.name);
-      return (lname.length > 2 && (hint.includes(lname) || lname.includes(hint)));
-    });
-    if (match) return match;
-
-    // Priority 3: Keyword overlap (significant words)
-    const diagnosisWords = hint.split(/\s+/).filter(w => w.length > 3); // Only long words
-    for (const l of lectures) {
-      const lname = clean(l.name);
-      if (diagnosisWords.some(word => lname.includes(word))) return l;
-    }
-    return null;
-  };
-
-  const exactMatch = findBestMatch();
-  const matchRecommendation = exactMatch ? `\n    CRITICAL RECOMMENDATION: The identified topic "${topicalHint}" is a DIRECT match for Lecture ID ${exactMatch.id} ("${exactMatch.name}"). Map this EXACTLY.` : "";
-
-  // 1. Clinical Data Enhancement (Helping the AI bridge terminology gaps)
-  const synonymMap: Record<string, string> = {
-    "urti": "Upper Respiratory Tract Infection, Pharyngitis, Tonsillitis, GAS, Common Cold",
-    "pneumonia": "LRTIs, Lower Respiratory Infections, Consolidation",
-    "meningitis": "CNS Infection, CSF analysis, Lumbar Puncture",
-    "asthma": "Reactive Airway Disease, Wheezing",
-    "nephrology": "Kidney, UTI, Glomerulonephritis",
-    "hematology": "Anemia, Bleeding, Blood disorders",
-    "neonatology": "Newborn, Prematurity, RDS",
-    "gastroenterology": "GI, Diarrhea, GERD, Abdominal Pain",
-    "endocrinology": "Diabetes, Thyroid, Puberty, Growth",
-    "cardiology": "Heart, Cyanosis, Murmurs",
-    "pulmonology": "Respiratory, Lungs, CF",
-  };
-
-  // 2. Data Preparation
-  // Strip HTML tags and truncate to 1000 characters
-  const cleanExplanation = explanation.replace(/<[^>]*>?/gm, '').substring(0, 1000);
-
-  // Format options into a single string
+  const cleanExplanation = cleanHtml(explanation).substring(0, 1000);
   const formattedOptions = options.map((o, i) => `${String.fromCharCode(65 + i)}) ${o}`).join(", ");
 
-  // Format lectures into lightweight structured list with synonym assistance
-  const structuredLectures = lectures.map(l => {
-    const rawName = l.name.toLowerCase();
-    let enhancedName = l.name;
+  // === STEP 1: AI FILTERING (Narrow down to Top 10) ===
+  const lectureListBrief = lectures.map(l => `[ID ${l.id}] ${l.name}`).join("\n");
 
-    // Check for partial or exact matches in synonym map
-    Object.keys(synonymMap).forEach(key => {
-      if (rawName.includes(key)) {
-        enhancedName += ` (${synonymMap[key]})`;
-      }
-    });
-
-    return `- [ID ${l.id}] ${enhancedName} ${l.description ? `(Context: ${l.description.substring(0, 500)})` : ""}`;
-  }).join("\n");
-
-  const systemInstruction = `
-    You are a Senior Medical Classifier specializing in pediatric and general medicine.
+  const filterPrompt = `
+    You are a Medical Triage Assistant. 
+    Analyze the MCQ and identify the TOP 10 most likely Lecture Topics from the list below.
     
-    CORE CLASSIFICATION LOGIC:
-    1. Map the MCQ to the SINGLE most relevant Lecture Topic ID from the provided list.
-    2. If a specific disease (e.g., "Meningitis", "Lumbar Puncture findings") doesn't have an exact topic, search for:
-       - The Organ System: e.g., CNS/Brain/Nerves -> Neurology.
-       - The Speciality: e.g., Pneumonia -> Respiratory.
-       - The Parent Group: e.g., Polio -> Immunization.
-    3. CRITICAL: If you see signs of bacterial infection in CSF (Low glucose, high protein, high neutrophils), this is Meningitis. Map this to "Neurology" or "Pediatric Infections".
-    4. If multiple topics are relevant, choose the one where the question would most likely be lectured.
-    
-    5. DO NOT return 0 unless there are no subjects provided. Use your best clinical judgment to map to the most appropriate category, even if it's a broad parent discipline (e.g., Surgery, Medicine, Pediatrics).
-    
-    6. MATCHING PRIORITIES:
-       - 1. Exact Name Match: If any Lecture Topic name EXACTLY matches the "Explanation Title/Overview" or Question topic. ${matchRecommendation}
-       - 2. Specificity: Choose "Bacterial Meningitis" over "Neurology" if both are present.
-       - 3. Synonyms: Use the clinical context to bridge synonyms (e.g. "GAS" maps to "Pharyngitis/URTI").
-    
-    7. CRITICAL: Only return an ID that exists in the "Available Lectures" list. If unsure, pick the most relevant parent category from the list.
-    
-    8. DO NOT MISCLASSIFY DIFFERENT DISEASES:
-       - DO NOT map an infection (e.g., UTI, Meningitis) to a non-infectious syndrome (e.g., Nephrotic Syndrome, Epilepsy) just because they share an organ system.
-       - Each medical diagnosis is distinct. If a specific match for "UTI" is not found, do NOT map it to "Nephrotic Syndrome".
-       - If no medically accurate match exists in the list, return ID: 0 and explain why.
-    
-    OUTPUT FORMAT:
-    Return ONLY a JSON object:
-    {
-      "reasoning": "Brief medical link (e.g. CSF/Meningitis maps to Neurology)",
-      "lectureId": [ID number]
-    }
-  `;
-
-  const userPrompt = `
-    Available Lectures:
-    ${structuredLectures}
-    
-    MCQ for Classification:
+    MCQ:
     - Question: "${question}"
     - Options: ${formattedOptions}
-    - Explanation (Clinical Pearls): "${cleanExplanation}"
-    - Explanation Title/Overview: "${topicalHint}"
-  `;
-
-  // Debug Logging
-  console.log("--- AI CLASSIFICATION PROMPT (OpenAI) ---");
-  console.log(userPrompt);
-
-  // Step 1: Clinical Analysis (Identifying the clinical focus)
-  const analysisPrompt = `
-    Analyze this MCQ and identify the SINGLE most likely medical diagnosis or core clinical topic.
-    Extract the "Hallmark Clinical Feature" that defines the question.
+    - Clinical Pearls: "${cleanExplanation}"
+    - Topic Hint: "${topicalHint}"
     
-    MCQ for Analysis:
-    - Question: "${question}"
-    - Options: ${formattedOptions}
-    - Explanation (Clinical Pearls): "${cleanExplanation}"
-    - Explanation Title/Highlight: "${topicalHint}"
+    AVAILABLE LECTURES:
+    ${lectureListBrief}
     
-    Return ONLY a JSON:
-    { "diagnosis": "Specific diagnosis (e.g., Pediatric UTI)", "clinical_focus": "Key diagnostic clue" }
+    Return ONLY a JSON array of the 10 most relevant Lecture IDs:
+    { "candidateIds": [ID, ID, ...] }
   `;
 
   try {
-    const analysisResponse = await openai.chat.completions.create({
+    const filterResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are a Medical Diagnostic Assistant. Be concise and precise." },
-        { role: "user", content: analysisPrompt },
+        { role: "system", content: "You are a precise medical classifier. Focus on finding every potentially relevant ID." },
+        { role: "user", content: filterPrompt },
       ],
       response_format: { type: "json_object" },
     });
 
-    const analysis = JSON.parse(analysisResponse.choices[0].message.content || "{}");
-    const diagnosisHint = analysis.diagnosis || topicalHint;
+    const filterResult = JSON.parse(filterResponse.choices[0].message.content || "{}");
+    const candidateIds = (filterResult.candidateIds || []).map(Number);
+    
+    const candidates = lectures.filter(l => candidateIds.includes(Number(l.id)));
+    const finalCandidates = candidates.length > 0 ? candidates : lectures.slice(0, 15);
 
-    const finalScanMatch = findBestMatch(diagnosisHint); // Re-run with analyzed diagnosis
-    const finalMatchInstruction = finalScanMatch 
-      ? `\n    MANDATORY INSTRUCTION: The clinical diagnosis "${diagnosisHint}" is a DIRECT match for Lecture ID ${finalScanMatch.id} ("${finalScanMatch.name}"). You MUST return ID ${finalScanMatch.id} as the lectureId.` 
-      : matchRecommendation;
+    // === STEP 2: DEEP CLINICAL MAPPING (Final Selection) ===
+    const structuredCandidates = finalCandidates.map(l => {
+      return `- [ID ${l.id}] ${l.name} ${l.description ? `(Knowledge: ${l.description.substring(0, 800)})` : ""}`;
+    }).join("\n");
 
     const mappingInstruction = `
-      You are a Senior Medical Classifier.
+      You are a Senior Medical Specialist. Map this MCQ to the SINGLE BEST Lecture ID.
       
-      TASK: Identify the TOP 3 most relevant Lectures for this Clinical Diagnosis.
+      MCQ DATA:
+      - Question: "${question}"
+      - Options: ${formattedOptions}
+      - Explanation: "${cleanExplanation}"
+      - Context: "${topicalHint}"
       
-      CLINICAL DIAGNOSIS: "${diagnosisHint}"
-      CLINICAL FOCUS: "${analysis.clinical_focus}"
+      NARROWED CANDIDATES:
+      ${structuredCandidates}
       
-      MAPPING RULES:
-      1. ALWAYS PROVIDE 3 SUGGESTIONS: Even if one is very strong, provide 2 other plausible alternatives (or related systems).
-      2. SPECIFICITY: Mention why each suggestion was chosen in its reasoning field.
+      RULES:
+      1. Choose the most specific lecture.
+      2. Use the "Knowledge" hints to match clinical hallmarks.
+      3. If no match is perfect, pick the most relevant parent category from the list.
+      4. Return confidenceScore (0-100). Only 100 if CERTAIN.
       
-      Available Lectures:
-      ${structuredLectures}
-      
-      Return ONLY valid JSON:
+      Return ONLY JSON:
       { 
-        "reasoning": "Overall clinical context", 
-        "lectureId": [ID or 0],
+        "reasoning": "...", 
+        "lectureId": [ID],
         "confidenceScore": [0-100],
         "suggestions": [
-          { "id": [ID], "name": "Lecture Name", "reasoning": "..." },
-          { "id": [ID], "name": "Lecture Name", "reasoning": "..." },
-          { "id": [ID], "name": "Lecture Name", "reasoning": "..." }
+          { "id": [ID], "name": "...", "reasoning": "..." },
+          { "id": [ID], "name": "...", "reasoning": "..." },
+          { "id": [ID], "name": "...", "reasoning": "..." }
         ],
-        "descriptionUpdate": "..."
+        "descriptionUpdate": "Optional Clinical Pearl (brief phrase)"
       }
     `;
 
     const mappingResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: [
-        { role: "system", content: "You are a Medical Classifier. Only set confidenceScore to 100 if you are MEDICALLY CERTAIN and there is zero ambiguity. Otherwise, provide suggestions and set confidence to < 100." },
+        { role: "system", content: "You are a Senior Medical Classifier. Accuracy is paramount." },
         { role: "user", content: mappingInstruction },
       ],
       response_format: { type: "json_object" },
     });
 
-    const text = mappingResponse.choices[0].message.content || "{}";
-    const result = JSON.parse(text);
+    const result = JSON.parse(mappingResponse.choices[0].message.content || "{}");
 
-    // Final Validation & Suggestions Cleanup
+    // Clean up suggestions
     const cleanedSuggestions = (result.suggestions || [])
       .map((s: any) => {
         const lect = lectures.find(l => Number(l.id) === Number(s.id));
-        if (!lect) return null;
-        return { id: lect.id, name: lect.name, reasoning: s.reasoning };
+        return lect ? { id: lect.id, name: lect.name, reasoning: s.reasoning } : null;
       })
       .filter(Boolean);
 
-    const validId = lectures.find(l => Number(l.id) === Number(result.lectureId));
-    if (validId) {
-      return { 
-        ...result, 
-        lectureId: validId.id,
-        confidenceScore: result.confidenceScore || 0,
-        suggestions: cleanedSuggestions,
-        descriptionUpdate: result.descriptionUpdate 
-      };
-    } else {
-      return { 
-        reasoning: result.reasoning || "Please choose the most appropriate category.", 
-        lectureId: 0,
-        confidenceScore: 0,
-        suggestions: cleanedSuggestions,
-        descriptionUpdate: null
-      };
-    }
+    const winner = lectures.find(l => Number(l.id) === Number(result.lectureId));
+
+    return {
+      reasoning: result.reasoning || "Matched based on clinical context.",
+      lectureId: winner ? winner.id : 0,
+      confidenceScore: result.confidenceScore || 0,
+      suggestions: cleanedSuggestions,
+      descriptionUpdate: result.descriptionUpdate || null
+    };
+
   } catch (error) {
-    console.error("Two-step AI classification failed:", error);
+    console.error("2-Step AI classification failed:", error);
     return null;
   }
 }
+
 
 /**
  * AI Exam Repair Logic
@@ -789,9 +677,10 @@ Therefore:
 - Make the whole set mutually exclusive as much as medically reasonable
 
 Writing rules:
-- Each description must be 12 to 28 words
-- Use compact keyword-style prose, not full teaching summaries
-- Focus on discriminators: hallmark presentation, core diagnosis clues, classic associations, signature investigations, defining emergencies, age/context when helpful
+- Each description MUST be 5 to 10 words
+- Use extremely concise hallmark keywords, not sentences
+- Focus on discriminators: hallmark presentation, core diagnosis clues, classic associations, signature investigations
+- Be VERY VERY specific to the lecture title
 - Avoid vague phrases like "management", "important concepts", "common causes"
 - Do not invent topics not justified by the title
 - Preserve medical correctness
@@ -802,7 +691,7 @@ Before finalizing, internally check:
 2. Did you modify only descriptions?
 3. Are any two descriptions still easily confusable?
 4. Did you remove broad overlapping terms where possible?
-5. Is each description short, specific, and classification-oriented?
+5. Is each description VERY short, VERY specific, and classification-oriented?
 
 Return JSON only in this exact format:
 {
@@ -861,16 +750,9 @@ ${JSON.stringify(lectures, null, 2)}
   };
 
   try {
-    // Primary attempt with gpt-5.4-nano
-    try {
-      return await callOpenAI("gpt-5.4-nano");
-    } catch (primaryError) {
-      console.warn("Primary model gpt-5.4-nano failed, retrying with gpt-5.4-mini:", primaryError);
-      // Fallback attempt with gpt-5.4-mini
-      return await callOpenAI("gpt-5.4-mini");
-    }
+    return await callOpenAI("gpt-4o");
   } catch (error: any) {
-    console.error("OpenAI description differentiation failed:", error?.message || error);
+    console.error("OpenAI knowledge generation (differentiation) failed:", error?.message || error);
     return null;
   }
 }

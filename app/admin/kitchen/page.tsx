@@ -1112,9 +1112,9 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
         }
         
         if (successCount > 0) {
-          toast.success(`Successfully improved ${successCount} descriptions!${errorCount > 0 ? ` (${errorCount} failed)` : ""}`, { id: tid })
+          toast.success(`Successfully improved knowledge for ${successCount} lectures!${errorCount > 0 ? ` (${errorCount} failed)` : ""}`, { id: tid })
         } else {
-          toast.error("No descriptions were updated. Please check console.", { id: tid })
+          toast.error("No knowledge was updated. Please check console.", { id: tid })
         }
         mutateSubjects()
       } else {
@@ -1375,7 +1375,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                   className="h-12 px-6 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-black uppercase tracking-widest text-xs flex items-center gap-2 shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {isDifferentiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
-                  {isDifferentiating ? "Differentiating..." : "Differentiate Descriptions"}
+                  {isDifferentiating ? "Generating..." : "Generate Knowledge"}
                 </Button>
               )}
               <Button 
@@ -1557,7 +1557,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
 
              </div>
 
-             {/* AI Description Panel */}
+             {/* AI Knowledge Panel */}
              <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-4">
                <div className="flex items-center justify-between">
                  <div className="flex items-center gap-2">
@@ -1574,7 +1574,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                      className="text-xs font-black uppercase text-indigo-500 hover:text-indigo-700 flex items-center gap-1.5 transition-all"
                    >
                      <Pencil className="h-3 w-3" />
-                     {subjects.find((s: any) => s.id == selectedSubjectId)?.description ? "Edit" : "Add Description"}
+                     {subjects.find((s: any) => s.id == selectedSubjectId)?.description ? "Edit" : "Add Knowledge"}
                    </button>
                  )}
                </div>
@@ -1582,7 +1582,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                  <div className="space-y-3">
                    <textarea
                      className="w-full h-28 p-4 bg-slate-50 border border-indigo-100 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all text-slate-700 font-medium text-sm resize-none placeholder:text-slate-300"
-                     placeholder="Describe what topics this lecture covers. E.g. 'Hypertension diagnosis, JNC guidelines, antihypertensive drug classes and side effects.'"
+                     placeholder="Hallmark keywords for this lecture. E.g. 'Hypertension, JNC guidelines, ACE inhibitors, beta-blockers, side effects.'"
                      value={editDescValue}
                      onChange={(e) => setEditDescValue(e.target.value)}
                      autoFocus
@@ -1606,18 +1606,18 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                              body: JSON.stringify({ id: selectedSubjectId, description: editDescValue })
                            });
                            if (res.ok) {
-                             toast.success("AI description saved");
+                             toast.success("AI knowledge saved");
                              setIsEditingDesc(false);
                              mutateSubjects();
                            } else {
-                             toast.error("Failed to save description");
+                             toast.error("Failed to save knowledge");
                            }
-                         } catch { toast.error("Error saving description"); }
+                         } catch { toast.error("Error saving knowledge"); }
                          finally { setIsSavingDesc(false); }
                        }}
                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-black h-9 px-5 rounded-xl uppercase tracking-widest text-[9px]"
                      >
-                       {isSavingDesc ? "Saving..." : "Save Description"}
+                       {isSavingDesc ? "Saving..." : "Save Knowledge"}
                      </Button>
                    </div>
                  </div>
@@ -1627,7 +1627,7 @@ function LecturesView({ courseId, subjects, draftQuestions, mutateDrafts, mutate
                      ? 'text-slate-600'
                      : 'text-slate-300 italic'
                  }`}>
-                   {subjects.find((s: any) => s.id == selectedSubjectId)?.description || "No description yet. Click 'Add Description' above to help the AI classify questions more precisely."}
+                   {subjects.find((s: any) => s.id == selectedSubjectId)?.description || "No knowledge yet. Click 'Add Knowledge' above to help the AI classify questions more precisely."}
                  </p>
                )}
              </div>
@@ -2252,7 +2252,19 @@ function WorkflowView({
   const [showQuestionPreview, setShowQuestionPreview] = useState(true)
   const [processedIds, setProcessedIds] = useState<Set<number>>(new Set())
   const [searchTerm, setSearchTerm] = useState("")
+  const [analysisMessage, setAnalysisMessage] = useState("Identifying clinical patterns...")
   const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isAnalyzing) {
+      setAnalysisMessage("Step 1: Filtering candidates...")
+      timer = setTimeout(() => {
+        setAnalysisMessage("Step 2: Deep clinical mapping...")
+      }, 2500);
+    }
+    return () => clearTimeout(timer);
+  }, [isAnalyzing]);
 
   const LastActionNotification = ({ action, onUndo }: any) => {
     if (!action) return null;
@@ -2461,7 +2473,7 @@ function WorkflowView({
                    {isAnalyzing ? "AI Reasoning" : "Finalizing Move"}
                  </p>
                  <p className="text-base font-bold text-slate-200">
-                   {isAnalyzing ? "Identifying clinical patterns..." : "Updating your question bank..."}
+                   {isAnalyzing ? analysisMessage : "Updating your question bank..."}
                  </p>
                  <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">Please hold on a moment</p>
                </div>
@@ -2693,10 +2705,10 @@ function WorkflowView({
                     courseName
                   )
 
-                  if (data.success && data.confidenceScore === 100 && data.lectureId > 0) {
-                    // Success matched 100% - show message and move it
+                  if (data.success && data.confidenceScore > 85 && data.lectureId > 0) {
+                    // Success matched >85% - show message and move it
                     const learnedMsg = data.learned ? " ✨ AI Learned & Updated description!" : ""
-                    toast.success(`AI Matched (100%): ${data.reasoning}${learnedMsg}`, { id: toastId, duration: 8000 })
+                    toast.success(`AI Matched (${data.confidenceScore}%): ${data.reasoning}${learnedMsg}`, { id: toastId, duration: 8000 })
                     
                     await handleUpdate({ 
                       subject_id: data.lectureId, 

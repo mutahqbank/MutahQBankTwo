@@ -59,6 +59,7 @@ export async function suggestCategoryAction(
       }));
 
     console.log(`AI Classification for ${courseName} - Subjects: ${filteredSubjects.length}`);
+    console.log("Subjects List (First 200):", filteredSubjects.map(s => `[ID ${s.id}] ${s.name}`).join(", "));
 
     // 3. Call OpenAI Service
     const aiResult = await suggestCategoryWithOpenAI(
