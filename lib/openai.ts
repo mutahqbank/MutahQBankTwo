@@ -127,38 +127,77 @@ export async function suggestCategoryWithOpenAI(
   console.log("--- AI CLASSIFICATION PROMPT (OpenAI) ---");
   console.log(userPrompt);
 
+  // Step 1: Clinical Analysis (Identifying the clinical focus)
+  const analysisPrompt = `
+    Analyze this MCQ and identify the SINGLE most likely medical diagnosis or core clinical topic.
+    Extract the "Hallmark Clinical Feature" that defines the question.
+    
+    MCQ for Analysis:
+    - Question: "${question}"
+    - Options: ${formattedOptions}
+    - Explanation (Clinical Pearls): "${cleanExplanation}"
+    - Explanation Title/Highlight: "${topicalHint}"
+    
+    Return ONLY a JSON:
+    { "diagnosis": "Specific diagnosis (e.g., Pediatric UTI)", "clinical_focus": "Key diagnostic clue" }
+  `;
+
   try {
-    const response = await openai.chat.completions.create({
+    const analysisResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content: systemInstruction + "\n\nCRITICAL: Use your advanced medical reasoning to determine the differential diagnosis. Then, SCAN each available lecture to find the most specific match for that diagnosis. Choose the ID carefully. Be STRICT: if a diagnosis like UTI does not have a matching UTI or Renal Infection lecture, DO NOT map it to a random renal lecture like Nephrotic Syndrome. Return ID 0 in such cases."
-        },
-        { role: "user", content: userPrompt },
+        { role: "system", content: "You are a Medical Diagnostic Assistant. Be concise and precise." },
+        { role: "user", content: analysisPrompt },
       ],
       response_format: { type: "json_object" },
     });
 
-    const text = response.choices[0].message.content || "{}";
-    console.log("--- AI RAW RESPONSE (OpenAI) ---");
-    console.log(text);
+    const analysis = JSON.parse(analysisResponse.choices[0].message.content || "{}");
+    const diagnosisHint = analysis.diagnosis || topicalHint;
 
+    // Step 2: Strict Mapping (Mapping the diagnosis to the lecture list)
+    const mappingInstruction = `
+      You are a Senior Medical Classifier.
+      
+      TASK: Match the Clinical Diagnosis to the SINGLE most relevant Lecture ID from the list.
+      
+      CLINICAL DIAGNOSIS: "${diagnosisHint}"
+      CLINICAL FOCUS: "${analysis.clinical_focus}"
+      
+      MAPPING RULES:
+      1. EXACT MATCH: If any lecture title exactly matches the diagnosis, pick its ID.
+      2. SPECIFICITY: If the diagnosis is "UTI", do NOT map to "Nephrotic Syndrome". If no "UTI" or "Renal Infection" exists, return ID 0.
+      3. SYNONYM CHECK: Use synonyms carefully (e.g., "GAS" -> "Pharyngitis").
+      4. Avoid broad organ system mapping: Only map if the diagnosis is a clear fit for the lecture.
+      
+      Available Lectures:
+      ${structuredLectures}
+      
+      Return ONLY valid JSON:
+      { "reasoning": "Brief mapping link", "lectureId": [ID] }
+    `;
+
+    const mappingResponse = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a strict Medical Classifier. Return ID 0 if no medically accurate match is found." },
+        { role: "user", content: mappingInstruction },
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const text = mappingResponse.choices[0].message.content || "{}";
     const result = JSON.parse(text);
 
-    // Validation (Anti-Hallucination Check)
+    // Final Validation
     const validId = lectures.find(l => Number(l.id) === Number(result.lectureId));
-
     if (validId) {
       return result;
     } else {
-      return {
-        reasoning: result.reasoning || "No clear medical match found.",
-        lectureId: 0
-      };
+      return { reasoning: result.reasoning || "No clear clinical match found.", lectureId: 0 };
     }
   } catch (error) {
-    console.error("OpenAI classification failed:", error);
+    console.error("Two-step AI classification failed:", error);
     return null;
   }
 }
