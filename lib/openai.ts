@@ -260,10 +260,13 @@ export async function repairExamWithOpenAI(
     }
   }
 
+  const cbqCount = questions.filter(q => q.sub_questions.length > 0).length;
+  const hasCbqs = relevantCbqs.length > 0;
+
   const systemInstruction = `
     You are a STRICT MEDICAL EXAMINER.
     
-    Task: Compare the student's written answers to the provided model answers for Case-Based Questions.
+    Task: Compare the student's written answers to the provided model answers for Exam Questions${cbqCount > 0 ? " (including Case-Based Questions)" : ""}.
     
     Strict Guidelines:
     - Accept equivalent medical terminology and synonyms.
@@ -283,6 +286,8 @@ export async function repairExamWithOpenAI(
     - Two or three specific clinical gaps from wrong answers.
     - Targeted revision tips.
     - Supportive but professional closing line.
+    - TERMINOLOGY: If there are no multi-part Case-Based Questions (CBQs) in this session, do NOT mention them. Refer to them as "questions" or "MCQs". 
+    - CRITICAL: If no Case-Based Questions (CBQs) were included in the session, do NOT state that the student "did not answer" them as if it were a failure. Focus entirely on the MCQ/Question performance.
     Tone: direct and honest. No third-person. No markdown.
 
     == OUTPUT FORMAT ==
@@ -307,7 +312,7 @@ export async function repairExamWithOpenAI(
   `;
 
   const userPrompt = `
-    Grade the following Case-Based Questions. For each sub-question, compare the student's answer to the model answer by MEANING, not wording.
+    Grade the following ${cbqCount > 0 ? "Exam Questions (including Case-Based Questions)" : "Exam Questions (MCQs)"}. For each sub-question${cbqCount > 0 ? " (if any)" : ""}, compare the student's answer to the model answer by MEANING, not wording.
 
     MCQ PERFORMANCE SUMMARY (per subject, for the Gap Analysis):
     ${Object.entries(mcqSummary).map(([s, c]) => `${s}: ${c.correct}/${c.total} correct`).join('\n') || "No MCQs"}

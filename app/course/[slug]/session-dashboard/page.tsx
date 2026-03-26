@@ -403,12 +403,22 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
   const [lastAssessmentId, setLastAssessmentId] = useState<number | null>(null)
   const [repairing, setRepairing] = useState(false)
-  const [loadingMessage, setLoadingMessage] = useState("Grading Case-Based Questions & Gap Analysis.")
+  const [loadingMessage, setLoadingMessage] = useState("Grading MCQs & Gap Analysis.")
 
   useEffect(() => {
     if (mode === "results" && !aiRepairedResults && repairing) {
       const cbqs = questions.filter(q => q.sub_questions.length > 0);
-      const phases = [
+      const isMcqOnly = cbqs.length === 0;
+      
+      const phases = isMcqOnly ? [
+        "Initializing AI Medical Examiner...",
+        "Analyzing MCQ response patterns...",
+        "Identifying knowledge gaps...",
+        "Synthesizing performance...",
+        "Comparing with medical standards...",
+        "Generating Gap Analysis & Tips...",
+        "Finalizing your report..."
+      ] : [
         "Initializing AI Medical Examiner...",
         "Analyzing patient case history...",
         ...cbqs.map((_, i) => `Evaluating Case-Based Question ${i + 1}...`),
@@ -541,11 +551,15 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
         if (!data.length) { alert("No questions found for this selection."); setQuestionsLoading(false); return }
 
-        // Enforce Exam Mode Limits: user-chosen count, capped at 100 MCQs and 10 CBQs
+        // Enforce Exam Mode Limits: 100 total questions, with a cap of 10 for CBQs
         if (sessionMode === "exam") {
-          const mcqs = data.filter((q: any) => q.sub_questions.length === 0).slice(0, Math.min(100, questionCount))
-          const cbqs = data.filter((q: any) => q.sub_questions.length > 0).slice(0, Math.min(10, questionCount))
-          data = [...mcqs, ...cbqs]
+          const cbqs = data.filter((q: any) => q.sub_questions.length > 0).slice(0, 10);
+          const remainingSlots = 100 - cbqs.length;
+          const mcqs = data.filter((q: any) => q.sub_questions.length === 0).slice(0, Math.min(remainingSlots, questionCount));
+          data = [...mcqs, ...cbqs];
+        } else {
+          // Study & Session modes: total 100 questions max
+          data = data.slice(0, Math.min(100, questionCount));
         }
 
         setQuestions(data)
@@ -980,7 +994,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
 
     const fallbackResult = {
       estimated_score: blendedScore,
-      summary: "AI review is temporarily unavailable. Your score above is estimated based on your MCQ performance and whether you attempted each case-based question. Full CBQ grading will be reflected when the AI is available. You've clearly put in the effort — keep going, you're making great progress!",
+      summary: `AI review is temporarily unavailable. Your score above is estimated based on your performance. ${localCbqMax > 0 ? "Full Case-Based Question grading will be reflected when the AI is available." : ""} You've clearly put in the effort — keep going, you're making great progress!`,
       questions: localCbqResults,
       isExam: true as const,
       isFallback: true
@@ -1469,7 +1483,7 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                       <input
                         type="range"
                         min={maxAvailableQuestions === 0 ? 0 : Math.min(1, maxAvailableQuestions)}
-                        max={maxAvailableQuestions}
+                        max={Math.min(100, maxAvailableQuestions)}
                         step="1"
                         value={questionCount}
                         onChange={e => setQuestionCount(Number(e.target.value))}
@@ -1479,14 +1493,15 @@ export default function SessionDashboardPage({ params }: { params: Promise<{ slu
                       <input
                         type="number"
                         min={maxAvailableQuestions === 0 ? 0 : Math.min(1, maxAvailableQuestions)}
-                        max={maxAvailableQuestions}
+                        max={Math.min(100, maxAvailableQuestions)}
                         value={questionCount}
                         onChange={e => setQuestionCount(Number(e.target.value))}
                         onBlur={() => {
                           let val = questionCount
-                          const minVal = maxAvailableQuestions === 0 ? 0 : Math.min(1, maxAvailableQuestions)
-                          if (val < minVal) val = minVal
-                          if (val > maxAvailableQuestions) val = maxAvailableQuestions
+                          const minVal = maxAvailableQuestions === 0 ? 0 : Math.min(1, maxAvailableQuestions);
+                          const maxVal = Math.min(100, maxAvailableQuestions);
+                          if (val < minVal) val = minVal;
+                          if (val > maxVal) val = maxVal;
                           setQuestionCount(val)
                         }}
                         className="w-16 rounded-md border border-input bg-background px-2 py-1 text-center text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
