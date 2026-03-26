@@ -14,6 +14,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { repairExamAction, paraphraseAnswersAction, generateIncorrectAction } from "@/app/actions/ai-actions"
 import { Sparkles, BrainCircuit, Check, X } from "lucide-react"
 import CommentSection from "@/components/comment-section"
+import { ResizableImage } from "@/components/resizable-image"
 
 // Global SWRProvider handles fetching and caching rules.
 
@@ -122,8 +123,7 @@ function QuestionView({ q, selectedId, cbqAnswers, revealed, onSelect, onCbqAnsw
         {q.figures.filter(f => f.figure_type !== 'explanation').length > 0 && (
           <div className="flex flex-wrap gap-3">
             {q.figures.filter(f => f.figure_type !== 'explanation').map(f => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={f.id} src={f.image_url} alt="Question figure" className="max-h-64 rounded-lg border border-border object-contain" />
+              <ResizableImage key={f.id} src={f.image_url} alt="Question figure" />
             ))}
           </div>
         )}
@@ -194,8 +194,7 @@ function QuestionView({ q, selectedId, cbqAnswers, revealed, onSelect, onCbqAnsw
                   {q.figures.filter(f => f.figure_type === 'explanation').length > 0 && (
                     <div className="flex flex-wrap gap-3">
                       {q.figures.filter(f => f.figure_type === 'explanation').map(f => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img key={f.id} src={f.image_url} alt="Explanation figure" className="max-h-64 rounded-lg border border-border object-contain" />
+                        <ResizableImage key={f.id} src={f.image_url} alt="Explanation figure" />
                       ))}
                     </div>
                   )}
@@ -237,8 +236,7 @@ function QuestionView({ q, selectedId, cbqAnswers, revealed, onSelect, onCbqAnsw
       {q.figures.filter(f => f.figure_type !== 'explanation').length > 0 && (
         <div className="flex flex-wrap gap-3">
           {q.figures.filter(f => f.figure_type !== 'explanation').map(f => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={f.id} src={f.image_url} alt="Question figure" className="max-h-64 rounded-lg border border-border object-contain" />
+            <ResizableImage key={f.id} src={f.image_url} alt="Question figure" />
           ))}
         </div>
       )}
@@ -281,8 +279,7 @@ function QuestionView({ q, selectedId, cbqAnswers, revealed, onSelect, onCbqAnsw
           {q.figures.filter(f => f.figure_type === 'explanation').length > 0 && (
             <div className="flex flex-wrap gap-3">
               {q.figures.filter(f => f.figure_type === 'explanation').map(f => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={f.id} src={f.image_url} alt="Explanation figure" className="max-h-64 rounded-lg border border-border object-contain" />
+                <ResizableImage key={f.id} src={f.image_url} alt="Explanation figure" />
               ))}
             </div>
           )}

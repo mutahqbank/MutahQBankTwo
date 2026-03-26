@@ -13,7 +13,8 @@ import {
   Clock, 
   Loader2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  X 
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
@@ -31,11 +32,13 @@ interface Comment {
 function CommentItem({ 
   comment, 
   questionId, 
-  onReplySuccess 
+  onReplySuccess,
+  onCommentAction
 }: { 
   comment: Comment; 
   questionId: number; 
-  onReplySuccess: () => void 
+  onReplySuccess: () => void;
+  onCommentAction?: () => void;
 }) {
   const { user } = useAuth()
   const [isReplying, setIsReplying] = useState(false)
@@ -61,6 +64,7 @@ function CommentItem({
         setReplyText("")
         setIsReplying(false)
         onReplySuccess()
+        if (onCommentAction) onCommentAction()
       }
     } catch (error) {
       console.error("Failed to post reply:", error)
@@ -155,9 +159,24 @@ export default function CommentSection({ questionId }: { questionId: number }) {
   const { user } = useAuth()
   const [newComment, setNewComment] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+  const [showDiscussionNote, setShowDiscussionNote] = useState(false)
+
+  const handleAction = () => {
+    if (showDiscussionNote) {
+      setShowDiscussionNote(false)
+      localStorage.setItem("dismissed_discussion_note", "true")
+    }
+  }
+
   const apiUrl = `/api/comments?question_id=${questionId}`
-  const { data: comments, isLoading, error } = useSWR<Comment[]>(apiUrl)
+  const { data: comments, isLoading, error } = useSWR<Comment[]>(apiUrl, {
+    onSuccess: () => {
+      const dismissed = localStorage.getItem("dismissed_discussion_note")
+      if (!dismissed) {
+        setShowDiscussionNote(true)
+      }
+    }
+  })
 
   const handlePostComment = async () => {
     if (!newComment.trim() || !user) return
@@ -175,6 +194,7 @@ export default function CommentSection({ questionId }: { questionId: number }) {
       if (res.ok) {
         setNewComment("")
         mutate(apiUrl)
+        handleAction()
       }
     } catch (error) {
       console.error("Failed to post comment:", error)
@@ -195,6 +215,21 @@ export default function CommentSection({ questionId }: { questionId: number }) {
 
       {user ? (
         <div className="mb-8 space-y-3">
+          {showDiscussionNote && (
+            <div className="relative flex items-center gap-3 p-4 bg-[#f3f4f6] dark:bg-[#1f2937]/50 border-l-4 border-gray-400 rounded-r-lg shadow-sm animate-in fade-in slide-in-from-top-2 duration-500 overflow-hidden">
+               <div className="absolute top-0 right-0 p-1">
+                 <button onClick={handleAction} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <X className="h-4 w-4" />
+                 </button>
+               </div>
+               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 italic tracking-tight" style={{ fontFamily: 'monospace' }}>
+                "Help your colleagues by sharing clinical insights or ask if anything is unclear!"
+              </p>
+            </div>
+          )}
           <Textarea 
             placeholder="Share your thoughts or ask a question about this topic..."
             value={newComment}
@@ -233,6 +268,7 @@ export default function CommentSection({ questionId }: { questionId: number }) {
                 comment={comment} 
                 questionId={questionId}
                 onReplySuccess={() => mutate(apiUrl)}
+                onCommentAction={handleAction}
               />
             ))}
           </div>
